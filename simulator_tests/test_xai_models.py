@@ -5,6 +5,7 @@ X.AI GROK Model Tests
 Tests that verify X.AI GROK functionality including:
 - Model alias resolution (grok, grok3, grokfast map to actual GROK models)
 - GROK-3 and GROK-3-fast models work correctly
+- GROK-4 models (grok-4-0709, grok-4-heavy) and their aliases
 - Conversation continuity works with GROK models
 - API integration and response validation
 """
@@ -130,8 +131,75 @@ class XAIModelsTest(BaseSimulatorTest):
 
             self.logger.info("  ✅ Shorthand aliases work correctly")
 
-            # Test 5: Conversation continuity with GROK models
-            self.logger.info("  5: Testing conversation continuity with GROK")
+            # Test 5: GROK-4 models
+            self.logger.info("  5: Testing GROK-4 models")
+            
+            # Test grok-4 alias (should map to grok-4-0709)
+            response_g4, _ = self.call_mcp_tool(
+                "chat",
+                {
+                    "prompt": "Say 'Hello from GROK-4!' and nothing else.",
+                    "model": "grok-4",
+                    "temperature": 0.1,
+                },
+            )
+            
+            if not response_g4:
+                self.logger.error("  ❌ GROK-4 alias test failed")
+                return False
+            
+            self.logger.info("  ✅ GROK-4 alias call completed")
+            
+            # Test grok-4-latest alias
+            response_g4_latest, _ = self.call_mcp_tool(
+                "chat",
+                {
+                    "prompt": "Say 'Hello from GROK-4-latest!' and nothing else.",
+                    "model": "grok-4-latest",
+                    "temperature": 0.1,
+                },
+            )
+            
+            if not response_g4_latest:
+                self.logger.error("  ❌ GROK-4-latest alias test failed")
+                return False
+            
+            self.logger.info("  ✅ GROK-4-latest alias call completed")
+            
+            # Test grok-4-heavy model
+            response_g4_heavy, _ = self.call_mcp_tool(
+                "chat",
+                {
+                    "prompt": "Say 'Hello from GROK-4-heavy!' and nothing else.",
+                    "model": "grok-4-heavy",
+                    "temperature": 0.1,
+                },
+            )
+            
+            if not response_g4_heavy:
+                self.logger.error("  ❌ GROK-4-heavy model test failed")
+                return False
+            
+            self.logger.info("  ✅ GROK-4-heavy model call completed")
+            
+            # Test grok4heavy alias
+            response_g4_heavy_alias, _ = self.call_mcp_tool(
+                "chat",
+                {
+                    "prompt": "Say 'Hello from grok4heavy alias!' and nothing else.",
+                    "model": "grok4heavy",
+                    "temperature": 0.1,
+                },
+            )
+            
+            if not response_g4_heavy_alias:
+                self.logger.error("  ❌ grok4heavy alias test failed")
+                return False
+            
+            self.logger.info("  ✅ grok4heavy alias call completed")
+
+            # Test 6: Conversation continuity with GROK models
+            self.logger.info("  6: Testing conversation continuity with GROK")
 
             response6, new_continuation_id = self.call_mcp_tool(
                 "chat",
@@ -167,8 +235,8 @@ class XAIModelsTest(BaseSimulatorTest):
             else:
                 self.logger.warning("  ⚠️  Model may not have remembered the number")
 
-            # Test 6: Validate X.AI API usage from logs
-            self.logger.info("  6: Validating X.AI API usage in logs")
+            # Test 7: Validate X.AI API usage from logs
+            self.logger.info("  7: Validating X.AI API usage in logs")
             logs = self.get_recent_server_logs()
 
             # Check for X.AI API calls
@@ -182,6 +250,9 @@ class XAIModelsTest(BaseSimulatorTest):
                 for line in logs.split("\n")
                 if ("Resolved model" in line and "grok" in line.lower()) or ("grok" in line and "->" in line)
             ]
+            
+            # Check for Grok-4 specific logs
+            grok4_logs = [line for line in logs.split("\n") if "grok-4" in line.lower() or "grok4" in line.lower()]
 
             # Check for X.AI provider usage
             xai_provider_logs = [line for line in logs.split("\n") if "XAI" in line or "X.AI" in line]
@@ -190,6 +261,7 @@ class XAIModelsTest(BaseSimulatorTest):
             self.logger.info(f"   X.AI-related logs: {len(xai_logs)}")
             self.logger.info(f"   X.AI API logs: {len(xai_api_logs)}")
             self.logger.info(f"   GROK-related logs: {len(grok_logs)}")
+            self.logger.info(f"   GROK-4 specific logs: {len(grok4_logs)}")
             self.logger.info(f"   Model resolution logs: {len(grok_resolution_logs)}")
             self.logger.info(f"   X.AI provider logs: {len(xai_provider_logs)}")
 

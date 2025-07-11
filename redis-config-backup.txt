@@ -1,0 +1,37 @@
+# Redis Configuration Backup
+# Saved from local changes on 2025-07-02
+
+## config.py changes:
+```python
+# Threading configuration
+# Simple Redis-based conversation threading for stateless MCP environment
+# Set REDIS_URL environment variable to connect to your Redis instance
+REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6380/0")
+```
+
+## docker-compose.yml Redis service:
+```yaml
+  redis:
+    image: redis:7-alpine
+    container_name: zen-mcp-redis
+    restart: unless-stopped
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 64mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+```
+
+Note: The upstream version uses in-memory conversation threading instead of Redis.
+This is aligned with MCP's stateless design philosophy.

@@ -57,6 +57,42 @@ class XAIModelProvider(OpenAICompatibleProvider):
             description="GROK-3 Fast (131K context) - Higher performance variant, faster processing but more expensive",
             aliases=["grok3fast", "grokfast", "grok3-fast"],
         ),
+        "grok-4-0709": ModelCapabilities(
+            provider=ProviderType.XAI,
+            model_name="grok-4-0709",
+            friendly_name="X.AI (Grok 4)",
+            context_window=256_000,  # 256K tokens
+            max_output_tokens=256000,  # Assuming same as context window
+            supports_extended_thinking=True,  # It's a reasoning model
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_json_mode=False,  # Not mentioned in docs
+            supports_images=True,  # Supports image and text input
+            max_image_size_mb=20.0,  # Conservative estimate
+            supports_temperature=True,
+            temperature_constraint=create_temperature_constraint("range"),
+            description="GROK-4 (256K context) - Advanced reasoning model with 'thinking' capability, text and image input",
+            aliases=["grok-4", "grok-4-latest"],
+        ),
+        "grok-4-heavy": ModelCapabilities(
+            provider=ProviderType.XAI,
+            model_name="grok-4-heavy",
+            friendly_name="X.AI (Grok 4 Heavy)",
+            context_window=256_000,  # 256K tokens
+            max_output_tokens=256000,  # Assuming same as context window
+            supports_extended_thinking=True,  # Multi-agent reasoning model
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_json_mode=False,  # Not mentioned in docs
+            supports_images=True,  # Supports image and text input
+            max_image_size_mb=20.0,  # Conservative estimate
+            supports_temperature=True,
+            temperature_constraint=create_temperature_constraint("range"),
+            description="GROK-4 Heavy (256K context) - Multi-agent reasoning model that spawns multiple agents for collaborative problem-solving",
+            aliases=["grok4heavy", "grok-heavy", "grok4-heavy"],
+        ),
     }
 
     def __init__(self, api_key: str, **kwargs):

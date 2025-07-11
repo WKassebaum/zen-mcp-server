@@ -55,8 +55,8 @@ services:
       - /etc/localtime:/etc/localtime:ro
     
     # Network configuration
-    networks:
-      - zen-network
+    # networks:
+    #   - zen-network
     
     # Resource limits
     deploy:
@@ -69,15 +69,19 @@ services:
           cpus: '0.25'
     
     # Health check
-    healthcheck:
-      test: ["CMD", "python", "/usr/local/bin/healthcheck.py"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # healthcheck:
+    #   test: ["CMD", "python", "/usr/local/bin/healthcheck.py"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 40s
     
     # Restart policy
     restart: unless-stopped
+    
+    # Keep stdin open and allocate TTY for MCP stdio communication
+    stdin_open: true
+    tty: true
     
     # Security
     security_opt:
@@ -93,9 +97,9 @@ volumes:
     driver: local
 
 # Networks
-networks:
-  zen-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.20.0.0/16
+# networks:
+#   zen-network:
+#     driver: bridge
+#     ipam:
+#       config:
+#         - subnet: 172.20.0.0/16
