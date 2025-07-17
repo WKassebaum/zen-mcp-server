@@ -133,7 +133,7 @@ class XAIModelsTest(BaseSimulatorTest):
 
             # Test 5: GROK-4 models
             self.logger.info("  5: Testing GROK-4 models")
-            
+
             # Test grok-4 alias (should map to grok-4-0709)
             response_g4, _ = self.call_mcp_tool(
                 "chat",
@@ -143,13 +143,13 @@ class XAIModelsTest(BaseSimulatorTest):
                     "temperature": 0.1,
                 },
             )
-            
+
             if not response_g4:
                 self.logger.error("  ❌ GROK-4 alias test failed")
                 return False
-            
+
             self.logger.info("  ✅ GROK-4 alias call completed")
-            
+
             # Test grok-4-latest alias
             response_g4_latest, _ = self.call_mcp_tool(
                 "chat",
@@ -159,13 +159,13 @@ class XAIModelsTest(BaseSimulatorTest):
                     "temperature": 0.1,
                 },
             )
-            
+
             if not response_g4_latest:
                 self.logger.error("  ❌ GROK-4-latest alias test failed")
                 return False
-            
+
             self.logger.info("  ✅ GROK-4-latest alias call completed")
-            
+
             # Test grok-4-heavy model
             response_g4_heavy, _ = self.call_mcp_tool(
                 "chat",
@@ -175,13 +175,13 @@ class XAIModelsTest(BaseSimulatorTest):
                     "temperature": 0.1,
                 },
             )
-            
+
             if not response_g4_heavy:
                 self.logger.error("  ❌ GROK-4-heavy model test failed")
                 return False
-            
+
             self.logger.info("  ✅ GROK-4-heavy model call completed")
-            
+
             # Test grok4heavy alias
             response_g4_heavy_alias, _ = self.call_mcp_tool(
                 "chat",
@@ -191,11 +191,11 @@ class XAIModelsTest(BaseSimulatorTest):
                     "temperature": 0.1,
                 },
             )
-            
+
             if not response_g4_heavy_alias:
                 self.logger.error("  ❌ grok4heavy alias test failed")
                 return False
-            
+
             self.logger.info("  ✅ grok4heavy alias call completed")
 
             # Test 6: Conversation continuity with GROK models
@@ -250,7 +250,7 @@ class XAIModelsTest(BaseSimulatorTest):
                 for line in logs.split("\n")
                 if ("Resolved model" in line and "grok" in line.lower()) or ("grok" in line and "->" in line)
             ]
-            
+
             # Check for Grok-4 specific logs
             grok4_logs = [line for line in logs.split("\n") if "grok-4" in line.lower() or "grok4" in line.lower()]
 
