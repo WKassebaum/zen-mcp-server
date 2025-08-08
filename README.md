@@ -50,6 +50,7 @@ Because these AI models [clearly aren't when they get chatty →](docs/ai_banter
 
 - **Getting Started**
   - [Quickstart](#quickstart-5-minutes) - Get running in 5 minutes
+  - [Supported Models](#supported-models) - All available AI models
   - [Available Tools](#available-tools) - Overview of all tools
   - [AI-to-AI Conversations](#ai-to-ai-conversation-threading) - Multi-turn conversations
 
@@ -78,6 +79,46 @@ Because these AI models [clearly aren't when they get chatty →](docs/ai_banter
   - [Troubleshooting Guide](docs/troubleshooting.md) - Common issues and debugging steps
   - [License](#license) - Apache 2.0
 
+## Supported Models
+
+Zen MCP Server supports a wide range of AI models from multiple providers. Claude automatically selects the best model for each task in `auto` mode, or you can specify models directly.
+
+### Native API Providers
+
+**Google Gemini:**
+- `gemini-2.5-pro` (aliases: `pro`, `gemini-pro`, `gemini`) - 1M context, deep analysis & extended thinking
+- `gemini-2.5-flash` (aliases: `flash`, `gemini-flash`) - 1M context, fast responses
+
+**OpenAI:**
+- `gpt-5` (alias: `gpt5`) - 256K context, advanced reasoning with reasoning_effort parameter
+- `gpt-5-mini` (aliases: `gpt5-mini`, `gpt5mini`) - 256K context, balanced performance/cost
+- `gpt-5-nano` (aliases: `gpt5-nano`, `gpt5nano`) - 256K context, fastest/cheapest variant
+- `o3` - 200K context, strong reasoning (no temperature support)
+- `o3-mini` (aliases: `o3mini`) - 200K context, balanced performance
+- `o3-pro` (alias: `o3-pro`) - 200K context, professional-grade (EXPENSIVE - use sparingly)
+- `o4-mini` (aliases: `mini`, `o4mini`) - 200K context, optimized for shorter contexts
+- `gpt-4.1-2025-04-14` (alias: `gpt4.1`) - 1M context, advanced reasoning
+
+**X.AI:**
+- `grok-4` (alias: `grok4`) - 1M context, analytical capabilities with vision support
+- `grok-4-heavy` (aliases: `grok4-heavy`, `grok-4heavy`) - 1M context, advanced reasoning
+- `grok-2-1212` (aliases: `grok2`, `grok`) - 256K context, standard model
+- `grok-2-vision-1212` (aliases: `grok2-vision`, `grok-vision`) - 256K context with vision
+
+### OpenRouter & Custom Providers
+
+**Via OpenRouter:** Access to Claude Opus/Sonnet/Haiku, additional GPT models, Mistral, Llama, and more. Configure in [`conf/custom_models.json`](conf/custom_models.json).
+
+**Local Models:** Support for Ollama, vLLM, LM Studio, or any OpenAI-compatible API endpoint. Common local models:
+- `llama3.2` (aliases: `local-llama`, `local`) - Via Ollama/vLLM
+- Custom models configured in [`conf/custom_models.json`](conf/custom_models.json)
+
+### Model Capabilities
+
+**Vision Support:** GPT-5 family, O3/O4 models, Grok-4 family, Gemini models
+**Extended Thinking:** Gemini models (thinking modes), GPT-5 family (reasoning_effort)
+**No Temperature:** O3/O4 models use fixed temperature for consistent reasoning
+
 ## Why This Server?
 
 Claude is brilliant, but sometimes you need:
@@ -91,7 +132,7 @@ Claude is brilliant, but sometimes you need:
 - **Pre-commit validation** with deep analysis using the best model for the job ([`precommit`](#5-precommit---pre-commit-validation))
 - **Expert debugging** - O3 for logical issues, Gemini for architectural problems ([`debug`](#6-debug---expert-debugging-assistant))
 - **Extended context windows beyond Claude's limits** - Delegate analysis to Gemini (1M tokens) or O3 (200K tokens) for entire codebases, large datasets, or comprehensive documentation
-- **Model-specific strengths** - Extended thinking with Gemini Pro, fast iteration with Flash, strong reasoning with O3, local privacy with Ollama
+- **Model-specific strengths** - Extended thinking with Gemini Pro, fast iteration with Flash, strong reasoning with O3, advanced capabilities with GPT-5 (reasoning_effort), local privacy with Ollama
 - **Local model support** - Run models like Llama 3.2 locally via Ollama, vLLM, or LM Studio for privacy and cost control
 - **Dynamic collaboration** - Models can request additional context and follow-up replies from Claude mid-analysis
 - **Smart file handling** - Automatically expands directories, manages token limits based on model capacity
@@ -145,7 +186,7 @@ The final implementation resulted in a 26% improvement in JSON parsing performan
 
 **Option B: Native APIs**
 - **Gemini**: Visit [Google AI Studio](https://makersuite.google.com/app/apikey) and generate an API key. For best results with Gemini 2.5 Pro, use a paid API key as the free tier has limited access to the latest models.
-- **OpenAI**: Visit [OpenAI Platform](https://platform.openai.com/api-keys) to get an API key for O3 model access.
+- **OpenAI**: Visit [OpenAI Platform](https://platform.openai.com/api-keys) to get an API key for O3 and GPT-5 model access.
 - **X.AI**: Visit [X.AI Console](https://console.x.ai/) to get an API key for GROK model access.
 - **DIAL**: Visit [DIAL Platform](https://dialx.ai/) to get an API key for accessing multiple models through their unified API. DIAL is an open-source AI orchestration platform that provides vendor-agnostic access to models from major providers, open-source community, and self-hosted deployments. [API Documentation](https://dialx.ai/dial_api)
 
@@ -289,7 +330,7 @@ nano .env
 
 # The file will contain, at least one should be set:
 # GEMINI_API_KEY=your-gemini-api-key-here  # For Gemini models
-# OPENAI_API_KEY=your-openai-api-key-here  # For O3 model
+# OPENAI_API_KEY=your-openai-api-key-here  # For O3 and GPT-5 models
 # OPENROUTER_API_KEY=your-openrouter-key  # For OpenRouter (see docs/custom_models.md)
 # DIAL_API_KEY=your-dial-api-key-here      # For DIAL platform
 
@@ -328,6 +369,7 @@ Just ask Claude naturally:
 - "With zen, analyze these files to understand the data flow" → Claude picks appropriate model + `analyze`
 - "Use flash to suggest how to format this code based on the specs mentioned in policy.md" → Uses Gemini Flash specifically
 - "Think deeply about this and get o3 to debug this logic error I found in the checkOrders() function" → Uses O3 specifically
+- "Use gpt-5 with high reasoning effort to analyze this algorithm's time complexity" → Uses GPT-5 with reasoning_effort parameter
 - "Brainstorm scaling strategies with pro. Study the code, pick your preferred strategy and debate with pro to settle on two best approaches" → Uses Gemini Pro specifically
 - "Use local-llama to localize and add missing translations to this project" → Uses local Llama 3.2 via custom URL
 - "First use local-llama for a quick local analysis, then use opus for a thorough security review" → Uses both providers in sequence
