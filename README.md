@@ -404,11 +404,21 @@ and feel the difference.
 **Auto Mode:** When `DEFAULT_MODEL=auto`, Claude automatically picks the best model for each task. You can override with: "Use flash for quick analysis" or "Use o3 to debug this".
 
 **Model Selection Examples:**
-- Complex architecture review → Claude picks Gemini Pro
-- Quick formatting check → Claude picks Flash
-- Logical debugging → Claude picks O3
-- General explanations → Claude picks Flash for speed
-- Local analysis → Claude picks your Ollama model
+- Complex reasoning/debugging → Claude picks **GPT-5** (flagship reasoning)
+- Multi-agent analysis → Claude picks **Grok-4 Heavy** (collaborative reasoning)  
+- Critical thinking tasks → Claude picks **O3** (deep logical analysis)
+- Advanced code analysis → Claude picks **Grok-4** (thinking capability)
+- Quick responses/chat → Claude picks **GPT-5 Nano** (ultra-fast, low-latency)
+- Balanced tasks → Claude picks **GPT-5 Mini** (optimal cost/performance)
+- Legacy fallbacks → Claude picks **Flash** or **O4-mini** as needed
+
+**Model Prioritization Strategy:** Claude uses intelligent tool categorization to select optimal models:
+
+- **🧠 Extended Reasoning** (analysis, debugging, security audits): GPT-5 → Grok-4 Heavy → O3 → Grok-4 → Grok-3
+- **⚡ Fast Response** (chat, quick tasks): GPT-5 Nano → O4-mini → GPT-5 Mini → O3-mini → Grok-3-fast  
+- **⚖️ Balanced** (general tasks): GPT-5 Mini → O4-mini → O3-mini → Grok-4 → Grok-3
+
+This prioritization is based on OpenAI's guidance for GPT-5 model selection and Grok-4's multi-agent capabilities, optimizing for reasoning depth, speed, and cost-efficiency.
 
 **Pro Tip:** Thinking modes (for Gemini models) control depth vs token cost. Use "minimal" or "low" for quick tasks, "high" or "max" for complex problems. [Learn more](docs/advanced-usage.md#thinking-modes)
 
