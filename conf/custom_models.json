@@ -238,8 +238,8 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
       "description": "OpenAI's GPT-5 via OpenRouter - Most advanced model with reasoning (supports reasoning_effort: minimal/low/medium/high)"
     },
     {
@@ -252,8 +252,8 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
       "description": "OpenAI's GPT-5 Mini via OpenRouter - Balanced performance/cost (supports reasoning_effort)"
     },
     {
@@ -266,8 +266,8 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
       "description": "OpenAI's GPT-5 Nano via OpenRouter - Fastest/cheapest for simple tasks (supports reasoning_effort)"
     },
     {

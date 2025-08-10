@@ -122,8 +122,8 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
             supports_json_mode=True,
             supports_images=True,  # GPT-5 supports vision
             max_image_size_mb=20.0,  # 20MB per OpenAI docs
-            supports_temperature=True,  # GPT-5 supports temperature with reasoning_effort
-            temperature_constraint=create_temperature_constraint("range"),
+            supports_temperature=False,  # GPT-5 models don't support custom temperature (fixed at 1.0)
+            temperature_constraint=create_temperature_constraint("fixed"),
             description="GPT-5 (256K context) - Most advanced model with reasoning capabilities (reasoning_effort: minimal/low/medium/high, verbosity: low/medium/high)",
             aliases=["gpt5"],
         ),
@@ -140,8 +140,8 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
             supports_json_mode=True,
             supports_images=True,  # GPT-5 models support vision
             max_image_size_mb=20.0,  # 20MB per OpenAI docs
-            supports_temperature=True,  # GPT-5 supports temperature with reasoning_effort
-            temperature_constraint=create_temperature_constraint("range"),
+            supports_temperature=False,  # GPT-5 models don't support custom temperature (fixed at 1.0)
+            temperature_constraint=create_temperature_constraint("fixed"),
             description="GPT-5 Mini (256K context) - Balanced performance/cost variant (reasoning_effort: minimal/low/medium/high)",
             aliases=["gpt5-mini", "gpt5mini"],
         ),
@@ -158,8 +158,8 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
             supports_json_mode=True,
             supports_images=True,  # GPT-5 models support vision
             max_image_size_mb=20.0,  # 20MB per OpenAI docs
-            supports_temperature=True,  # GPT-5 supports temperature with reasoning_effort
-            temperature_constraint=create_temperature_constraint("range"),
+            supports_temperature=False,  # GPT-5 models don't support custom temperature (fixed at 1.0)
+            temperature_constraint=create_temperature_constraint("fixed"),
             description="GPT-5 Nano (256K context) - Fastest/cheapest variant for simple tasks (reasoning_effort: minimal/low/medium/high)",
             aliases=["gpt5-nano", "gpt5nano"],
         ),
