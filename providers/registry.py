@@ -280,13 +280,20 @@ class ModelProviderRegistry:
 
         if tool_category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer thinking-capable models for deep reasoning tools
-            if openai_available and "o3" in openai_models:
+            # Priority: GPT-5 (flagship) > Grok-4 Heavy (multi-agent) > O3 > Grok-4 > Grok-3
+            if openai_available and "gpt-5" in openai_models:
+                return "gpt-5"  # GPT-5 flagship for maximum reasoning capability
+            elif xai_available and "grok-4-heavy" in xai_models:
+                return "grok-4-heavy"  # Multi-agent collaborative reasoning
+            elif openai_available and "o3" in openai_models:
                 return "o3"  # O3 for deep reasoning
+            elif xai_available and "grok-4-0709" in xai_models:
+                return "grok-4-0709"  # Advanced reasoning with thinking capability
+            elif xai_available and "grok-3" in xai_models:
+                return "grok-3"  # GROK-3 for deep reasoning
             elif openai_available and openai_models:
                 # Fall back to any available OpenAI model
                 return openai_models[0]
-            elif xai_available and "grok-3" in xai_models:
-                return "grok-3"  # GROK-3 for deep reasoning
             elif xai_available and xai_models:
                 # Fall back to any available XAI model
                 return xai_models[0]
@@ -312,8 +319,13 @@ class ModelProviderRegistry:
 
         elif tool_category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            if openai_available and "o4-mini" in openai_models:
+            # Priority: GPT-5 Nano (ultra-fast) > O4-mini > GPT-5 Mini > O3-mini > Grok-3-fast
+            if openai_available and "gpt-5-nano" in openai_models:
+                return "gpt-5-nano"  # Ultra-compact speed demon for low-latency needs
+            elif openai_available and "o4-mini" in openai_models:
                 return "o4-mini"  # Latest, fast and efficient
+            elif openai_available and "gpt-5-mini" in openai_models:
+                return "gpt-5-mini"  # Faster, cost-efficient option for defined tasks
             elif openai_available and "o3-mini" in openai_models:
                 return "o3-mini"  # Second choice
             elif openai_available and openai_models:
@@ -345,10 +357,15 @@ class ModelProviderRegistry:
                 return "gemini-2.5-flash"
 
         # BALANCED or no category specified - use existing balanced logic
-        if openai_available and "o4-mini" in openai_models:
+        # Priority: GPT-5 Mini (balanced cost/performance) > O4-mini > O3-mini > Grok-4 > Grok-3
+        if openai_available and "gpt-5-mini" in openai_models:
+            return "gpt-5-mini"  # Balanced performance/cost with reasoning capabilities
+        elif openai_available and "o4-mini" in openai_models:
             return "o4-mini"  # Latest balanced performance/cost
         elif openai_available and "o3-mini" in openai_models:
             return "o3-mini"  # Second choice
+        elif xai_available and "grok-4-0709" in xai_models:
+            return "grok-4-0709"  # Advanced reasoning as balanced choice
         elif openai_available and openai_models:
             return openai_models[0]
         elif xai_available and "grok-3" in xai_models:
@@ -400,9 +417,12 @@ class ModelProviderRegistry:
         openrouter_provider = cls.get_provider(ProviderType.OPENROUTER)
         if openrouter_provider:
             # Prefer models known for deep reasoning
+            # Updated with latest high-reasoning models
             preferred_models = [
+                "openai/gpt-5",  # GPT-5 flagship
+                "openai/o3",  # O3 reasoning model
                 "anthropic/claude-sonnet-4",
-                "anthropic/claude-opus-4",
+                "anthropic/claude-opus-4", 
                 "google/gemini-2.5-pro",
                 "google/gemini-pro-1.5",
                 "meta-llama/llama-3.1-70b-instruct",
