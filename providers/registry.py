@@ -287,8 +287,8 @@ class ModelProviderRegistry:
                 return "grok-4-heavy"  # Multi-agent collaborative reasoning
             elif openai_available and "o3" in openai_models:
                 return "o3"  # O3 for deep reasoning
-            elif xai_available and "grok-4-0709" in xai_models:
-                return "grok-4-0709"  # Advanced reasoning with thinking capability
+            elif xai_available and "grok-4" in xai_models:
+                return "grok-4"  # Advanced reasoning with thinking capability
             elif xai_available and "grok-3" in xai_models:
                 return "grok-3"  # GROK-3 for deep reasoning
             elif openai_available and openai_models:
@@ -364,8 +364,8 @@ class ModelProviderRegistry:
             return "o4-mini"  # Latest balanced performance/cost
         elif openai_available and "o3-mini" in openai_models:
             return "o3-mini"  # Second choice
-        elif xai_available and "grok-4-0709" in xai_models:
-            return "grok-4-0709"  # Advanced reasoning as balanced choice
+        elif xai_available and "grok-4" in xai_models:
+            return "grok-4"  # Advanced reasoning as balanced choice
         elif openai_available and openai_models:
             return openai_models[0]
         elif xai_available and "grok-3" in xai_models:
