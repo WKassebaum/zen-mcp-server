@@ -113,55 +113,55 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
             provider=ProviderType.OPENAI,
             model_name="gpt-5",
             friendly_name="OpenAI (GPT-5)",
-            context_window=256_000,  # 256K tokens per official specs
-            max_output_tokens=65_536,  # 64K max output tokens
-            supports_extended_thinking=True,  # GPT-5 has reasoning capabilities
+            context_window=400_000,  # 400K tokens
+            max_output_tokens=128_000,  # 128K max output tokens
+            supports_extended_thinking=True,  # Supports reasoning tokens
             supports_system_prompts=True,
             supports_streaming=True,
             supports_function_calling=True,
             supports_json_mode=True,
             supports_images=True,  # GPT-5 supports vision
             max_image_size_mb=20.0,  # 20MB per OpenAI docs
-            supports_temperature=False,  # GPT-5 models don't support custom temperature (fixed at 1.0)
+            supports_temperature=True,  # Regular models accept temperature parameter
             temperature_constraint=create_temperature_constraint("fixed"),
-            description="GPT-5 (256K context) - Most advanced model with reasoning capabilities (reasoning_effort: minimal/low/medium/high, verbosity: low/medium/high)",
-            aliases=["gpt5"],
+            description="GPT-5 (400K context, 128K output) - Advanced model with reasoning support",
+            aliases=["gpt5", "gpt-5"],
         ),
         "gpt-5-mini": ModelCapabilities(
             provider=ProviderType.OPENAI,
             model_name="gpt-5-mini",
-            friendly_name="OpenAI (GPT-5 Mini)",
-            context_window=256_000,  # 256K tokens like main model
-            max_output_tokens=32_768,  # 32K max output tokens
-            supports_extended_thinking=True,  # GPT-5 models have reasoning capabilities
+            friendly_name="OpenAI (GPT-5-mini)",
+            context_window=400_000,  # 400K tokens
+            max_output_tokens=128_000,  # 128K max output tokens
+            supports_extended_thinking=True,  # Supports reasoning tokens
             supports_system_prompts=True,
             supports_streaming=True,
             supports_function_calling=True,
             supports_json_mode=True,
-            supports_images=True,  # GPT-5 models support vision
+            supports_images=True,  # GPT-5-mini supports vision
             max_image_size_mb=20.0,  # 20MB per OpenAI docs
-            supports_temperature=False,  # GPT-5 models don't support custom temperature (fixed at 1.0)
+            supports_temperature=True,
             temperature_constraint=create_temperature_constraint("fixed"),
-            description="GPT-5 Mini (256K context) - Balanced performance/cost variant (reasoning_effort: minimal/low/medium/high)",
-            aliases=["gpt5-mini", "gpt5mini"],
+            description="GPT-5-mini (400K context, 128K output) - Efficient variant with reasoning support",
+            aliases=["gpt5-mini", "gpt5mini", "mini"],
         ),
         "gpt-5-nano": ModelCapabilities(
             provider=ProviderType.OPENAI,
             model_name="gpt-5-nano",
-            friendly_name="OpenAI (GPT-5 Nano)",
-            context_window=256_000,  # 256K tokens like other GPT-5 models
-            max_output_tokens=16_384,  # 16K max output tokens (smaller variant)
-            supports_extended_thinking=True,  # GPT-5 models have reasoning capabilities
+            friendly_name="OpenAI (GPT-5 nano)",
+            context_window=400_000,
+            max_output_tokens=128_000,
+            supports_extended_thinking=True,
             supports_system_prompts=True,
             supports_streaming=True,
             supports_function_calling=True,
             supports_json_mode=True,
-            supports_images=True,  # GPT-5 models support vision
-            max_image_size_mb=20.0,  # 20MB per OpenAI docs
-            supports_temperature=False,  # GPT-5 models don't support custom temperature (fixed at 1.0)
+            supports_images=True,
+            max_image_size_mb=20.0,
+            supports_temperature=True,
             temperature_constraint=create_temperature_constraint("fixed"),
-            description="GPT-5 Nano (256K context) - Fastest/cheapest variant for simple tasks (reasoning_effort: minimal/low/medium/high)",
-            aliases=["gpt5-nano", "gpt5nano"],
+            description="GPT-5 nano (400K context) - Fastest, cheapest version of GPT-5 for summarization and classification tasks",
+            aliases=["gpt5nano", "gpt5-nano", "nano"],
         ),
     }
 
