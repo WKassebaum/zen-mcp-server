@@ -90,9 +90,9 @@ Zen MCP Server supports a wide range of AI models from multiple providers. Claud
 - `gemini-2.5-flash` (aliases: `flash`, `gemini-flash`) - 1M context, fast responses
 
 **OpenAI:**
-- `gpt-5` (alias: `gpt5`) - 256K context, advanced reasoning with reasoning_effort parameter
-- `gpt-5-mini` (aliases: `gpt5-mini`, `gpt5mini`) - 256K context, balanced performance/cost
-- `gpt-5-nano` (aliases: `gpt5-nano`, `gpt5nano`) - 256K context, fastest/cheapest variant
+- `gpt-5` (alias: `gpt5`) - 400K context, 128K output, advanced reasoning with reasoning_effort parameter
+- `gpt-5-mini` (aliases: `gpt5-mini`, `gpt5mini`) - 400K context, 128K output, balanced performance/cost
+- `gpt-5-nano` (aliases: `gpt5-nano`, `gpt5nano`) - 400K context, 128K output, fastest/cheapest variant
 - `o3` - 200K context, strong reasoning (no temperature support)
 - `o3-mini` (aliases: `o3mini`) - 200K context, balanced performance
 - `o3-pro` (alias: `o3-pro`) - 200K context, professional-grade (EXPENSIVE - use sparingly)
@@ -100,10 +100,10 @@ Zen MCP Server supports a wide range of AI models from multiple providers. Claud
 - `gpt-4.1-2025-04-14` (alias: `gpt4.1`) - 1M context, advanced reasoning
 
 **X.AI:**
-- `grok-4` (alias: `grok4`) - 1M context, analytical capabilities with vision support
-- `grok-4-heavy` (aliases: `grok4-heavy`, `grok-4heavy`) - 1M context, advanced reasoning
-- `grok-2-1212` (aliases: `grok2`, `grok`) - 256K context, standard model
-- `grok-2-vision-1212` (aliases: `grok2-vision`, `grok-vision`) - 256K context with vision
+- `grok-4` (aliases: `grok`, `grok4`) - 256K context, frontier multimodal reasoning with vision support
+- `grok-4-heavy` (aliases: `grok4-heavy`, `grok-heavy`) - 256K context, multi-agent reasoning
+- `grok-3` (alias: `grok3`) - 131K context, advanced reasoning model
+- `grok-3-fast` (aliases: `grok3-fast`, `grokfast`) - 131K context, higher performance variant
 
 ### OpenRouter & Custom Providers
 
