@@ -439,6 +439,10 @@ of the evidence, even when it strongly points in one direction.""",
 
         # Store arguments
         self._current_arguments = arguments
+        
+        # Set up model context needed for file processing
+        model_context = arguments.get("_model_context")
+        self._model_context = model_context
 
         # Validate request
         request = self.get_workflow_request_model()(**arguments)
@@ -543,6 +547,7 @@ of the evidence, even when it strongly points in one direction.""",
                     request.relevant_files,
                     request.continuation_id,
                     "Context files",
+                    model_context=getattr(self, "_model_context", None),
                 )
                 if file_content:
                     prompt = f"{prompt}\n\n=== CONTEXT FILES ===\n{file_content}\n=== END CONTEXT ==="
