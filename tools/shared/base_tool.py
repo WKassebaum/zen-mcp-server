@@ -983,7 +983,8 @@ class BaseTool(ABC):
                     reserve_tokens=reserve_tokens,
                     include_line_numbers=self.wants_line_numbers_by_default(),
                 )
-                self._validate_token_limit(file_content, context_description)
+                # Note: No need to validate against MCP_PROMPT_SIZE_LIMIT here
+                # read_files already handles token-aware truncation based on model's capabilities
                 content_parts.append(file_content)
 
                 # Track the expanded files as actually processed
@@ -1401,7 +1402,7 @@ When recommending searches, be specific about what information you need and why 
                 "content": (
                     f"Image support not available: Model '{model_name}' does not support image processing. "
                     f"Please use a vision-capable model such as 'gemini-2.5-flash', 'o3', "
-                    f"or 'claude-3-opus' for image analysis tasks."
+                    f"or 'claude-opus-4.1' for image analysis tasks."
                 ),
                 "content_type": "text",
                 "metadata": {

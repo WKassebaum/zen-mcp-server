@@ -390,12 +390,42 @@ class WorkflowTool(BaseTool, BaseWorkflowMixin):
         """Get status for skipped expert analysis. Override for tool-specific status."""
         return "skipped_by_tool_design"
 
+    def is_continuation_workflow(self, request) -> bool:
+        """
+        Check if this is a continuation workflow that should skip multi-step investigation.
+
+        When continuation_id is provided, the workflow typically continues from a previous
+        conversation and should go directly to expert analysis rather than starting a new
+        multi-step investigation.
+
+        Args:
+            request: The workflow request object
+
+        Returns:
+            True if this is a continuation that should skip multi-step workflow
+        """
+        continuation_id = self.get_request_continuation_id(request)
+        return bool(continuation_id)
+
     # Abstract methods that must be implemented by specific workflow tools
     # (These are inherited from BaseWorkflowMixin and must be implemented)
 
     @abstractmethod
-    def get_required_actions(self, step_number: int, confidence: str, findings: str, total_steps: int) -> list[str]:
-        """Define required actions for each work phase."""
+    def get_required_actions(
+        self, step_number: int, confidence: str, findings: str, total_steps: int, request=None
+    ) -> list[str]:
+        """Define required actions for each work phase.
+
+        Args:
+            step_number: Current step number
+            confidence: Current confidence level
+            findings: Current findings text
+            total_steps: Total estimated steps
+            request: Optional request object for continuation-aware decisions
+
+        Returns:
+            List of required actions for the current step
+        """
         pass
 
     @abstractmethod

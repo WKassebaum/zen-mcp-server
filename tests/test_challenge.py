@@ -24,8 +24,8 @@ class TestChallengeTool:
     def test_tool_metadata(self):
         """Test that tool metadata matches requirements"""
         assert self.tool.get_name() == "challenge"
-        assert "prevent reflexive agreement" in self.tool.get_description()
-        assert "think critically" in self.tool.get_description()
+        assert "reflexive agreement" in self.tool.get_description()
+        assert "critical thinking" in self.tool.get_description()
         assert "thoughtful evaluation" in self.tool.get_description()
         assert self.tool.get_default_temperature() == 0.2  # TEMPERATURE_ANALYTICAL
 
@@ -93,7 +93,7 @@ class TestChallengeTool:
         response_data = json.loads(result[0].text)
 
         # Check response structure
-        assert response_data["status"] == "challenge_created"
+        assert response_data["status"] == "challenge_accepted"
         assert response_data["original_statement"] == "All software bugs are caused by syntax errors"
         assert "challenge_prompt" in response_data
         assert "instructions" in response_data

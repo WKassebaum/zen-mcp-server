@@ -149,7 +149,7 @@ class XAIModelProvider(OpenAICompatibleProvider):
         prompt: str,
         model_name: str,
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: float = 0.3,
         max_output_tokens: Optional[int] = None,
         **kwargs,
     ) -> ModelResponse:
@@ -194,8 +194,6 @@ class XAIModelProvider(OpenAICompatibleProvider):
             # Prefer GROK-4 for advanced reasoning with thinking mode
             if "grok-4" in allowed_models:
                 return "grok-4"
-            elif "grok-4-heavy" in allowed_models:
-                return "grok-4-heavy"
             elif "grok-3" in allowed_models:
                 return "grok-3"
             # Fall back to any available model
@@ -214,8 +212,6 @@ class XAIModelProvider(OpenAICompatibleProvider):
             # Prefer GROK-4 for balanced use (best overall capabilities)
             if "grok-4" in allowed_models:
                 return "grok-4"
-            elif "grok-4-heavy" in allowed_models:
-                return "grok-4-heavy"
             elif "grok-3" in allowed_models:
                 return "grok-3"
             elif "grok-3-fast" in allowed_models:

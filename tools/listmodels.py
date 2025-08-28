@@ -34,12 +34,7 @@ class ListModelsTool(BaseTool):
         return "listmodels"
 
     def get_description(self) -> str:
-        return (
-            "LIST AVAILABLE MODELS - Display all AI models organized by provider. "
-            "Shows which providers are configured, available models, their aliases, "
-            "context windows, and capabilities. Useful for understanding what models "
-            "can be used and their characteristics. MANDATORY: Must display full output to the user."
-        )
+        return "Shows which AI model providers are configured, available model names, their aliases and capabilities."
 
     def get_input_schema(self) -> dict[str, Any]:
         """Return the JSON schema for the tool's input"""
@@ -225,7 +220,7 @@ class ListModelsTool(BaseTool):
                 output_lines.append(f"**Error loading models**: {str(e)}")
         else:
             output_lines.append("**Status**: Not configured (set OPENROUTER_API_KEY)")
-            output_lines.append("**Note**: Provides access to GPT-4, O3, Mistral, and many more")
+            output_lines.append("**Note**: Provides access to GPT-5, O3, Mistral, and many more")
 
         output_lines.append("")
 
@@ -295,7 +290,7 @@ class ListModelsTool(BaseTool):
 
         # Add usage tips
         output_lines.append("\n**Usage Tips**:")
-        output_lines.append("- Use model aliases (e.g., 'flash', 'o3', 'opus') for convenience")
+        output_lines.append("- Use model aliases (e.g., 'flash', 'gpt5', 'opus') for convenience")
         output_lines.append("- In auto mode, the CLI Agent will select the best model for each task")
         output_lines.append("- Custom models are only available when CUSTOM_API_URL is set")
         output_lines.append("- OpenRouter provides access to many cloud models with one API key")

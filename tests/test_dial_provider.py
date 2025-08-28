@@ -48,8 +48,8 @@ class TestDIALProvider:
         # Test valid models
         assert provider.validate_model_name("o3-2025-04-16") is True
         assert provider.validate_model_name("o3") is True  # Shorthand
-        assert provider.validate_model_name("anthropic.claude-opus-4-20250514-v1:0") is True
-        assert provider.validate_model_name("opus-4") is True  # Shorthand
+        assert provider.validate_model_name("anthropic.claude-opus-4.1-20250805-v1:0") is True
+        assert provider.validate_model_name("opus-4.1") is True  # Shorthand
         assert provider.validate_model_name("gemini-2.5-pro-preview-05-06") is True
         assert provider.validate_model_name("gemini-2.5-pro") is True  # Shorthand
 
@@ -63,16 +63,16 @@ class TestDIALProvider:
         # Test shorthand resolution
         assert provider._resolve_model_name("o3") == "o3-2025-04-16"
         assert provider._resolve_model_name("o4-mini") == "o4-mini-2025-04-16"
-        assert provider._resolve_model_name("opus-4") == "anthropic.claude-opus-4-20250514-v1:0"
-        assert provider._resolve_model_name("sonnet-4") == "anthropic.claude-sonnet-4-20250514-v1:0"
+        assert provider._resolve_model_name("opus-4.1") == "anthropic.claude-opus-4.1-20250805-v1:0"
+        assert provider._resolve_model_name("sonnet-4.1") == "anthropic.claude-sonnet-4.1-20250805-v1:0"
         assert provider._resolve_model_name("gemini-2.5-pro") == "gemini-2.5-pro-preview-05-06"
         assert provider._resolve_model_name("gemini-2.5-flash") == "gemini-2.5-flash-preview-05-20"
 
         # Test full name passthrough
         assert provider._resolve_model_name("o3-2025-04-16") == "o3-2025-04-16"
         assert (
-            provider._resolve_model_name("anthropic.claude-opus-4-20250514-v1:0")
-            == "anthropic.claude-opus-4-20250514-v1:0"
+            provider._resolve_model_name("anthropic.claude-opus-4.1-20250805-v1:0")
+            == "anthropic.claude-opus-4.1-20250805-v1:0"
         )
 
     @patch.dict(os.environ, {"DIAL_ALLOWED_MODELS": ""}, clear=False)
@@ -90,16 +90,16 @@ class TestDIALProvider:
         assert capabilities.supports_images is True
         assert capabilities.supports_extended_thinking is False
 
-        # Test Claude 4 capabilities
-        capabilities = provider.get_capabilities("opus-4")
-        assert capabilities.model_name == "anthropic.claude-opus-4-20250514-v1:0"
+        # Test Claude 4.1 capabilities
+        capabilities = provider.get_capabilities("opus-4.1")
+        assert capabilities.model_name == "anthropic.claude-opus-4.1-20250805-v1:0"
         assert capabilities.context_window == 200_000
         assert capabilities.supports_images is True
         assert capabilities.supports_extended_thinking is False
 
-        # Test Claude 4 with thinking mode
-        capabilities = provider.get_capabilities("opus-4-thinking")
-        assert capabilities.model_name == "anthropic.claude-opus-4-20250514-v1:0-with-thinking"
+        # Test Claude 4.1 with thinking mode
+        capabilities = provider.get_capabilities("opus-4.1-thinking")
+        assert capabilities.model_name == "anthropic.claude-opus-4.1-20250805-v1:0-with-thinking"
         assert capabilities.context_window == 200_000
         assert capabilities.supports_images is True
         assert capabilities.supports_extended_thinking is True
@@ -113,7 +113,7 @@ class TestDIALProvider:
         # Test temperature constraint
         assert capabilities.temperature_constraint.min_temp == 0.0
         assert capabilities.temperature_constraint.max_temp == 2.0
-        assert capabilities.temperature_constraint.default_temp == 0.7
+        assert capabilities.temperature_constraint.default_temp == 0.3
 
     @patch.dict(os.environ, {"DIAL_ALLOWED_MODELS": ""}, clear=False)
     @patch("utils.model_restrictions._restriction_service", None)
@@ -146,7 +146,7 @@ class TestDIALProvider:
         # Test models with vision support
         assert provider._supports_vision("o3-2025-04-16") is True
         assert provider._supports_vision("o3") is True  # Via resolution
-        assert provider._supports_vision("anthropic.claude-opus-4-20250514-v1:0") is True
+        assert provider._supports_vision("anthropic.claude-opus-4.1-20250805-v1:0") is True
         assert provider._supports_vision("gemini-2.5-pro-preview-05-06") is True
 
         # Test unknown model (falls back to parent implementation)
@@ -219,7 +219,7 @@ class TestDIALProvider:
             # Check that Api-Key header is set
             assert provider.DEFAULT_HEADERS["Api-Key"] == "test-key"
 
-    @patch.dict(os.environ, {"DIAL_ALLOWED_MODELS": "o3-2025-04-16,anthropic.claude-opus-4-20250514-v1:0"})
+    @patch.dict(os.environ, {"DIAL_ALLOWED_MODELS": "o3-2025-04-16,anthropic.claude-opus-4.1-20250805-v1:0"})
     @patch("utils.model_restrictions._restriction_service", None)
     def test_allowed_models_restriction(self):
         """Test model allow-list functionality."""
@@ -228,13 +228,13 @@ class TestDIALProvider:
         # These should be allowed
         assert provider.validate_model_name("o3-2025-04-16") is True
         assert provider.validate_model_name("o3") is True  # Alias for o3-2025-04-16
-        assert provider.validate_model_name("anthropic.claude-opus-4-20250514-v1:0") is True
-        assert provider.validate_model_name("opus-4") is True  # Resolves to anthropic.claude-opus-4-20250514-v1:0
+        assert provider.validate_model_name("anthropic.claude-opus-4.1-20250805-v1:0") is True
+        assert provider.validate_model_name("opus-4.1") is True  # Resolves to anthropic.claude-opus-4.1-20250805-v1:0
 
         # These should be blocked
         assert provider.validate_model_name("gemini-2.5-pro-preview-05-06") is False
         assert provider.validate_model_name("o4-mini-2025-04-16") is False
-        assert provider.validate_model_name("sonnet-4") is False  # sonnet-4 is not in allowed list
+        assert provider.validate_model_name("sonnet-4.1") is False  # sonnet-4.1 is not in allowed list
 
     @patch("httpx.Client")
     @patch("openai.OpenAI")

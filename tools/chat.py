@@ -15,23 +15,19 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_BALANCED
 from systemprompts import CHAT_PROMPT
-from tools.shared.base_models import ToolRequest
+from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
 
 from .simple.base import SimpleTool
 
 # Field descriptions matching the original Chat tool exactly
 CHAT_FIELD_DESCRIPTIONS = {
     "prompt": (
-        "You MUST provide a thorough, expressive question or share an idea with as much context as possible. "
-        "Remember: you're talking to an assistant who has deep expertise and can provide nuanced insights. Include your "
-        "current thinking, specific challenges, background context, what you've already tried, and what "
-        "kind of response would be most helpful. The more context and detail you provide, the more "
-        "valuable and targeted the response will be."
+        "Your question or idea for collaborative thinking. Provide detailed context, including your goal, what you've tried, and any specific challenges. "
+        "CRITICAL: To discuss code, provide file paths using the 'files' parameter instead of pasting large code blocks here."
     ),
-    "files": "Optional files for context (must be FULL absolute paths to real files / folders - DO NOT SHORTEN)",
+    "files": "Absolute full-paths to existing files / folders for context. DO NOT SHORTEN.",
     "images": (
-        "Optional images for visual context. Useful for UI discussions, diagrams, visual problems, "
-        "error screens, or architectural mockups. (must be FULL absolute paths to real files / folders - DO NOT SHORTEN - OR these can be bas64 data)"
+        "Optional images for visual context (must be FULL absolute paths to real files / folders - DO NOT SHORTEN - OR these can be bas64 data)"
     ),
 }
 
@@ -60,14 +56,8 @@ class ChatTool(SimpleTool):
 
     def get_description(self) -> str:
         return (
-            "GENERAL CHAT & COLLABORATIVE THINKING - Use the AI model as your thinking partner! "
-            "Perfect for: bouncing ideas during your own analysis, getting second opinions on your plans, "
-            "collaborative brainstorming, validating your checklists and approaches, exploring alternatives. "
-            "Also great for: explanations, comparisons, general development questions. "
-            "Use this when you want to ask questions, brainstorm ideas, get opinions, discuss topics, "
-            "share your thinking, or need explanations about concepts and approaches. "
-            "Note: If you're not currently using a top-tier model such as Opus 4 or above, these tools can "
-            "provide enhanced capabilities."
+            "General chat and collaborative thinking partner for brainstorming, development discussion, getting second opinions, and exploring ideas. "
+            "Use for bouncing ideas, validating approaches, asking questions, and getting explanations. "
         )
 
     def get_system_prompt(self) -> str:
@@ -117,36 +107,23 @@ class ChatTool(SimpleTool):
                 "model": self.get_model_field_schema(),
                 "temperature": {
                     "type": "number",
-                    "description": "Response creativity (0-1, default 0.5)",
+                    "description": COMMON_FIELD_DESCRIPTIONS["temperature"],
                     "minimum": 0,
                     "maximum": 1,
                 },
                 "thinking_mode": {
                     "type": "string",
                     "enum": ["minimal", "low", "medium", "high", "max"],
-                    "description": (
-                        "Thinking depth: minimal (0.5% of model max), low (8%), medium (33%), high (67%), "
-                        "max (100% of model max)"
-                    ),
+                    "description": COMMON_FIELD_DESCRIPTIONS["thinking_mode"],
                 },
                 "use_websearch": {
                     "type": "boolean",
-                    "description": (
-                        "Enable web search for documentation, best practices, and current information. "
-                        "Particularly useful for: brainstorming sessions, architectural design discussions, "
-                        "exploring industry best practices, working with specific frameworks/technologies, "
-                        "researching solutions to complex problems, or when current documentation and "
-                        "community insights would enhance the analysis."
-                    ),
+                    "description": COMMON_FIELD_DESCRIPTIONS["use_websearch"],
                     "default": True,
                 },
                 "continuation_id": {
                     "type": "string",
-                    "description": (
-                        "Thread continuation ID for multi-turn conversations. Can be used to continue "
-                        "conversations across different tools. Only provide this if continuing a previous "
-                        "conversation thread."
-                    ),
+                    "description": COMMON_FIELD_DESCRIPTIONS["continuation_id"],
                 },
             },
             "required": ["prompt"] + (["model"] if self.is_effective_auto_mode() else []),

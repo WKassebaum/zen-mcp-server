@@ -23,6 +23,7 @@ Features:
 import json
 import logging
 import os
+import re
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
@@ -90,6 +91,11 @@ class BaseWorkflowMixin(ABC):
         pass
 
     @abstractmethod
+    def get_language_instruction(self) -> str:
+        """Return the language instruction for localization. Usually provided by BaseTool."""
+        pass
+
+    @abstractmethod
     def get_default_temperature(self) -> float:
         """Return the default temperature for this tool. Usually provided by BaseTool."""
         pass
@@ -107,9 +113,11 @@ class BaseWorkflowMixin(ABC):
     @abstractmethod
     def _prepare_file_content_for_prompt(
         self,
-        files: list[str],
+        request_files: list[str],
         continuation_id: Optional[str],
-        description: str,
+        context_description: str = "New files",
+        max_tokens: Optional[int] = None,
+        reserve_tokens: int = 1_000,
         remaining_budget: Optional[int] = None,
         arguments: Optional[dict[str, Any]] = None,
         model_context: Optional[Any] = None,
@@ -127,7 +135,9 @@ class BaseWorkflowMixin(ABC):
         pass
 
     @abstractmethod
-    def get_required_actions(self, step_number: int, confidence: str, findings: str, total_steps: int) -> list[str]:
+    def get_required_actions(
+        self, step_number: int, confidence: str, findings: str, total_steps: int, request=None
+    ) -> list[str]:
         """Define required actions for each work phase.
 
         Args:
@@ -135,6 +145,7 @@ class BaseWorkflowMixin(ABC):
             confidence: Current confidence level (exploring, low, medium, high, certain)
             findings: Current findings text
             total_steps: Total estimated steps for this work
+            request: Optional request object for continuation-aware decisions
 
         Returns:
             List of specific actions Claude should take before calling tool again
@@ -291,7 +302,7 @@ class BaseWorkflowMixin(ABC):
         Default implementation uses required actions.
         """
         required_actions = self.get_required_actions(
-            request.step_number, self.get_request_confidence(request), request.findings, request.total_steps
+            request.step_number, self.get_request_confidence(request), request.findings, request.total_steps, request
         )
 
         next_step_number = request.step_number + 1
@@ -299,7 +310,7 @@ class BaseWorkflowMixin(ABC):
             f"MANDATORY: DO NOT call the {self.get_name()} tool again immediately. "
             f"You MUST first work using appropriate tools. "
             f"REQUIRED ACTIONS before calling {self.get_name()} step {next_step_number}:\n"
-            + "\n".join(f"{i+1}. {action}" for i, action in enumerate(required_actions))
+            + "\n".join(f"{i + 1}. {action}" for i, action in enumerate(required_actions))
             + f"\n\nOnly call {self.get_name()} again with step_number: {next_step_number} "
             f"AFTER completing this work."
         )
@@ -663,12 +674,32 @@ class BaseWorkflowMixin(ABC):
                 self._current_model_name = None
                 self._model_context = None
 
+            # Handle continuation
+            continuation_id = request.continuation_id
+
+            # Restore workflow state on continuation
+            if continuation_id:
+                from utils.conversation_memory import get_thread
+
+                thread = get_thread(continuation_id)
+                if thread and thread.turns:
+                    # Find the most recent assistant turn from this tool with workflow state
+                    for turn in reversed(thread.turns):
+                        if turn.role == "assistant" and turn.tool_name == self.get_name() and turn.model_metadata:
+                            state = turn.model_metadata
+                            if isinstance(state, dict) and "work_history" in state:
+                                self.work_history = state.get("work_history", [])
+                                self.initial_request = state.get("initial_request")
+                                # Rebuild consolidated findings from restored history
+                                self._reprocess_consolidated_findings()
+                                logger.debug(
+                                    f"[{self.get_name()}] Restored workflow state with {len(self.work_history)} history items"
+                                )
+                                break  # State restored, exit loop
+
             # Adjust total steps if needed
             if request.step_number > request.total_steps:
                 request.total_steps = request.step_number
-
-            # Handle continuation
-            continuation_id = request.continuation_id
 
             # Create thread for first step
             if not continuation_id and request.step_number == 1:
@@ -818,8 +849,9 @@ class BaseWorkflowMixin(ABC):
         Default implementation provides generic response.
         """
         work_summary = self.prepare_work_summary()
+        continuation_id = self.get_request_continuation_id(request)
 
-        return {
+        response_data = {
             "status": self.get_completion_status(),
             f"complete_{self.get_name()}": {
                 "initial_request": self.get_initial_request(request.step),
@@ -838,6 +870,11 @@ class BaseWorkflowMixin(ABC):
                 "reason": self.get_skip_reason(),
             },
         }
+
+        if continuation_id:
+            response_data["continuation_id"] = continuation_id
+
+        return response_data
 
     # ================================================================================
     # Inheritance Hook Methods - Replace hasattr/getattr Anti-patterns
@@ -1096,6 +1133,9 @@ class BaseWorkflowMixin(ABC):
         # CRITICAL: Extract clean content for conversation history (exclude internal workflow metadata)
         clean_content = self._extract_clean_workflow_content_for_history(response_data)
 
+        # Serialize workflow state for persistence across stateless tool calls
+        workflow_state = {"work_history": self.work_history, "initial_request": getattr(self, "initial_request", None)}
+
         add_turn(
             thread_id=continuation_id,
             role="assistant",
@@ -1103,6 +1143,7 @@ class BaseWorkflowMixin(ABC):
             tool_name=self.get_name(),
             files=self.get_request_relevant_files(request),
             images=self.get_request_images(request),
+            model_metadata=workflow_state,  # Persist the state
         )
 
     def _add_workflow_metadata(self, response_data: dict, arguments: dict[str, Any]) -> None:
@@ -1330,7 +1371,7 @@ class BaseWorkflowMixin(ABC):
 
         # Get tool-specific required actions
         required_actions = self.get_required_actions(
-            request.step_number, self.get_request_confidence(request), request.findings, request.total_steps
+            request.step_number, self.get_request_confidence(request), request.findings, request.total_steps, request
         )
         response_data["required_actions"] = required_actions
 
@@ -1447,8 +1488,10 @@ class BaseWorkflowMixin(ABC):
                 if file_content:
                     expert_context = self._add_files_to_expert_context(expert_context, file_content)
 
-            # Get system prompt for this tool
-            system_prompt = self.get_system_prompt()
+            # Get system prompt for this tool with localization support
+            base_system_prompt = self.get_system_prompt()
+            language_instruction = self.get_language_instruction()
+            system_prompt = language_instruction + base_system_prompt
 
             # Check if tool wants system prompt embedded in main prompt
             if self.should_embed_system_prompt():
@@ -1476,16 +1519,32 @@ class BaseWorkflowMixin(ABC):
             )
 
             if model_response.content:
+                content = model_response.content.strip()
+
+                # Try to extract JSON from markdown code blocks if present
+                if "```json" in content or "```" in content:
+                    json_match = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL)
+                    if json_match:
+                        content = json_match.group(1).strip()
+
                 try:
                     # Try to parse as JSON
-                    analysis_result = json.loads(model_response.content.strip())
+                    analysis_result = json.loads(content)
                     return analysis_result
-                except json.JSONDecodeError:
-                    # Return as text if not valid JSON
+                except json.JSONDecodeError as e:
+                    # Log the parse error with more details but don't fail
+                    logger.info(
+                        f"[{self.get_name()}] Expert analysis returned non-JSON response (this is OK for smaller models). "
+                        f"Parse error: {str(e)}. Response length: {len(model_response.content)} chars."
+                    )
+                    logger.debug(f"First 500 chars of response: {model_response.content[:500]!r}")
+
+                    # Still return the analysis as plain text - this is valid
                     return {
                         "status": "analysis_complete",
                         "raw_analysis": model_response.content,
-                        "parse_error": "Response was not valid JSON",
+                        "format": "text",  # Indicate it's plain text, not an error
+                        "note": "Analysis provided in plain text format",
                     }
             else:
                 return {"error": "No response from model", "status": "empty_response"}
@@ -1547,36 +1606,21 @@ class BaseWorkflowMixin(ABC):
 
     # Default implementations for methods that workflow-based tools typically don't need
 
-    def prepare_prompt(self, request, continuation_id=None, max_tokens=None, reserve_tokens=0):
+    async def prepare_prompt(self, request) -> str:
         """
-        Base implementation for workflow tools.
+        Base implementation for workflow tools - compatible with BaseTool signature.
 
-        Allows subclasses to customize prompt preparation behavior by overriding
-        customize_prompt_preparation().
-        """
-        # Allow subclasses to customize the prompt preparation
-        self.customize_prompt_preparation(request, continuation_id, max_tokens, reserve_tokens)
-
-        # Workflow tools typically don't need to return a prompt
-        # since they handle their own prompt preparation internally
-        return "", ""
-
-    def customize_prompt_preparation(self, request, continuation_id=None, max_tokens=None, reserve_tokens=0):
-        """
-        Override this method in subclasses to customize prompt preparation.
-
-        Base implementation does nothing - subclasses can extend this to add
-        custom prompt preparation logic without the base class needing to
-        know about specific tool capabilities.
+        Workflow tools typically don't need to return a prompt since they handle
+        their own prompt preparation internally through the workflow execution.
 
         Args:
-            request: The request object (may have files, prompt, etc.)
-            continuation_id: Optional continuation ID
-            max_tokens: Optional max token limit
-            reserve_tokens: Optional reserved token count
+            request: The validated request object
+
+        Returns:
+            Empty string since workflow tools manage prompts internally
         """
-        # Base implementation does nothing - subclasses override as needed
-        return None
+        # Workflow tools handle their prompts internally during workflow execution
+        return ""
 
     def format_response(self, response: str, request, model_info=None):
         """

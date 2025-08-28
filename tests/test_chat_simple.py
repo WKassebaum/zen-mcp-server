@@ -22,7 +22,7 @@ class TestChatTool:
     def test_tool_metadata(self):
         """Test that tool metadata matches requirements"""
         assert self.tool.get_name() == "chat"
-        assert "GENERAL CHAT & COLLABORATIVE THINKING" in self.tool.get_description()
+        assert "collaborative thinking" in self.tool.get_description()
         assert self.tool.get_system_prompt() is not None
         assert self.tool.get_default_temperature() > 0
         assert self.tool.get_model_category() is not None
@@ -52,7 +52,7 @@ class TestChatTool:
             "prompt": "Test prompt",
             "files": ["test.txt"],
             "images": ["test.png"],
-            "model": "anthropic/claude-3-opus",
+            "model": "anthropic/claude-opus-4.1",
             "temperature": 0.7,
         }
 
@@ -60,7 +60,7 @@ class TestChatTool:
         assert request.prompt == "Test prompt"
         assert request.files == ["test.txt"]
         assert request.images == ["test.png"]
-        assert request.model == "anthropic/claude-3-opus"
+        assert request.model == "anthropic/claude-opus-4.1"
         assert request.temperature == 0.7
 
     def test_required_fields(self):
@@ -69,7 +69,7 @@ class TestChatTool:
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
-            ChatRequest(model="anthropic/claude-3-opus")
+            ChatRequest(model="anthropic/claude-opus-4.1")
 
     def test_model_availability(self):
         """Test that model availability works"""
@@ -159,7 +159,7 @@ class TestChatRequestModel:
         # Field descriptions should exist and be descriptive
         assert len(CHAT_FIELD_DESCRIPTIONS["prompt"]) > 50
         assert "context" in CHAT_FIELD_DESCRIPTIONS["prompt"]
-        assert "absolute paths" in CHAT_FIELD_DESCRIPTIONS["files"]
+        assert "full-paths" in CHAT_FIELD_DESCRIPTIONS["files"] or "absolute" in CHAT_FIELD_DESCRIPTIONS["files"]
         assert "visual context" in CHAT_FIELD_DESCRIPTIONS["images"]
 
     def test_default_values(self):

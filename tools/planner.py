@@ -39,11 +39,8 @@ logger = logging.getLogger(__name__)
 # Tool-specific field descriptions matching original planner tool
 PLANNER_FIELD_DESCRIPTIONS = {
     "step": (
-        "Your current planning step. For the first step, describe the task/problem to plan and be extremely expressive "
-        "so that subsequent steps can break this down into simpler steps. "
-        "For subsequent steps, provide the actual planning step content. Can include: regular planning steps, "
-        "revisions of previous steps, questions about previous decisions, realizations about needing more analysis, "
-        "changes in approach, etc."
+        "Your current planning step content. Step 1: Describe the task/problem to plan in detail for breakdown. "
+        "Subsequent steps: Provide planning content (steps, revisions, questions, approach changes, etc.)."
     ),
     "step_number": "Current step number in the planning sequence (starts at 1)",
     "total_steps": "Current estimate of total steps needed (can be adjusted up/down as planning progresses)",
@@ -133,27 +130,9 @@ class PlannerTool(WorkflowTool):
 
     def get_description(self) -> str:
         return (
-            "INTERACTIVE SEQUENTIAL PLANNER - Break down complex tasks through step-by-step planning. "
-            "This tool enables you to think sequentially, building plans incrementally with the ability "
-            "to revise, branch, and adapt as understanding deepens.\n\n"
-            "How it works:\n"
-            "- Start with step 1: describe the task/problem to plan\n"
-            "- Continue with subsequent steps, building the plan piece by piece\n"
-            "- Adjust total_steps estimate as you progress\n"
-            "- Revise previous steps when new insights emerge\n"
-            "- Branch into alternative approaches when needed\n"
-            "- Add more steps even after reaching the initial estimate\n\n"
-            "Key features:\n"
-            "- Sequential thinking with full context awareness\n"
-            "- Forced deep reflection for complex plans (≥5 steps) in early stages\n"
-            "- Branching for exploring alternative strategies\n"
-            "- Revision capabilities to update earlier decisions\n"
-            "- Dynamic step count adjustment\n\n"
-            "ENHANCED: For complex plans (≥5 steps), the first 3 steps enforce deep thinking pauses\n"
-            "to prevent surface-level planning and ensure thorough consideration of alternatives,\n"
-            "dependencies, and strategic decisions before moving to tactical details.\n\n"
-            "Perfect for: complex project planning, system design with unknowns, "
-            "migration strategies, architectural decisions, problem decomposition."
+            "Breaks down complex tasks through interactive, sequential planning with revision and branching capabilities. "
+            "Use for complex project planning, system design, migration strategies, and architectural decisions. "
+            "Builds plans incrementally with deep reflection for complex scenarios."
         )
 
     def get_system_prompt(self) -> str:
@@ -259,7 +238,9 @@ class PlannerTool(WorkflowTool):
     # Abstract Methods - Required Implementation from BaseWorkflowMixin
     # ================================================================================
 
-    def get_required_actions(self, step_number: int, confidence: str, findings: str, total_steps: int) -> list[str]:
+    def get_required_actions(
+        self, step_number: int, confidence: str, findings: str, total_steps: int, request=None
+    ) -> list[str]:
         """Define required actions for each planning phase."""
         if step_number == 1:
             # Initial planning tasks
@@ -495,10 +476,10 @@ class PlannerTool(WorkflowTool):
         # Convert generic status names to planner-specific ones
         tool_name = self.get_name()
         status_mapping = {
-            f"{tool_name}_in_progress": "planning_success",
-            f"pause_for_{tool_name}": f"pause_for_{tool_name}",  # Keep the full tool name for workflow consistency
-            f"{tool_name}_required": f"{tool_name}_required",  # Keep the full tool name for workflow consistency
-            f"{tool_name}_complete": f"{tool_name}_complete",  # Keep the full tool name for workflow consistency
+            f"{tool_name}_in_progress": "planning_in_progress",
+            f"pause_for_{tool_name}": "pause_for_planning",
+            f"{tool_name}_required": "planning_required",
+            f"{tool_name}_complete": "planning_complete",
         }
 
         if response_data["status"] in status_mapping:

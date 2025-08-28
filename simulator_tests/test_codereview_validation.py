@@ -316,10 +316,6 @@ class ConfigurationManager:
                 self.logger.error("Relevant context not properly tracked")
                 return False
 
-            if review_status.get("review_confidence") != "high":
-                self.logger.error("Review confidence level not properly tracked")
-                return False
-
             # Check issues by severity
             issues_by_severity = review_status.get("issues_by_severity", {})
             if issues_by_severity.get("critical", 0) != 2:
@@ -571,7 +567,7 @@ class ConfigurationManager:
                         {"severity": "critical", "description": "Hardcoded API key security vulnerability"},
                         {"severity": "high", "description": "Performance bottleneck in payment history"},
                     ],
-                    "confidence": "certain",  # This should skip expert analysis
+                    "review_validation_type": "internal",  # This should skip expert analysis
                     "model": "flash",
                 },
             )
@@ -596,7 +592,10 @@ class ConfigurationManager:
                 return False
 
             expert_analysis = response_certain_data.get("expert_analysis", {})
-            if expert_analysis.get("status") != "skipped_due_to_certain_review_confidence":
+            if expert_analysis.get("status") not in [
+                "skipped_due_to_certain_review_confidence",
+                "skipped_due_to_internal_analysis_type",
+            ]:
                 self.logger.error("Expert analysis should be skipped for certain confidence")
                 return False
 

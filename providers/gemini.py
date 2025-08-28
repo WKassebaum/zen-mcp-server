@@ -2,9 +2,11 @@
 
 import base64
 import logging
-import os
 import time
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from tools.models import ToolModelCategory
 
 from google import genai
 from google.genai import types
@@ -19,6 +21,25 @@ class GeminiModelProvider(ModelProvider):
 
     # Model configurations using ModelCapabilities objects
     SUPPORTED_MODELS = {
+        "gemini-2.5-pro": ModelCapabilities(
+            provider=ProviderType.GOOGLE,
+            model_name="gemini-2.5-pro",
+            friendly_name="Gemini (Pro 2.5)",
+            context_window=1_048_576,  # 1M tokens
+            max_output_tokens=65_536,
+            supports_extended_thinking=True,
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_json_mode=True,
+            supports_images=True,  # Vision capability
+            max_image_size_mb=32.0,  # Higher limit for Pro model
+            supports_temperature=True,
+            temperature_constraint=create_temperature_constraint("range"),
+            max_thinking_tokens=32768,  # Max thinking tokens for Pro model
+            description="Deep reasoning + thinking mode (1M context) - Complex problems, architecture, deep analysis",
+            aliases=["pro", "gemini pro", "gemini-pro"],
+        ),
         "gemini-2.0-flash": ModelCapabilities(
             provider=ProviderType.GOOGLE,
             model_name="gemini-2.0-flash",
@@ -74,25 +95,6 @@ class GeminiModelProvider(ModelProvider):
             max_thinking_tokens=24576,  # Flash 2.5 thinking budget limit
             description="Ultra-fast (1M context) - Quick analysis, simple queries, rapid iterations",
             aliases=["flash", "flash2.5"],
-        ),
-        "gemini-2.5-pro": ModelCapabilities(
-            provider=ProviderType.GOOGLE,
-            model_name="gemini-2.5-pro",
-            friendly_name="Gemini (Pro 2.5)",
-            context_window=1_048_576,  # 1M tokens
-            max_output_tokens=65_536,
-            supports_extended_thinking=True,
-            supports_system_prompts=True,
-            supports_streaming=True,
-            supports_function_calling=True,
-            supports_json_mode=True,
-            supports_images=True,  # Vision capability
-            max_image_size_mb=32.0,  # Higher limit for Pro model
-            supports_temperature=True,
-            temperature_constraint=create_temperature_constraint("range"),
-            max_thinking_tokens=32768,  # Max thinking tokens for Pro model
-            description="Deep reasoning + thinking mode (1M context) - Complex problems, architecture, deep analysis",
-            aliases=["pro", "gemini pro", "gemini-pro"],
         ),
     }
 
@@ -152,7 +154,7 @@ class GeminiModelProvider(ModelProvider):
         prompt: str,
         model_name: str,
         system_prompt: Optional[str] = None,
-        temperature: float = 0.7,
+        temperature: float = 0.3,
         max_output_tokens: Optional[int] = None,
         thinking_mode: str = "medium",
         images: Optional[list[str]] = None,
@@ -229,6 +231,81 @@ class GeminiModelProvider(ModelProvider):
                 # Extract usage information if available
                 usage = self._extract_usage(response)
 
+                # Intelligently determine finish reason and safety blocks
+                finish_reason_str = "UNKNOWN"
+                is_blocked_by_safety = False
+                safety_feedback_details = None
+
+                if response.candidates:
+                    candidate = response.candidates[0]
+
+                    # Safely get finish reason
+                    try:
+                        finish_reason_enum = candidate.finish_reason
+                        if finish_reason_enum:
+                            # Handle both enum objects and string values
+                            try:
+                                finish_reason_str = finish_reason_enum.name
+                            except AttributeError:
+                                finish_reason_str = str(finish_reason_enum)
+                        else:
+                            finish_reason_str = "STOP"
+                    except AttributeError:
+                        finish_reason_str = "STOP"
+
+                    # If content is empty, check safety ratings for the definitive cause
+                    if not response.text:
+                        try:
+                            safety_ratings = candidate.safety_ratings
+                            if safety_ratings:  # Check it's not None or empty
+                                for rating in safety_ratings:
+                                    try:
+                                        if rating.blocked:
+                                            is_blocked_by_safety = True
+                                            # Provide details for logging/debugging
+                                            category_name = "UNKNOWN"
+                                            probability_name = "UNKNOWN"
+
+                                            try:
+                                                category_name = rating.category.name
+                                            except (AttributeError, TypeError):
+                                                pass
+
+                                            try:
+                                                probability_name = rating.probability.name
+                                            except (AttributeError, TypeError):
+                                                pass
+
+                                            safety_feedback_details = (
+                                                f"Category: {category_name}, Probability: {probability_name}"
+                                            )
+                                            break
+                                    except (AttributeError, TypeError):
+                                        # Individual rating doesn't have expected attributes
+                                        continue
+                        except (AttributeError, TypeError):
+                            # candidate doesn't have safety_ratings or it's not iterable
+                            pass
+
+                # Also check for prompt-level blocking (request rejected entirely)
+                elif response.candidates is not None and len(response.candidates) == 0:
+                    # No candidates is the primary indicator of a prompt-level block
+                    is_blocked_by_safety = True
+                    finish_reason_str = "SAFETY"
+                    safety_feedback_details = "Prompt blocked, reason unavailable"  # Default message
+
+                    try:
+                        prompt_feedback = response.prompt_feedback
+                        if prompt_feedback and prompt_feedback.block_reason:
+                            try:
+                                block_reason_name = prompt_feedback.block_reason.name
+                            except AttributeError:
+                                block_reason_name = str(prompt_feedback.block_reason)
+                            safety_feedback_details = f"Prompt blocked, reason: {block_reason_name}"
+                    except (AttributeError, TypeError):
+                        # prompt_feedback doesn't exist or has unexpected attributes; stick with the default message
+                        pass
+
                 return ModelResponse(
                     content=response.text,
                     usage=usage,
@@ -237,9 +314,9 @@ class GeminiModelProvider(ModelProvider):
                     provider=ProviderType.GOOGLE,
                     metadata={
                         "thinking_mode": thinking_mode if capabilities.supports_extended_thinking else None,
-                        "finish_reason": (
-                            getattr(response.candidates[0], "finish_reason", "STOP") if response.candidates else "STOP"
-                        ),
+                        "finish_reason": finish_reason_str,
+                        "is_blocked_by_safety": is_blocked_by_safety,
+                        "safety_feedback": safety_feedback_details,
                     },
                 )
 
@@ -328,28 +405,35 @@ class GeminiModelProvider(ModelProvider):
 
         # Try to extract usage metadata from response
         # Note: The actual structure depends on the SDK version and response format
-        if hasattr(response, "usage_metadata"):
+        try:
             metadata = response.usage_metadata
+            if metadata:
+                # Extract token counts with explicit None checks
+                input_tokens = None
+                output_tokens = None
 
-            # Extract token counts with explicit None checks
-            input_tokens = None
-            output_tokens = None
+                try:
+                    value = metadata.prompt_token_count
+                    if value is not None:
+                        input_tokens = value
+                        usage["input_tokens"] = value
+                except (AttributeError, TypeError):
+                    pass
 
-            if hasattr(metadata, "prompt_token_count"):
-                value = metadata.prompt_token_count
-                if value is not None:
-                    input_tokens = value
-                    usage["input_tokens"] = value
+                try:
+                    value = metadata.candidates_token_count
+                    if value is not None:
+                        output_tokens = value
+                        usage["output_tokens"] = value
+                except (AttributeError, TypeError):
+                    pass
 
-            if hasattr(metadata, "candidates_token_count"):
-                value = metadata.candidates_token_count
-                if value is not None:
-                    output_tokens = value
-                    usage["output_tokens"] = value
-
-            # Calculate total only if both values are available and valid
-            if input_tokens is not None and output_tokens is not None:
-                usage["total_tokens"] = input_tokens + output_tokens
+                # Calculate total only if both values are available and valid
+                if input_tokens is not None and output_tokens is not None:
+                    usage["total_tokens"] = input_tokens + output_tokens
+        except (AttributeError, TypeError):
+            # response doesn't have usage_metadata
+            pass
 
         return usage
 
@@ -396,11 +480,17 @@ class GeminiModelProvider(ModelProvider):
             # Also check if this is a structured error from Gemini SDK
             try:
                 # Try to access error details if available
-                if hasattr(error, "details") or hasattr(error, "reason"):
-                    # Gemini API errors may have structured details
-                    error_details = getattr(error, "details", "") or getattr(error, "reason", "")
-                    error_details_str = str(error_details).lower()
+                error_details = None
+                try:
+                    error_details = error.details
+                except AttributeError:
+                    try:
+                        error_details = error.reason
+                    except AttributeError:
+                        pass
 
+                if error_details:
+                    error_details_str = str(error_details).lower()
                     # Check for non-retryable error codes/reasons
                     if any(indicator in error_details_str for indicator in non_retryable_indicators):
                         logger.debug(f"Non-retryable Gemini error: {error_details}")
@@ -440,28 +530,86 @@ class GeminiModelProvider(ModelProvider):
     def _process_image(self, image_path: str) -> Optional[dict]:
         """Process an image for Gemini API."""
         try:
-            if image_path.startswith("data:image/"):
-                # Handle data URL: data:image/png;base64,iVBORw0...
-                header, data = image_path.split(",", 1)
-                mime_type = header.split(";")[0].split(":")[1]
+            # Use base class validation
+            image_bytes, mime_type = self.validate_image(image_path)
+
+            # For data URLs, extract the base64 data directly
+            if image_path.startswith("data:"):
+                # Extract base64 data from data URL
+                _, data = image_path.split(",", 1)
                 return {"inline_data": {"mime_type": mime_type, "data": data}}
             else:
-                # Handle file path
-                from utils.file_types import get_image_mime_type
-
-                if not os.path.exists(image_path):
-                    logger.warning(f"Image file not found: {image_path}")
-                    return None
-
-                # Detect MIME type from file extension using centralized mappings
-                ext = os.path.splitext(image_path)[1].lower()
-                mime_type = get_image_mime_type(ext)
-
-                # Read and encode the image
-                with open(image_path, "rb") as f:
-                    image_data = base64.b64encode(f.read()).decode()
-
+                # For file paths, encode the bytes
+                image_data = base64.b64encode(image_bytes).decode()
                 return {"inline_data": {"mime_type": mime_type, "data": image_data}}
+
+        except ValueError as e:
+            logger.warning(str(e))
+            return None
         except Exception as e:
             logger.error(f"Error processing image {image_path}: {e}")
             return None
+
+    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+        """Get Gemini's preferred model for a given category from allowed models.
+
+        Args:
+            category: The tool category requiring a model
+            allowed_models: Pre-filtered list of models allowed by restrictions
+
+        Returns:
+            Preferred model name or None
+        """
+        from tools.models import ToolModelCategory
+
+        if not allowed_models:
+            return None
+
+        # Helper to find best model from candidates
+        def find_best(candidates: list[str]) -> Optional[str]:
+            """Return best model from candidates (sorted for consistency)."""
+            return sorted(candidates, reverse=True)[0] if candidates else None
+
+        if category == ToolModelCategory.EXTENDED_REASONING:
+            # For extended reasoning, prefer models with thinking support
+            # First try Pro models that support thinking
+            pro_thinking = [
+                m
+                for m in allowed_models
+                if "pro" in m and m in self.SUPPORTED_MODELS and self.SUPPORTED_MODELS[m].supports_extended_thinking
+            ]
+            if pro_thinking:
+                return find_best(pro_thinking)
+
+            # Then any model that supports thinking
+            any_thinking = [
+                m
+                for m in allowed_models
+                if m in self.SUPPORTED_MODELS and self.SUPPORTED_MODELS[m].supports_extended_thinking
+            ]
+            if any_thinking:
+                return find_best(any_thinking)
+
+            # Finally, just prefer Pro models even without thinking
+            pro_models = [m for m in allowed_models if "pro" in m]
+            if pro_models:
+                return find_best(pro_models)
+
+        elif category == ToolModelCategory.FAST_RESPONSE:
+            # Prefer Flash models for speed
+            flash_models = [m for m in allowed_models if "flash" in m]
+            if flash_models:
+                return find_best(flash_models)
+
+        # Default for BALANCED or as fallback
+        # Prefer Flash for balanced use, then Pro, then anything
+        flash_models = [m for m in allowed_models if "flash" in m]
+        if flash_models:
+            return find_best(flash_models)
+
+        pro_models = [m for m in allowed_models if "pro" in m]
+        if pro_models:
+            return find_best(pro_models)
+
+        # Ultimate fallback to best available model
+        return find_best(allowed_models)

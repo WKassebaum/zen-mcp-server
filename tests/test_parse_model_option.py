@@ -14,8 +14,8 @@ class TestParseModelOption:
 
     def test_openrouter_beta_suffix_preserved(self):
         """Test that OpenRouter :beta suffix is preserved as part of model name."""
-        model, option = parse_model_option("anthropic/claude-3-opus:beta")
-        assert model == "anthropic/claude-3-opus:beta"
+        model, option = parse_model_option("anthropic/claude-opus-4.1:beta")
+        assert model == "anthropic/claude-opus-4.1:beta"
         assert option is None
 
     def test_openrouter_preview_suffix_preserved(self):

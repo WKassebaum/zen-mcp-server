@@ -51,8 +51,8 @@
   },
   "models": [
     {
-      "model_name": "anthropic/claude-opus-4",
-      "aliases": ["opus", "claude-opus", "claude4-opus", "claude-4-opus"],
+      "model_name": "anthropic/claude-opus-4.1",
+      "aliases": ["opus", "claude-opus", "claude-opus-4.1", "claude-4.1-opus"],
       "context_window": 200000,
       "max_output_tokens": 64000,
       "supports_extended_thinking": false,
@@ -60,11 +60,11 @@
       "supports_function_calling": false,
       "supports_images": true,
       "max_image_size_mb": 5.0,
-      "description": "Claude 4 Opus - Most capable Claude model with vision"
+      "description": "Claude Opus 4.1 - Our most capable and intelligent model yet"
     },
     {
-      "model_name": "anthropic/claude-sonnet-4",
-      "aliases": ["sonnet", "claude-sonnet", "claude4-sonnet", "claude-4-sonnet", "claude"],
+      "model_name": "anthropic/claude-sonnet-4.1",
+      "aliases": ["sonnet", "claude-sonnet", "claude-sonnet-4.1", "claude-4.1-sonnet", "claude"],
       "context_window": 200000,
       "max_output_tokens": 64000,
       "supports_extended_thinking": false,
@@ -72,7 +72,7 @@
       "supports_function_calling": false,
       "supports_images": true,
       "max_image_size_mb": 5.0,
-      "description": "Claude 4 Sonnet - Balanced performance with vision"
+      "description": "Claude Sonnet 4.1 - High-performance model with exceptional reasoning and efficiency"
     },
     {
       "model_name": "anthropic/claude-3.5-haiku",

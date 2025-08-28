@@ -140,10 +140,7 @@ class VersionTool(BaseTool):
         return "version"
 
     def get_description(self) -> str:
-        return (
-            "VERSION & CONFIGURATION - Get server version, configuration details, and list of available tools. "
-            "Useful for debugging and understanding capabilities."
-        )
+        return "Get server version, configuration details, and list of available tools."
 
     def get_input_schema(self) -> dict[str, Any]:
         """Return the JSON schema for the tool's input"""

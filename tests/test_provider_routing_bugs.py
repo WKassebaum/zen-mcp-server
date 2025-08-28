@@ -344,7 +344,7 @@ class TestOpenRouterAliasRestrictions:
             os.environ.pop("OPENAI_API_KEY", None)
             os.environ.pop("XAI_API_KEY", None)
             os.environ["OPENROUTER_API_KEY"] = "test-key"
-            os.environ["OPENROUTER_ALLOWED_MODELS"] = "o3-mini,anthropic/claude-opus-4,flash"
+            os.environ["OPENROUTER_ALLOWED_MODELS"] = "o3-mini,anthropic/claude-opus-4.1,flash"
 
             # Register OpenRouter provider
             from providers.openrouter import OpenRouterProvider
@@ -356,7 +356,7 @@ class TestOpenRouterAliasRestrictions:
 
             expected_models = {
                 "openai/o3-mini",  # from alias
-                "anthropic/claude-opus-4",  # full name
+                "anthropic/claude-opus-4.1",  # full name
                 "google/gemini-2.5-flash",  # from alias
             }
 
