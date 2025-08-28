@@ -271,20 +271,6 @@
       "description": "OpenAI's GPT-5 Nano via OpenRouter - Fastest/cheapest for simple tasks (supports reasoning_effort)"
     },
     {
-      "model_name": "x-ai/grok-code-fast-1",
-      "aliases": ["grok-code-fast-1", "grok-code-fast", "grok-code", "grokcode", "grok-coding"],
-      "context_window": 256000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": false,
-      "max_image_size_mb": 0.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "xAI's Grok Code Fast 1 via OpenRouter - Specialized for coding with reasoning traces, 256K context window (text-only)"
-    },
-    {
       "model_name": "llama3.2",
       "aliases": ["local-llama", "local", "llama3.2", "ollama-llama"],
       "context_window": 128000,

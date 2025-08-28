@@ -96,6 +96,24 @@ class XAIModelProvider(OpenAICompatibleProvider):
             description="GROK-4 Heavy (256K context) - Multi-agent reasoning model that spawns multiple agents for collaborative problem-solving",
             aliases=["grok4heavy", "grok-heavy", "grok4-heavy"],
         ),
+        "grok-code-fast-1": ModelCapabilities(
+            provider=ProviderType.XAI,
+            model_name="grok-code-fast-1",
+            friendly_name="X.AI (Grok Code Fast 1)",
+            context_window=256_000,  # 256K tokens
+            max_output_tokens=128_000,  # 128K tokens max output
+            supports_extended_thinking=True,  # Supports reasoning traces
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_json_mode=True,  # Structured outputs supported
+            supports_images=False,  # Text-only coding model
+            max_image_size_mb=0.0,
+            supports_temperature=True,
+            temperature_constraint=create_temperature_constraint("range"),
+            description="GROK Code Fast 1 (256K context) - Specialized coding model with reasoning traces, optimized for agentic coding workflows",
+            aliases=["grok-code-fast-1", "grok-code-fast", "grok-code", "grokcode", "grok-coding"],
+        ),
     }
 
     def __init__(self, api_key: str, **kwargs):
