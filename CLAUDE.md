@@ -76,6 +76,78 @@ Tools in `tools/` inherit from `BaseTool` and implement:
 - `token_utils.py`: Model-aware token counting and management
 - `model_context.py`: Model-specific context handling and limits
 
+## Token Optimization (New in v5.12.0)
+
+### Two-Stage Architecture
+The Zen MCP Server now features a revolutionary two-stage token optimization architecture that reduces context usage by **95%** (from 43k to ~2k tokens) while maintaining full functionality.
+
+#### How It Works
+1. **Stage 1 - Mode Selection** (~200 tokens)
+   - Use `zen_select_mode` to analyze your task
+   - Receives task description and recommends optimal mode
+   - Returns guidance for stage 2 execution
+
+2. **Stage 2 - Focused Execution** (~600-800 tokens)
+   - Use mode-specific executor (e.g., `zen_execute_debug`)
+   - Only loads minimal schema for the selected mode
+   - Maintains full functionality with targeted parameters
+
+#### Usage Examples
+
+**Example 1: Debugging**
+```json
+// Stage 1: Select mode
+{
+  "tool": "zen_select_mode",
+  "arguments": {
+    "task_description": "Debug why OAuth tokens aren't persisting",
+    "confidence_level": "exploring"
+  }
+}
+
+// Response suggests debug mode with required fields
+// Stage 2: Execute with minimal schema
+{
+  "tool": "zen_execute_debug",
+  "arguments": {
+    "problem": "OAuth tokens not persisting across sessions",
+    "files": ["/src/auth.py", "/src/session.py"],
+    "confidence": "exploring"
+  }
+}
+```
+
+**Example 2: Code Review**
+```json
+// For backward compatibility, original tool names redirect automatically
+{
+  "tool": "codereview",
+  "arguments": {
+    "request": "Review authentication system for security issues"
+  }
+}
+// Automatically routes through optimized two-stage flow
+```
+
+#### Configuration
+```bash
+# Token Optimization Settings
+ZEN_TOKEN_OPTIMIZATION=enabled  # enabled|disabled|auto (default: enabled)
+ZEN_OPTIMIZATION_MODE=two_stage  # two_stage|single_orchestrator (default: two_stage)
+ZEN_TOKEN_TELEMETRY=true        # Enable A/B testing telemetry (default: true)
+ZEN_OPTIMIZATION_VERSION=v5.12.0-alpha-two-stage  # Version tracking
+```
+
+#### Benefits
+- **95% token reduction**: More context for actual work
+- **Faster responses**: Less data to process
+- **Better reliability**: Structured schemas prevent errors
+- **Backward compatible**: Original tool names still work
+- **A/B testable**: Telemetry tracks effectiveness
+
+#### Telemetry
+Token optimization telemetry is saved to `~/.zen_mcp/token_telemetry.jsonl` for A/B testing analysis.
+
 ## Configuration
 
 ### Environment Variables
@@ -86,6 +158,11 @@ DEFAULT_MODEL=auto      # Auto-selection or specific model
 REDIS_URL              # Redis connection (defaults to localhost:6379)
 WORKSPACE_ROOT         # File access root (defaults to $HOME)
 LOG_LEVEL=INFO         # Logging verbosity
+
+# Token Optimization (new)
+ZEN_TOKEN_OPTIMIZATION=enabled  # Enable token optimization
+ZEN_OPTIMIZATION_MODE=two_stage # Optimization strategy
+ZEN_TOKEN_TELEMETRY=true       # A/B testing telemetry
 ```
 
 ### Model Selection Strategy

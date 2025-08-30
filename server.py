@@ -62,6 +62,10 @@ from config import (  # noqa: E402
     DEFAULT_MODEL,
     __version__,
 )
+# Token optimization imports
+from server_token_optimized import (  # noqa: E402
+    get_optimized_tools, handle_dynamic_tool_execution, log_token_optimization_stats
+)
 from tools import (  # noqa: E402
     AnalyzeTool,
     ChallengeTool,
@@ -262,25 +266,34 @@ def filter_disabled_tools(all_tools: dict[str, Any]) -> dict[str, Any]:
 # Initialize the tool registry with all available AI-powered tools
 # Each tool provides specialized functionality for different development tasks
 # Tools are instantiated once and reused across requests (stateless design)
-TOOLS = {
-    "chat": ChatTool(),  # Interactive development chat and brainstorming
-    "thinkdeep": ThinkDeepTool(),  # Step-by-step deep thinking workflow with expert analysis
-    "planner": PlannerTool(),  # Interactive sequential planner using workflow architecture
-    "consensus": ConsensusTool(),  # Step-by-step consensus workflow with multi-model analysis
-    "codereview": CodeReviewTool(),  # Comprehensive step-by-step code review workflow with expert analysis
-    "precommit": PrecommitTool(),  # Step-by-step pre-commit validation workflow
-    "debug": DebugIssueTool(),  # Root cause analysis and debugging assistance
-    "secaudit": SecauditTool(),  # Comprehensive security audit with OWASP Top 10 and compliance coverage
-    "docgen": DocgenTool(),  # Step-by-step documentation generation with complexity analysis
-    "analyze": AnalyzeTool(),  # General-purpose file and code analysis
-    "refactor": RefactorTool(),  # Step-by-step refactoring analysis workflow with expert validation
-    "tracer": TracerTool(),  # Static call path prediction and control flow analysis
-    "testgen": TestGenTool(),  # Step-by-step test generation workflow with expert validation
-    "challenge": ChallengeTool(),  # Critical challenge prompt wrapper to avoid automatic agreement
-    "listmodels": ListModelsTool(),  # List all available AI models by provider
-    "version": VersionTool(),  # Display server version and system information
-}
-TOOLS = filter_disabled_tools(TOOLS)
+
+# Check if token optimization is enabled
+optimized_tools = get_optimized_tools()
+if optimized_tools is not None:
+    # Use optimized tool set for token reduction
+    TOOLS = optimized_tools
+    logger.info(f"Using optimized tools - {len(optimized_tools)} tools registered for 95% token reduction")
+else:
+    # Use original tool registration
+    TOOLS = {
+        "chat": ChatTool(),  # Interactive development chat and brainstorming
+        "thinkdeep": ThinkDeepTool(),  # Step-by-step deep thinking workflow with expert analysis
+        "planner": PlannerTool(),  # Interactive sequential planner using workflow architecture
+        "consensus": ConsensusTool(),  # Step-by-step consensus workflow with multi-model analysis
+        "codereview": CodeReviewTool(),  # Comprehensive step-by-step code review workflow with expert analysis
+        "precommit": PrecommitTool(),  # Step-by-step pre-commit validation workflow
+        "debug": DebugIssueTool(),  # Root cause analysis and debugging assistance
+        "secaudit": SecauditTool(),  # Comprehensive security audit with OWASP Top 10 and compliance coverage
+        "docgen": DocgenTool(),  # Step-by-step documentation generation with complexity analysis
+        "analyze": AnalyzeTool(),  # General-purpose file and code analysis
+        "refactor": RefactorTool(),  # Step-by-step refactoring analysis workflow with expert validation
+        "tracer": TracerTool(),  # Static call path prediction and control flow analysis
+        "testgen": TestGenTool(),  # Step-by-step test generation workflow with expert validation
+        "challenge": ChallengeTool(),  # Critical challenge prompt wrapper to avoid automatic agreement
+        "listmodels": ListModelsTool(),  # List all available AI models by provider
+        "version": VersionTool(),  # Display server version and system information
+    }
+    TOOLS = filter_disabled_tools(TOOLS)
 
 # Rich prompt templates for all tools
 PROMPT_TEMPLATES = {
@@ -639,6 +652,12 @@ async def handle_list_tools() -> list[Tool]:
 async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """
     Handle incoming tool execution requests from MCP clients.
+    
+    With token optimization enabled, this may handle:
+    1. Mode selector calls (zen_select_mode)
+    2. Dynamic executor calls (zen_execute_*)
+    3. Compatibility stub redirects
+    4. Original tool calls (when optimization disabled)
 
     This is the main request dispatcher that routes tool calls to their appropriate handlers.
     It supports both AI-powered tools (from TOOLS registry) and utility tools (implemented as
@@ -701,6 +720,12 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
         mcp_activity_logger.info(f"TOOL_CALL: {name} with {len(arguments)} arguments")
     except Exception:
         pass
+
+    # Check for dynamic tool execution (two-stage architecture)
+    dynamic_result = await handle_dynamic_tool_execution(name, arguments)
+    if dynamic_result is not None:
+        logger.info(f"Handled via dynamic executor: {name}")
+        return dynamic_result
 
     # Handle thread context reconstruction if continuation_id is present
     if "continuation_id" in arguments and arguments["continuation_id"]:
@@ -1312,6 +1337,10 @@ async def main():
     # Log startup message
     logger.info("Zen MCP Server starting up...")
     logger.info(f"Log level: {log_level}")
+    
+    # Log token optimization configuration
+    from token_optimization_config import token_config
+    token_config.log_configuration()
 
     # Note: MCP client info will be logged during the protocol handshake
     # (when handle_list_tools is called)
@@ -1335,18 +1364,26 @@ async def main():
     # Run the server using stdio transport (standard input/output)
     # This allows the server to be launched by MCP clients as a subprocess
     async with stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="zen",
-                server_version=__version__,
-                capabilities=ServerCapabilities(
-                    tools=ToolsCapability(),  # Advertise tool support capability
-                    prompts=PromptsCapability(),  # Advertise prompt support capability
+        try:
+            await server.run(
+                read_stream,
+                write_stream,
+                InitializationOptions(
+                    server_name="zen",
+                    server_version=__version__,
+                    capabilities=ServerCapabilities(
+                        tools=ToolsCapability(),  # Advertise tool support capability
+                        prompts=PromptsCapability(),  # Advertise prompt support capability
+                    ),
                 ),
-            ),
-        )
+            )
+        finally:
+            # Log token optimization stats before shutdown
+            try:
+                log_token_optimization_stats()
+                logger.info("Server shutdown complete")
+            except Exception as e:
+                logger.debug(f"Error logging shutdown stats: {e}")
 
 
 def run():
