@@ -121,7 +121,7 @@ class ZenExecuteTool(BaseTool):
                         "step_number": 1,
                         "findings": "Starting code review",
                         "relevant_files": ["/src/main.py"],
-                        "next_step_required": true
+                        "next_step_required": True
                     }
                 }
             ]

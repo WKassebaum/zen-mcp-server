@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 TOKEN_OPTIMIZATION_ENABLED = os.getenv("ZEN_TOKEN_OPTIMIZATION", "enabled").lower()
 OPTIMIZATION_MODE = os.getenv("ZEN_OPTIMIZATION_MODE", "two_stage").lower()
 TELEMETRY_ENABLED = os.getenv("ZEN_TOKEN_TELEMETRY", "true").lower() == "true"
-OPTIMIZATION_VERSION = os.getenv("ZEN_OPTIMIZATION_VERSION", "v5.12.0-alpha-two-stage")
+OPTIMIZATION_VERSION = os.getenv("ZEN_OPTIMIZATION_VERSION", "v5.12.0")
 
 # Telemetry file path
 # In Docker, use the logs directory which is writable

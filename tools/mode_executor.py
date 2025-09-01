@@ -286,9 +286,20 @@ class ModeExecutor(BaseTool):
             if 'enum' in field_info.json_schema_extra:
                 schema["enum"] = field_info.json_schema_extra['enum']
         
-        # Add default if present
-        if field_info.default is not None and field_info.default != ...:
-            schema["default"] = field_info.default
+        # Add default if present (check for Pydantic sentinel values)
+        from pydantic_core import PydanticUndefined
+        if (field_info.default is not None and 
+            field_info.default != ... and 
+            field_info.default is not PydanticUndefined and
+            not (hasattr(field_info.default, '__class__') and 
+                 'PydanticUndefined' in str(field_info.default.__class__))):
+            # Only add default if it's a JSON-serializable value
+            try:
+                json.dumps(field_info.default)  # Test if serializable
+                schema["default"] = field_info.default
+            except (TypeError, ValueError):
+                # Skip non-serializable defaults
+                pass
         
         return schema
     
