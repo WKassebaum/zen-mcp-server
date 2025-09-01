@@ -2,6 +2,23 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Two-Stage Token Optimization
+
+**ALWAYS use the two-stage token optimization for Zen tools to save 95% tokens:**
+
+1. **Stage 1**: Use `zen_select_mode` with your task description
+2. **Stage 2**: Use `zen_execute` with the mode and parameters from Stage 1
+
+This approach reduces token usage from 43,000 to 200-800 tokens total!
+
+### Quick Pattern for Claude
+```
+When user asks for Zen help:
+1. Call zen_select_mode with task description
+2. Get mode recommendation and example usage
+3. Call zen_execute with recommended mode and parameters
+```
+
 ## Project Overview
 
 **Zen MCP Server** is a Model Context Protocol (MCP) server that acts as an AI orchestration hub, enabling Claude to delegate tasks to specialized AI models (Gemini, OpenAI O3) for enhanced code analysis and problem-solving. The server maintains conversation threading across different AI tools while Claude remains the primary coordinator.
@@ -85,10 +102,10 @@ The Zen MCP Server now features a revolutionary two-stage token optimization arc
 1. **Stage 1 - Mode Selection** (~200 tokens)
    - Use `zen_select_mode` to analyze your task
    - Receives task description and recommends optimal mode
-   - Returns guidance for stage 2 execution
+   - Returns guidance for stage 2 execution with example usage
 
 2. **Stage 2 - Focused Execution** (~600-800 tokens)
-   - Use mode-specific executor (e.g., `zen_execute_debug`)
+   - Use `zen_execute` with mode parameter from Stage 1
    - Only loads minimal schema for the selected mode
    - Maintains full functionality with targeted parameters
 
@@ -105,14 +122,27 @@ The Zen MCP Server now features a revolutionary two-stage token optimization arc
   }
 }
 
-// Response suggests debug mode with required fields
-// Stage 2: Execute with minimal schema
+// Response includes mode recommendation and example:
+// {
+//   "selected_mode": "debug",
+//   "complexity": "simple",
+//   "next_step": {
+//     "tool": "zen_execute",
+//     "example_usage": { ... }
+//   }
+// }
+
+// Stage 2: Execute with mode parameter
 {
-  "tool": "zen_execute_debug",
+  "tool": "zen_execute",
   "arguments": {
-    "problem": "OAuth tokens not persisting across sessions",
-    "files": ["/src/auth.py", "/src/session.py"],
-    "confidence": "exploring"
+    "mode": "debug",
+    "complexity": "simple",
+    "request": {
+      "problem": "OAuth tokens not persisting across sessions",
+      "files": ["/src/auth.py", "/src/session.py"],
+      "confidence": "exploring"
+    }
   }
 }
 ```

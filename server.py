@@ -28,6 +28,11 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Optional
 
+# MCP library logging - use INFO level to avoid TaskGroup interference
+logging.getLogger('mcp').setLevel(logging.INFO)
+logging.getLogger('mcp.server').setLevel(logging.INFO)
+logging.getLogger('mcp.server.lowlevel').setLevel(logging.INFO)
+
 # Try to load environment variables from .env file if dotenv is available
 # This is optional - environment variables can still be passed directly
 try:
@@ -54,17 +59,26 @@ from mcp.types import (  # noqa: E402
     ServerCapabilities,
     TextContent,
     Tool,
-    ToolAnnotations,
     ToolsCapability,
 )
+
+# ToolAnnotations was added in MCP v1.3+, handle compatibility
+try:
+    from mcp.types import ToolAnnotations  # noqa: E402
+    TOOL_ANNOTATIONS_AVAILABLE = True
+except ImportError:
+    TOOL_ANNOTATIONS_AVAILABLE = False
+    ToolAnnotations = None
 
 from config import (  # noqa: E402
     DEFAULT_MODEL,
     __version__,
 )
 # Token optimization imports
+# Token optimization imports
 from server_token_optimized import (  # noqa: E402
-    get_optimized_tools, handle_dynamic_tool_execution, log_token_optimization_stats
+    get_optimized_tools, handle_dynamic_tool_execution, log_token_optimization_stats,
+    get_dynamic_tool_schema
 )
 from tools import (  # noqa: E402
     AnalyzeTool,
@@ -108,21 +122,35 @@ class LocalTimeFormatter(logging.Formatter):
 # Configure both console and file logging
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-# Clear any existing handlers first
-root_logger = logging.getLogger()
-root_logger.handlers.clear()
+def configure_logging_for_stdio(stdio_mode: bool):
+    """Configure logging based on transport mode to prevent stdio interference."""
+    # Clear any existing handlers first
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    
+    if stdio_mode:
+        # In stdio mode, we MUST NOT write to stderr as it interferes with MCP protocol
+        # Only use NullHandler to prevent any console output
+        root_logger.addHandler(logging.NullHandler())
+        
+        # Capture warnings to prevent them from going to stderr
+        logging.captureWarnings(True)
+        
+        # Redirect sys.stderr to devnull as a last resort
+        import os
+        sys.stderr = open(os.devnull, 'w')
+    else:
+        # Normal mode: can use stderr for logging
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setLevel(getattr(logging, log_level, logging.INFO))
+        stderr_handler.setFormatter(LocalTimeFormatter(log_format))
+        root_logger.addHandler(stderr_handler)
+    
+    # Set root logger level
+    root_logger.setLevel(getattr(logging, log_level, logging.INFO))
 
-# Create and configure stderr handler explicitly
-stderr_handler = logging.StreamHandler(sys.stderr)
-stderr_handler.setLevel(getattr(logging, log_level, logging.INFO))
-stderr_handler.setFormatter(LocalTimeFormatter(log_format))
-root_logger.addHandler(stderr_handler)
-
-# Note: MCP stdio_server interferes with stderr during tool execution
-# All logs are properly written to logs/mcp_server.log for monitoring
-
-# Set root logger level
-root_logger.setLevel(getattr(logging, log_level, logging.INFO))
+# Initial configuration (will be reconfigured in main() based on stdio detection)
+configure_logging_for_stdio(False)
 
 # Add rotating file handler for local log monitoring
 
@@ -170,7 +198,7 @@ logger = logging.getLogger(__name__)
 
 # Create the MCP server instance with a unique name identifier
 # This name is used by MCP clients to identify and connect to this specific server
-server: Server = Server("zen-server")
+server: Server = Server("zen")
 
 
 # Constants for tool filtering
@@ -601,7 +629,7 @@ async def handle_list_tools() -> list[Tool]:
     Returns:
         List of Tool objects representing all available tools
     """
-    logger.debug("MCP client requested tool list")
+    logger.info("=== MCP client requested tool list - handle_list_tools called ===")
 
     # Try to log client info if available (this happens early in the handshake)
     try:
@@ -627,24 +655,37 @@ async def handle_list_tools() -> list[Tool]:
 
     # Add all registered AI-powered tools from the TOOLS registry
     for tool in TOOLS.values():
-        # Get optional annotations from the tool
-        annotations = tool.get_annotations()
-        tool_annotations = ToolAnnotations(**annotations) if annotations else None
+        # Get optional annotations from the tool (MCP v1.3+ feature)
+        tool_dict = {
+            "name": tool.name,
+            "description": tool.description,
+            "inputSchema": tool.get_input_schema(),
+        }
+        
+        # Only add annotations if MCP version supports it
+        if TOOL_ANNOTATIONS_AVAILABLE:
+            annotations = tool.get_annotations()
+            if annotations:
+                tool_dict["annotations"] = ToolAnnotations(**annotations)
+        
+        tools.append(Tool(**tool_dict))
 
-        tools.append(
-            Tool(
-                name=tool.name,
-                description=tool.description,
-                inputSchema=tool.get_input_schema(),
-                annotations=tool_annotations,
-            )
-        )
+    # TODO: DISABLED - Dynamic executors break MCP handshake, need debugging
+    # This was causing "TaskGroup errors" and preventing MCP client connections
+    logger.info("Dynamic executors temporarily disabled - debugging MCP handshake issues")
 
     # Log cache efficiency info
     if os.getenv("OPENROUTER_API_KEY") and os.getenv("OPENROUTER_API_KEY") != "your_openrouter_api_key_here":
         logger.debug("OpenRouter registry cache used efficiently across all tool schemas")
 
-    logger.debug(f"Returning {len(tools)} tools to MCP client")
+    # Debug MCP validation issues
+    try:
+        from debug_mcp_validation import log_mcp_validation_report
+        log_mcp_validation_report(TOOLS)
+    except Exception as e:
+        logger.debug(f"Could not run MCP validation report: {e}")
+    
+    logger.info(f"=== Returning {len(tools)} tools to MCP client ===")
     return tools
 
 
@@ -722,10 +763,11 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
         pass
 
     # Check for dynamic tool execution (two-stage architecture)
-    dynamic_result = await handle_dynamic_tool_execution(name, arguments)
-    if dynamic_result is not None:
-        logger.info(f"Handled via dynamic executor: {name}")
-        return dynamic_result
+    # Temporarily disabled while fixing MCP validation issues
+    # dynamic_result = await handle_dynamic_tool_execution(name, arguments)
+    # if dynamic_result is not None:
+    #     logger.info(f"Handled via dynamic executor: {name}")
+    #     return dynamic_result
 
     # Handle thread context reconstruction if continuation_id is present
     if "continuation_id" in arguments and arguments["continuation_id"]:
@@ -1324,13 +1366,24 @@ async def main():
     """
     Main entry point for the MCP server.
 
-    Initializes the Gemini API configuration and starts the server using
-    stdio transport. The server will continue running until the client
-    disconnects or an error occurs.
-
-    The server communicates via standard input/output streams using the
-    MCP protocol's JSON-RPC message format.
+    Supports both TCP transport (Docker mode) and stdio transport.
+    Command line args: --stdio (force stdio mode)
     """
+    import sys
+    
+    # Check for stdio flag (for docker exec connections)
+    force_stdio = "--stdio" in sys.argv
+    
+    # Determine if we're in stdio mode (either forced or not in Docker)
+    in_docker = os.getenv("RUNNING_IN_DOCKER") == "true"
+    
+    # Back to normal transport detection
+    stdio_mode = force_stdio or (not in_docker)
+    logger.info(f"Transport mode: {'stdio' if stdio_mode else 'TCP'} (docker={in_docker})")
+    
+    # Reconfigure logging for stdio mode if needed
+    configure_logging_for_stdio(stdio_mode)
+    
     # Validate and configure providers based on available API keys
     configure_providers()
 
@@ -1361,26 +1414,102 @@ async def main():
     logger.info(f"Available tools: {list(TOOLS.keys())}")
     logger.info("Server ready - waiting for tool requests...")
 
-    # Run the server using stdio transport (standard input/output)
-    # This allows the server to be launched by MCP clients as a subprocess
-    async with stdio_server() as (read_stream, write_stream):
+    # Transport mode already determined above
+    tcp_port = int(os.getenv("MCP_TCP_PORT", "3001"))
+    
+    if force_stdio:
+        # Force stdio mode (for docker exec connections)
+        logger.info("Forced stdio mode - running MCP server on stdin/stdout")
         try:
-            await server.run(
-                read_stream,
-                write_stream,
-                InitializationOptions(
-                    server_name="zen",
-                    server_version=__version__,
-                    capabilities=ServerCapabilities(
-                        tools=ToolsCapability(),  # Advertise tool support capability
-                        prompts=PromptsCapability(),  # Advertise prompt support capability
+            async with stdio_server() as (read_stream, write_stream):
+                await server.run(
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name="zen",
+                        server_version=__version__,
+                        capabilities=ServerCapabilities(
+                            tools=ToolsCapability(),
+                            prompts=PromptsCapability(),
+                        ),
                     ),
-                ),
-            )
+                )
+        finally:
+            try:
+                # log_token_optimization_stats()  # Temporarily disabled
+                logger.info("stdio server shutdown complete")
+            except Exception as e:
+                logger.debug(f"Error logging stdio shutdown stats: {e}")
+                
+    elif in_docker:
+        # Docker mode: Run TCP server (primary) + stdio available via docker exec
+        logger.info(f"Docker mode: TCP server on port {tcp_port}")
+        
+        import anyio
+        
+        async def handle_tcp_client(stream):
+            """Handle a single TCP client connection using anyio streams"""
+            try:
+                logger.info(f"TCP client connected")
+                
+                # Use the stream directly - anyio streams support both reading and writing
+                await server.run(
+                    stream,
+                    stream, 
+                    InitializationOptions(
+                        server_name="zen",
+                        server_version=__version__,
+                        capabilities=ServerCapabilities(
+                            tools=ToolsCapability(),
+                            prompts=PromptsCapability(),
+                        ),
+                    ),
+                )
+                
+            except Exception as e:
+                logger.error(f"TCP client error: {e}")
+                import traceback
+                logger.error(f"Full traceback: {traceback.format_exc()}")
+            finally:
+                await stream.aclose()
+        
+        async def run_tcp_server():
+            """Start and run the TCP server using anyio"""
+            listener = await anyio.create_tcp_listener(local_port=tcp_port)
+            
+            logger.info(f"✅ TCP server listening on port {tcp_port}")
+            logger.info("✅ stdio available via: docker exec -i zen-mcp-server python server.py --stdio")
+            
+            await listener.serve(handle_tcp_client)
+        
+        # Run TCP server
+        try:
+            await run_tcp_server()
+        except Exception as e:
+            logger.error(f"TCP server error: {e}")
+            raise
+                
+    else:
+        # Run the server using stdio transport (standard input/output)
+        # This allows the server to be launched by MCP clients as a subprocess  
+        try:
+            async with stdio_server() as (read_stream, write_stream):
+                await server.run(
+                    read_stream,
+                    write_stream,
+                    InitializationOptions(
+                        server_name="zen",
+                        server_version=__version__,
+                        capabilities=ServerCapabilities(
+                            tools=ToolsCapability(),  # Advertise tool support capability
+                            prompts=PromptsCapability(),  # Advertise prompt support capability
+                        ),
+                    ),
+                )
         finally:
             # Log token optimization stats before shutdown
             try:
-                log_token_optimization_stats()
+                # log_token_optimization_stats()  # Temporarily disabled
                 logger.info("Server shutdown complete")
             except Exception as e:
                 logger.debug(f"Error logging shutdown stats: {e}")
@@ -1389,7 +1518,9 @@ async def main():
 def run():
     """Console script entry point for zen-mcp-server."""
     try:
-        asyncio.run(main())
+        # Use anyio for better MCP library compatibility
+        import anyio
+        anyio.run(main)
     except KeyboardInterrupt:
         # Handle graceful shutdown
         pass

@@ -28,7 +28,11 @@ TELEMETRY_ENABLED = os.getenv("ZEN_TOKEN_TELEMETRY", "true").lower() == "true"
 OPTIMIZATION_VERSION = os.getenv("ZEN_OPTIMIZATION_VERSION", "v5.12.0-alpha-two-stage")
 
 # Telemetry file path
-TELEMETRY_FILE = Path.home() / ".zen_mcp" / "token_telemetry.jsonl"
+# In Docker, use the logs directory which is writable
+if os.path.exists("/app/logs"):
+    TELEMETRY_FILE = Path("/app/logs") / "token_telemetry.jsonl"
+else:
+    TELEMETRY_FILE = Path.home() / ".zen_mcp" / "token_telemetry.jsonl"
 
 
 class TokenOptimizationConfig:
@@ -57,7 +61,9 @@ class TokenOptimizationConfig:
         
         # Ensure telemetry directory exists
         if self.telemetry_enabled:
-            TELEMETRY_FILE.parent.mkdir(parents=True, exist_ok=True)
+            # In Docker, /app/logs already exists; only create for local dev
+            if not os.path.exists("/app/logs"):
+                TELEMETRY_FILE.parent.mkdir(parents=True, exist_ok=True)
     
     def is_enabled(self) -> bool:
         """Check if token optimization is enabled"""

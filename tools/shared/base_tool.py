@@ -436,37 +436,46 @@ class BaseTool(ABC):
 
             # Get all available models for the enum
             all_models = self._get_available_models()
+            
+            # CRITICAL FIX: Limit schema size to prevent MCP client issues
+            # The full description was 170KB+ causing connection failures
+            MAX_DESC_LENGTH = 500  # Reasonable size for a field description
+            full_desc = "\n".join(model_desc_parts)
+            if len(full_desc) > MAX_DESC_LENGTH:
+                truncated_desc = (
+                    "Select an appropriate model: "
+                    "gemini-2.5-pro (deep reasoning), gemini-2.5-flash (fast), "
+                    "o3/o3-mini (logical reasoning), gpt-5 (advanced), "
+                    "grok-4 (multimodal). Use 'auto' for automatic selection. "
+                    f"({len(all_models)} models available)"
+                )
+            else:
+                truncated_desc = full_desc
 
             return {
                 "type": "string",
-                "description": "\n".join(model_desc_parts),
-                "enum": all_models,
+                "description": truncated_desc,
+                "enum": all_models[:30],  # Limit enum to prevent huge schemas
             }
         else:
             # Normal mode - model is optional with default
             available_models = self._get_available_models()
-            models_str = ", ".join(f"'{m}'" for m in available_models)  # Show ALL models so Claude can choose
-
-            description = f"Model to use. Native models: {models_str}."
+            
+            # CRITICAL FIX: Limit description size to prevent MCP issues
+            # Show only the first few models to keep schema reasonable
+            sample_models = available_models[:5]
+            models_str = ", ".join(f"'{m}'" for m in sample_models)
+            
+            description = f"Model to use. Examples: {models_str}"
+            if len(available_models) > 5:
+                description += f" (+{len(available_models) - 5} more available)"
+            description += "."
+            
             if has_openrouter:
-                # Add OpenRouter aliases
-                try:
-                    registry = self._get_openrouter_registry()
-                    aliases = registry.list_aliases()
-
-                    # Show ALL aliases from the configuration
-                    if aliases:
-                        # Show all aliases so Claude knows every option available
-                        all_aliases = sorted(aliases)
-                        alias_list = ", ".join(f"'{a}'" for a in all_aliases)
-                        description += f" OpenRouter aliases: {alias_list}."
-                    else:
-                        description += " OpenRouter: Any model available on openrouter.ai."
-                except Exception:
-                    description += (
-                        " OpenRouter: Any model available on openrouter.ai "
-                        "(e.g., 'gpt-4', 'claude-4-opus', 'mistral-large')."
-                    )
+                # Add OpenRouter note without listing all aliases
+                description += " OpenRouter models also available."
+            
+            from config import DEFAULT_MODEL
             description += f" Defaults to '{DEFAULT_MODEL}' if not specified."
 
             return {

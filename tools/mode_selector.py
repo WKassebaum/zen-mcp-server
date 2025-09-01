@@ -78,6 +78,12 @@ class ModeSelectorTool(SimpleTool):
     necessary schemas for the second stage of execution.
     """
     
+    def __init__(self):
+        super().__init__()
+        # CRITICAL: MCP requires these as attributes, not just methods
+        self.name = "zen_select_mode"
+        self.description = self.get_description()
+    
     def get_name(self) -> str:
         return "zen_select_mode"
     
@@ -170,6 +176,8 @@ class ModeSelectorTool(SimpleTool):
             )
             
             # Build response with clear guidance for stage 2
+            required_fields = self._get_required_fields(selected_mode, complexity)
+            
             response_data = {
                 "status": "mode_selected",
                 "selected_mode": selected_mode,
@@ -177,11 +185,20 @@ class ModeSelectorTool(SimpleTool):
                 "description": MODE_DESCRIPTIONS[selected_mode],
                 "confidence": self._calculate_confidence(mode_scores, selected_mode),
                 "next_step": {
-                    "tool": f"zen_execute_{selected_mode}",
-                    "instruction": f"Use the {selected_mode} tool with the specific parameters for your task",
-                    "required_fields": self._get_required_fields(selected_mode, complexity)
+                    "tool": "zen_execute",
+                    "instruction": f"Now use 'zen_execute' with mode='{selected_mode}' and the required fields below",
+                    "required_fields": required_fields,
+                    "example_usage": {
+                        "tool": "zen_execute",
+                        "arguments": {
+                            "mode": selected_mode,
+                            "complexity": complexity,
+                            "request": required_fields
+                        }
+                    }
                 },
-                "alternatives": self._get_alternatives(mode_scores, selected_mode)
+                "alternatives": self._get_alternatives(mode_scores, selected_mode),
+                "token_savings": "This two-stage approach saves 95% tokens (43k → 200-800 total)"
             }
             
             logger.info(f"Mode selected: {selected_mode} (complexity: {complexity})")
@@ -322,3 +339,31 @@ class ModeSelectorTool(SimpleTool):
         alternatives.sort(key=lambda x: x['score'], reverse=True)
         
         return alternatives[:2]  # Return top 2 alternatives
+    
+    def get_tool_fields(self) -> dict[str, dict[str, Any]]:
+        """Define the tool-specific fields for mode selection"""
+        return {
+            "task_description": {
+                "type": "string",
+                "description": "Describe what you want to accomplish with the Zen tools"
+            },
+            "context_size": {
+                "type": "string",
+                "enum": ["minimal", "standard", "comprehensive"],
+                "description": "Optional: How much context is available"
+            },
+            "confidence_level": {
+                "type": "string", 
+                "enum": ["exploring", "medium", "high"],
+                "description": "Optional: Your confidence in the task understanding"
+            }
+        }
+    
+    async def prepare_prompt(self, request) -> str:
+        """
+        Prepare prompt for mode selection.
+        
+        Since mode selection is rule-based, we don't actually need a prompt.
+        This method is required by the base class but won't be used.
+        """
+        return ""

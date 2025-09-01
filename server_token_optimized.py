@@ -37,16 +37,19 @@ def get_optimized_tools() -> Dict[str, Any]:
         return None
     
     if token_config.is_two_stage():
-        # Two-stage architecture: Only expose mode selector initially
+        # Two-stage architecture: Expose both Stage 1 and Stage 2 tools
+        from tools.zen_execute import ZenExecuteTool
+        
         tools = {
-            "zen_select_mode": ModeSelectorTool()
+            "zen_select_mode": ModeSelectorTool(),  # Stage 1: Mode selection
+            "zen_execute": ZenExecuteTool()         # Stage 2: Mode execution
         }
         
         # Add lightweight tool stubs for backward compatibility
         # These will redirect to the mode selector
         tools.update(_create_compatibility_stubs())
         
-        logger.info("Two-stage token optimization enabled - exposing mode selector")
+        logger.info("Two-stage token optimization enabled - Stage 1 (zen_select_mode) and Stage 2 (zen_execute) ready")
         return tools
     
     # Other optimization modes could be added here
@@ -85,12 +88,26 @@ def _create_redirect_stub(original_name: str):
         def __init__(self):
             self.name = original_name
             self.original_name = original_name
+            self.description = f"Optimized {self.original_name} - redirects to two-stage flow for 95% token reduction"
         
         def get_name(self):
             return self.name
         
         def get_description(self):
-            return f"Optimized {self.original_name} - redirects to two-stage flow for 95% token reduction"
+            return self.description
+        
+        def get_annotations(self):
+            """Return tool annotations for MCP protocol compliance"""
+            return {"readOnlyHint": False}  # These tools can execute actions
+        
+        def requires_model(self) -> bool:
+            """RedirectStub tools need AI model access for processing"""
+            return True
+        
+        def get_model_category(self):
+            """Return model category for RedirectStub tools"""
+            from tools.models import ToolModelCategory
+            return ToolModelCategory.FAST_RESPONSE
         
         def get_input_schema(self):
             # Minimal schema that accepts anything and redirects
@@ -195,7 +212,8 @@ async def handle_dynamic_tool_execution(name: str, arguments: dict) -> Optional[
             optimized_size = len(json.dumps(executor.get_input_schema()))
             savings = estimate_token_savings(original_size, optimized_size)
             
-            logger.info(f"Dynamic executor '{name}' completed - saved ~{savings:.1f}% tokens")
+            # Use debug level to avoid stdio interference (stderr logging breaks MCP protocol)
+            logger.debug(f"Dynamic executor '{name}' completed - saved ~{savings:.1f}% tokens")
             
             return result
             

@@ -128,11 +128,15 @@ class ModeExecutor(BaseTool):
             mode: The selected mode (debug, review, analyze, etc.)
             complexity: Task complexity (simple, workflow, expert)
         """
-        super().__init__()
+        # Set mode and complexity BEFORE calling super().__init__()
+        # because get_name() needs these values
         self.mode = mode
         self.complexity = complexity
         self._actual_tool = None
         self._request_model = None
+        
+        # Now safe to call super().__init__() which calls get_name()
+        super().__init__()
     
     def get_name(self) -> str:
         return f"zen_execute_{self.mode}"
@@ -402,6 +406,14 @@ class ModeExecutor(BaseTool):
                 type="text",
                 text=json.dumps(error_data, indent=2, ensure_ascii=False)
             )]
+
+    def get_request_model(self):
+        """Return the minimal request model for this mode and complexity"""
+        return self._get_request_model()
+
+    async def prepare_prompt(self, request) -> str:
+        """Not used - mode executors use execute() directly."""
+        return ""  # Mode executors delegate to actual tools
 
 
 def create_mode_executor(mode: str, complexity: str = "simple") -> ModeExecutor:

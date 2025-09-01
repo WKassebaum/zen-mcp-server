@@ -14,6 +14,10 @@ services:
       - "com.zen-mcp.environment=production"
       - "com.zen-mcp.description=AI-powered Model Context Protocol server"
     
+    # Port for TCP MCP connection
+    ports:
+      - "3001:3001"
+    
     # Environment variables
     environment:
       # Default model configuration
@@ -43,16 +47,26 @@ services:
       - DISABLED_TOOLS=${DISABLED_TOOLS}
       - MAX_MCP_OUTPUT_TOKENS=${MAX_MCP_OUTPUT_TOKENS}
       
+      # Token Optimization A/B Testing (v5.12.0)
+      # Toggle these for A/B testing without rebuilding
+      - ZEN_TOKEN_OPTIMIZATION=${ZEN_TOKEN_OPTIMIZATION:-enabled}
+      - ZEN_OPTIMIZATION_MODE=${ZEN_OPTIMIZATION_MODE:-two_stage}
+      - ZEN_TOKEN_TELEMETRY=${ZEN_TOKEN_TELEMETRY:-true}
+      - ZEN_OPTIMIZATION_VERSION=${ZEN_OPTIMIZATION_VERSION:-v5.12.0-alpha}
+      
       # Server configuration
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       - TZ=${TZ:-UTC}
+      - RUNNING_IN_DOCKER=true
+      - MCP_TCP_PORT=3001
     
     # Volumes for persistent data
     volumes:
       - ./logs:/app/logs
       - zen-mcp-config:/app/conf
       - /etc/localtime:/etc/localtime:ro
+      - zen-telemetry:/root/.zen_mcp  # Token optimization telemetry data
     
     # Network configuration
     # networks:
@@ -94,6 +108,8 @@ services:
 # Named volumes
 volumes:
   zen-mcp-config:
+    driver: local
+  zen-telemetry:
     driver: local
 
 # Networks
