@@ -32,7 +32,57 @@ else
 fi
 
 echo "Using: $PIP_CMD"
-$PIP_CMD install -e .
+
+# Try to install with different methods to handle PEP 668
+echo "Attempting installation..."
+
+# First try normal install
+if $PIP_CMD install -e . 2>/dev/null; then
+    echo "✅ Installation successful"
+elif $PIP_CMD install --user -e . 2>/dev/null; then
+    echo "✅ Installation successful (user install)"
+    echo "ℹ️  Installed to user directory"
+else
+    echo ""
+    echo "⚠️  macOS Python protection detected (PEP 668)"
+    echo ""
+    echo "Choose installation method:"
+    echo "1. User install (recommended)"
+    echo "2. Virtual environment (best for development)"
+    echo "3. Override protection (not recommended)"
+    echo ""
+    read -p "Select option (1-3): " -n 1 -r
+    echo ""
+    
+    case $REPLY in
+        1)
+            echo "Installing to user directory..."
+            $PIP_CMD install --user -e .
+            echo "✅ Installed to user directory"
+            echo "ℹ️  You may need to add ~/.local/bin to your PATH"
+            ;;
+        2)
+            echo "Creating virtual environment..."
+            python3 -m venv .venv
+            echo "Activating virtual environment..."
+            source .venv/bin/activate
+            pip install -e .
+            echo "✅ Installed in virtual environment"
+            echo ""
+            echo "To use zen-cli, activate the environment first:"
+            echo "  source .venv/bin/activate"
+            ;;
+        3)
+            echo "Installing with override..."
+            $PIP_CMD install --break-system-packages --user -e .
+            echo "✅ Installed with override"
+            ;;
+        *)
+            echo "Invalid option. Exiting."
+            exit 1
+            ;;
+    esac
+fi
 
 # Check for API keys
 echo ""
