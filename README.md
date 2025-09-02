@@ -9,19 +9,28 @@ Command-line interface for Zen MCP Server with revolutionary 95% token optimizat
 
 ## Installation
 
-### Quick Install (Recommended)
+### Quick Install (Recommended for macOS)
 ```bash
 # Clone and checkout the CLI branch
 git clone https://github.com/WKassebaum/zen-mcp-server.git zen-cli
 cd zen-cli
 git checkout feature/cli-implementation
 
-# Install
-pip install -e .
+# Choose your installation method:
 
-# Verify installation
+# Method 1: Virtual Environment (Cleanest)
+./venv_install.sh
+source zen-venv/bin/activate
 zen --version
-zen --help
+
+# Method 2: User Install (System-wide)
+./quick_install.sh
+export PATH="$HOME/.local/bin:$PATH"
+zen --version
+
+# Method 3: Manual Override
+pip3 install --break-system-packages --user -e .
+zen --version
 ```
 
 ### For Developers (Working on both MCP Server and CLI)

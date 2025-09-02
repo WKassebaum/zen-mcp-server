@@ -6,9 +6,9 @@
 echo "🚀 Zen CLI Quick Install (User Directory)"
 echo "========================================="
 
-# Install to user directory
+# Install to user directory with override for PEP 668
 echo "Installing to user directory (~/.local)..."
-pip3 install --user -e .
+pip3 install --break-system-packages --user -e .
 
 # Check if ~/.local/bin is in PATH
 if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
