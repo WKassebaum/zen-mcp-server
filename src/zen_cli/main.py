@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
-Zen CLI - Main entry point
+Zen CLI - Standalone AI-powered development assistant
 
-Command-line interface for Zen MCP Server with 95% token optimization.
-Provides two-stage token optimization and direct access to all Zen tools.
+A command-line interface providing direct access to all Zen tools without
+requiring an MCP server. Can be called from Claude Code, bash scripts, or
+used interactively.
 """
 
 import json
+import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 import click
 from rich.console import Console
@@ -17,222 +19,399 @@ from rich.markdown import Markdown
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+# Import our standalone components
 from .config import load_config, save_config, get_api_key
-from .token_optimizer import TokenOptimizer
-from .api_client import ZenAPIClient
+from .providers.registry import ModelRegistry
+from .utils.conversation_memory import ConversationMemory
+from .utils.file_utils import read_files_with_budget
+
+# Import tools
+from .tools.chat import ChatTool
+from .tools.debug import DebugTool
+from .tools.codereview import CodeReviewTool
+from .tools.consensus import ConsensusTool
+from .tools.analyze import AnalyzeTool
+from .tools.planner import PlannerTool
+from .tools.thinkdeep import ThinkDeepTool
+from .tools.challenge import ChallengeTool
+from .tools.precommit import PrecommitTool
+from .tools.refactor import RefactorTool
+from .tools.secaudit import SecurityAuditTool
+from .tools.testgen import TestGeneratorTool
+from .tools.docgen import DocGeneratorTool
+from .tools.tracer import TracerTool
+from .tools.listmodels import ListModelsTool
+from .tools.version import VersionTool
 
 console = Console()
 
 
+class ZenCLI:
+    """Main CLI orchestrator for standalone Zen tools."""
+    
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize the CLI with configuration."""
+        self.config = config
+        self.registry = ModelRegistry()
+        self.conversation_memory = ConversationMemory()
+        
+        # Initialize all tools
+        self.tools = {
+            'chat': ChatTool(self.registry, self.conversation_memory),
+            'debug': DebugTool(self.registry, self.conversation_memory),
+            'codereview': CodeReviewTool(self.registry, self.conversation_memory),
+            'consensus': ConsensusTool(self.registry, self.conversation_memory),
+            'analyze': AnalyzeTool(self.registry, self.conversation_memory),
+            'planner': PlannerTool(self.registry, self.conversation_memory),
+            'thinkdeep': ThinkDeepTool(self.registry, self.conversation_memory),
+            'challenge': ChallengeTool(self.registry, self.conversation_memory),
+            'precommit': PrecommitTool(self.registry, self.conversation_memory),
+            'refactor': RefactorTool(self.registry, self.conversation_memory),
+            'secaudit': SecurityAuditTool(self.registry, self.conversation_memory),
+            'testgen': TestGeneratorTool(self.registry, self.conversation_memory),
+            'docgen': DocGeneratorTool(self.registry, self.conversation_memory),
+            'tracer': TracerTool(self.registry, self.conversation_memory),
+            'listmodels': ListModelsTool(self.registry, self.conversation_memory),
+            'version': VersionTool(self.registry, self.conversation_memory),
+        }
+    
+    def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a tool with given arguments."""
+        if tool_name not in self.tools:
+            return {
+                'status': 'error',
+                'message': f"Unknown tool: {tool_name}"
+            }
+        
+        tool = self.tools[tool_name]
+        try:
+            result = tool.process_request(arguments)
+            return {
+                'status': 'success',
+                'result': result
+            }
+        except Exception as e:
+            return {
+                'status': 'error',
+                'message': str(e)
+            }
+
+
 @click.group()
-@click.version_option(version="0.1.0", prog_name="zen")
+@click.version_option(version="1.0.0", prog_name="zen")
 @click.pass_context
 def cli(ctx):
     """
-    Zen CLI - AI-powered development assistant with 95% token optimization.
+    Zen CLI - Standalone AI-powered development assistant.
     
-    Two-stage optimization commands:
-      zen select <task>  - Analyze task and recommend mode (~200 tokens)
-      zen execute <mode> - Execute with minimal schema (~600 tokens)
+    Direct access to all Zen tools without requiring an MCP server.
+    Perfect for use with Claude Code, bash scripts, or interactive sessions.
     
-    Direct commands (auto-optimized):
-      zen chat    - General AI consultation
-      zen debug   - Debug issues systematically  
-      zen review  - Code review and quality assessment
-      zen analyze - Architecture and code analysis
-      zen consensus - Multi-model consensus building
+    Examples:
+      zen chat "Explain REST APIs"
+      zen debug "OAuth not working" --files auth.py
+      zen codereview --files src/*.py --model gemini-pro
+      zen consensus "Should we use microservices?" --models gemini,o3
     """
     ctx.ensure_object(dict)
     config = load_config()
     ctx.obj['config'] = config
-    ctx.obj['client'] = ZenAPIClient(config)
-    ctx.obj['optimizer'] = TokenOptimizer()
-
-
-@cli.command()
-@click.argument('task_description')
-@click.option('--confidence', type=click.Choice(['exploring', 'medium', 'high']), 
-              default='medium', help='Your confidence level in understanding the task')
-@click.option('--context-size', type=click.Choice(['minimal', 'standard', 'comprehensive']),
-              default='standard', help='Amount of context available')
-@click.pass_context
-def select(ctx, task_description, confidence, context_size):
-    """
-    Stage 1: Analyze task and recommend optimal mode (~200 tokens).
-    
-    This is the first stage of the two-stage token optimization.
-    It analyzes your task and recommends the best mode and parameters
-    for Stage 2 execution.
-    """
-    console.print(f"[bold cyan]🔍 Analyzing task...[/bold cyan]")
-    
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-        task = progress.add_task("Selecting optimal mode...", total=None)
-        
-        optimizer = ctx.obj['optimizer']
-        result = optimizer.select_mode(
-            task_description=task_description,
-            confidence_level=confidence,
-            context_size=context_size
-        )
-        
-        progress.stop()
-    
-    if result['status'] == 'mode_selected':
-        console.print(f"[bold green]✅ Mode selected: {result['selected_mode']}[/bold green]")
-        console.print(f"Complexity: {result['complexity']}")
-        console.print(f"Description: {result['description']}")
-        console.print(f"[bold yellow]Token savings: {result.get('token_savings', 'N/A')}[/bold yellow]")
-        
-        # Show next step
-        console.print("\n[bold]Next step:[/bold]")
-        console.print(f"Run: [cyan]zen execute {result['selected_mode']} --complexity {result['complexity']}[/cyan]")
-        
-        # Save selection for next command
-        cache_file = Path.home() / '.zen' / 'last_selection.json'
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
-        cache_file.write_text(json.dumps(result, indent=2))
-    else:
-        console.print(f"[bold red]❌ Error: {result.get('message', 'Unknown error')}[/bold red]")
-
-
-@cli.command()
-@click.argument('mode', type=click.Choice(
-    ['debug', 'review', 'analyze', 'chat', 'consensus', 'security', 'refactor', 'testgen', 'planner', 'tracer']
-))
-@click.option('--complexity', type=click.Choice(['simple', 'workflow', 'expert']),
-              default='simple', help='Task complexity level')
-@click.option('--request', '-r', help='JSON request parameters')
-@click.option('--from-file', '-f', type=click.Path(exists=True), 
-              help='Load request from JSON file')
-@click.pass_context
-def execute(ctx, mode, complexity, request, from_file):
-    """
-    Stage 2: Execute with optimized mode and minimal schema (~600 tokens).
-    
-    This is the second stage of the two-stage token optimization.
-    Uses the mode selected in Stage 1 with minimal schema overhead.
-    """
-    console.print(f"[bold cyan]⚡ Executing {mode} mode...[/bold cyan]")
-    
-    # Load request parameters
-    if from_file:
-        with open(from_file, 'r') as f:
-            request_params = json.load(f)
-    elif request:
-        request_params = json.loads(request)
-    else:
-        # Try to load from last selection
-        cache_file = Path.home() / '.zen' / 'last_selection.json'
-        if cache_file.exists():
-            last_selection = json.loads(cache_file.read_text())
-            console.print("[dim]Using parameters from last selection[/dim]")
-            request_params = last_selection.get('next_step', {}).get('required_fields', {})
-        else:
-            console.print("[bold red]❌ No request parameters provided[/bold red]")
-            console.print("Use --request or --from-file, or run 'zen select' first")
-            return
-    
-    with Progress(
-        SpinnerColumn(),
-        TextColumn("[progress.description]{task.description}"),
-        console=console
-    ) as progress:
-        task = progress.add_task(f"Executing {mode}...", total=None)
-        
-        optimizer = ctx.obj['optimizer']
-        result = optimizer.execute_mode(
-            mode=mode,
-            complexity=complexity,
-            request=request_params
-        )
-        
-        progress.stop()
-    
-    # Display results
-    if result.get('status') == 'success':
-        console.print("[bold green]✅ Execution successful[/bold green]")
-        if result.get('content'):
-            console.print(Markdown(result['content']))
-    else:
-        console.print(f"[bold red]❌ Error: {result.get('message', 'Unknown error')}[/bold red]")
-    
-    # Show token optimization stats
-    if '_meta' in result:
-        meta = result['_meta']
-        console.print(f"\n[dim]Token optimization: {meta.get('optimization_level', 'N/A')}[/dim]")
-        console.print(f"[dim]Schema size: {meta.get('schema_size', 'N/A')} bytes[/dim]")
+    ctx.obj['zen'] = ZenCLI(config)
 
 
 @cli.command()
 @click.argument('prompt')
 @click.option('--model', default='auto', help='Model to use (auto for automatic selection)')
 @click.option('--temperature', type=float, help='Temperature for response generation')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def chat(ctx, prompt, model, temperature):
-    """Quick AI consultation and brainstorming."""
-    console.print("[bold cyan]💬 Starting chat...[/bold cyan]")
+def chat(ctx, prompt, model, temperature, output_json):
+    """General AI consultation and brainstorming."""
+    zen = ctx.obj['zen']
     
-    client = ctx.obj['client']
-    response = client.chat(prompt, model=model, temperature=temperature)
+    arguments = {
+        'request': prompt,
+        'model': model
+    }
+    if temperature is not None:
+        arguments['temperature'] = temperature
     
-    if response.get('status') == 'success':
-        console.print(Markdown(response['content']))
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Thinking...", total=None)
+        result = zen.execute_tool('chat', arguments)
+        progress.stop()
+    
+    if output_json:
+        console.print_json(json.dumps(result))
     else:
-        console.print(f"[bold red]❌ Error: {response.get('message', 'Unknown error')}[/bold red]")
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
 
 
 @cli.command()
 @click.argument('problem')
 @click.option('--files', '-f', multiple=True, help='Files to include in debugging')
-@click.option('--confidence', type=click.Choice(['exploring', 'medium', 'high']),
+@click.option('--confidence', type=click.Choice(['exploring', 'low', 'medium', 'high', 'certain']),
               default='exploring', help='Confidence in problem understanding')
+@click.option('--model', default='auto', help='Model to use')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def debug(ctx, problem, files, confidence):
+def debug(ctx, problem, files, confidence, model, output_json):
     """Systematic debugging and root cause analysis."""
-    console.print("[bold cyan]🐛 Starting debug session...[/bold cyan]")
+    zen = ctx.obj['zen']
     
-    # Use two-stage optimization behind the scenes
-    optimizer = ctx.obj['optimizer']
-    
-    # Stage 1: Select mode
-    selection = optimizer.select_mode(
-        task_description=f"Debug: {problem}",
-        confidence_level=confidence
-    )
-    
-    if selection['status'] != 'mode_selected':
-        console.print(f"[bold red]❌ Error selecting mode: {selection.get('message')}[/bold red]")
-        return
-    
-    # Stage 2: Execute
-    request_params = {
-        'problem': problem,
+    arguments = {
+        'request': problem,
         'files': list(files) if files else [],
-        'confidence': confidence
+        'confidence': confidence,
+        'model': model
     }
     
-    result = optimizer.execute_mode(
-        mode='debug',
-        complexity=selection['complexity'],
-        request=request_params
-    )
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Investigating...", total=None)
+        result = zen.execute_tool('debug', arguments)
+        progress.stop()
     
-    if result.get('status') == 'success' or result.get('status') == 'pause_for_investigation':
-        console.print("[bold green]✅ Debug analysis complete[/bold green]")
-        console.print(Markdown(json.dumps(result, indent=2)))
+    if output_json:
+        console.print_json(json.dumps(result))
     else:
-        console.print(f"[bold red]❌ Error: {result.get('message', 'Unknown error')}[/bold red]")
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
 
 
 @cli.command()
-@click.option('--profile', help='Configuration profile to use')
+@click.option('--files', '-f', multiple=True, help='Files to review')
+@click.option('--type', 'review_type', type=click.Choice(['quality', 'security', 'performance', 'all']),
+              default='quality', help='Type of review')
+@click.option('--model', default='auto', help='Model to use')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def config(ctx, profile):
+def codereview(ctx, files, review_type, model, output_json):
+    """Professional code review with actionable feedback."""
+    zen = ctx.obj['zen']
+    
+    arguments = {
+        'files': list(files) if files else [],
+        'review_type': review_type,
+        'model': model
+    }
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Reviewing code...", total=None)
+        result = zen.execute_tool('codereview', arguments)
+        progress.stop()
+    
+    if output_json:
+        console.print_json(json.dumps(result))
+    else:
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.argument('question')
+@click.option('--models', '-m', multiple=True, help='Models to consult')
+@click.option('--context-files', '-f', multiple=True, help='Context files')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def consensus(ctx, question, models, context_files, output_json):
+    """Build consensus from multiple AI models."""
+    zen = ctx.obj['zen']
+    
+    arguments = {
+        'request': question,
+        'models': list(models) if models else None,
+        'context_files': list(context_files) if context_files else None
+    }
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Building consensus...", total=None)
+        result = zen.execute_tool('consensus', arguments)
+        progress.stop()
+    
+    if output_json:
+        console.print_json(json.dumps(result))
+    else:
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, help='Files to analyze')
+@click.option('--analysis-type', type=click.Choice(['architecture', 'dependencies', 'patterns', 'all']),
+              default='all', help='Type of analysis')
+@click.option('--model', default='auto', help='Model to use')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def analyze(ctx, files, analysis_type, model, output_json):
+    """Comprehensive code and architecture analysis."""
+    zen = ctx.obj['zen']
+    
+    arguments = {
+        'files': list(files) if files else [],
+        'analysis_type': analysis_type,
+        'model': model
+    }
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Analyzing...", total=None)
+        result = zen.execute_tool('analyze', arguments)
+        progress.stop()
+    
+    if output_json:
+        console.print_json(json.dumps(result))
+    else:
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.argument('goal')
+@click.option('--context-files', '-f', multiple=True, help='Context files')
+@click.option('--model', default='auto', help='Model to use')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def planner(ctx, goal, context_files, model, output_json):
+    """Break down complex projects into actionable plans."""
+    zen = ctx.obj['zen']
+    
+    arguments = {
+        'request': goal,
+        'context_files': list(context_files) if context_files else None,
+        'model': model
+    }
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Planning...", total=None)
+        result = zen.execute_tool('planner', arguments)
+        progress.stop()
+    
+    if output_json:
+        console.print_json(json.dumps(result))
+    else:
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.argument('topic')
+@click.option('--thinking-mode', type=click.Choice(['low', 'medium', 'high', 'max']),
+              default='medium', help='Depth of reasoning')
+@click.option('--model', default='auto', help='Model to use')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def thinkdeep(ctx, topic, thinking_mode, model, output_json):
+    """Extended reasoning and deep analysis."""
+    zen = ctx.obj['zen']
+    
+    arguments = {
+        'request': topic,
+        'thinking_mode': thinking_mode,
+        'model': model
+    }
+    
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        console=console,
+        transient=True
+    ) as progress:
+        task = progress.add_task("Deep thinking...", total=None)
+        result = zen.execute_tool('thinkdeep', arguments)
+        progress.stop()
+    
+    if output_json:
+        console.print_json(json.dumps(result))
+    else:
+        if result['status'] == 'success':
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.option('--format', 'output_format', type=click.Choice(['table', 'json', 'simple']),
+              default='table', help='Output format')
+@click.pass_context
+def listmodels(ctx, output_format):
+    """List all available AI models."""
+    zen = ctx.obj['zen']
+    
+    result = zen.execute_tool('listmodels', {})
+    
+    if output_format == 'json':
+        console.print_json(json.dumps(result))
+    elif output_format == 'simple':
+        if result['status'] == 'success':
+            console.print(result['result'])
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+    else:  # table format
+        if result['status'] == 'success':
+            # Parse the result and create a table
+            console.print(Markdown(result['result']))
+        else:
+            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.pass_context
+def version(ctx):
+    """Show Zen CLI version and configuration."""
+    zen = ctx.obj['zen']
+    result = zen.execute_tool('version', {})
+    
+    if result['status'] == 'success':
+        console.print(Markdown(result['result']))
+    else:
+        console.print(f"[bold red]Error: {result['message']}[/bold red]")
+
+
+@cli.command()
+@click.pass_context
+def config(ctx):
     """Manage configuration and API keys."""
     config = ctx.obj['config']
     
@@ -242,46 +421,18 @@ def config(ctx, profile):
     
     table.add_row("Config File", str(Path.home() / '.zen' / 'config.yaml'))
     table.add_row("Active Profile", config.get('active_profile', 'default'))
-    table.add_row("API Endpoint", config.get('api_endpoint', 'http://localhost:3001'))
-    table.add_row("Token Optimization", "Enabled (95% reduction)")
     
     # Check API keys
-    for key in ['GEMINI_API_KEY', 'OPENAI_API_KEY']:
+    for key in ['GEMINI_API_KEY', 'OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'XAI_API_KEY']:
         value = get_api_key(key, config)
         display_value = f"{'✅ Set' if value else '❌ Not set'}"
         table.add_row(key, display_value)
     
+    # Check Redis
+    redis_url = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+    table.add_row("Redis URL", redis_url)
+    
     console.print(table)
-
-
-@cli.command()
-@click.pass_context
-def interactive(ctx):
-    """Launch interactive mode with rich terminal UI."""
-    console.print("[bold cyan]🚀 Launching interactive mode...[/bold cyan]")
-    console.print("[dim]Interactive mode coming soon![/dim]")
-    # TODO: Implement interactive mode with textual or prompt_toolkit
-
-
-@cli.group()
-def plugin():
-    """Manage Zen CLI plugins."""
-    pass
-
-
-@plugin.command('list')
-def plugin_list():
-    """List installed plugins."""
-    console.print("[bold]Installed Plugins:[/bold]")
-    console.print("[dim]Plugin system coming soon![/dim]")
-
-
-@plugin.command('install')
-@click.argument('plugin_name')
-def plugin_install(plugin_name):
-    """Install a new plugin."""
-    console.print(f"[bold cyan]Installing plugin: {plugin_name}[/bold cyan]")
-    console.print("[dim]Plugin system coming soon![/dim]")
 
 
 if __name__ == '__main__':

@@ -9,17 +9,14 @@ Command-line interface for Zen MCP Server with revolutionary 95% token optimizat
 
 ## Installation
 
-### From Source (Development)
+### Quick Install (Recommended)
 ```bash
-# Clone the repository (if not already done)
-git clone https://github.com/WKassebaum/zen-mcp-server.git
-cd zen-mcp-server
+# Clone and checkout the CLI branch
+git clone https://github.com/WKassebaum/zen-mcp-server.git zen-cli
+cd zen-cli
+git checkout feature/cli-implementation
 
-# Switch to CLI worktree
-git worktree add ../zen-cli feature/cli-implementation
-cd ../zen-cli
-
-# Install in development mode
+# Install
 pip install -e .
 
 # Verify installation
@@ -27,10 +24,19 @@ zen --version
 zen --help
 ```
 
+### For Developers (Working on both MCP Server and CLI)
+```bash
+# Use worktree only if you need both projects
+cd zen-mcp-server
+git worktree add ../zen-cli feature/cli-implementation
+cd ../zen-cli
+pip install -e .
+```
+
 ### Prerequisites
 - Python 3.11 or higher
-- Zen MCP Server running (locally or remotely)
-- API keys for Gemini or OpenAI
+- API keys for at least one provider (Gemini, OpenAI, OpenRouter, or X.AI)
+- Optional: Redis for conversation memory (falls back to in-memory if not available)
 
 ## Quick Start
 
@@ -45,16 +51,7 @@ export GEMINI_API_KEY="your-key-here"
 export OPENAI_API_KEY="your-key-here"
 ```
 
-### 2. Start Zen MCP Server
-In a separate terminal:
-```bash
-cd /path/to/zen-mcp-server
-docker-compose up -d
-# or
-./run-server.sh
-```
-
-### 3. Test Basic Commands
+### 2. Test Basic Commands
 ```bash
 # Simple chat
 zen chat "Hello, how are you?"
