@@ -90,6 +90,19 @@ For best results, use Claude Code with:
 
 ## Quick Start (5 minutes)
 
+### 🐳 Docker Desktop Deployment (Recommended)
+**[→ Full Docker Desktop Guide](DOCKER_DESKTOP_DEPLOYMENT.md)** - Complete setup with Docker Desktop in 2 minutes
+
+**Quick Docker Start:**
+```bash
+git clone https://github.com/WKassebaum/zen-mcp-server.git
+cd zen-mcp-server
+git checkout v5.12.0  # Token optimization release
+cp .env.example .env  # Add API keys
+docker-compose up -d
+```
+
+### Local Installation
 **Prerequisites:** Python 3.10+, Git, [uv installed](https://docs.astral.sh/uv/getting-started/installation/)
 
 **1. Get API Keys** (choose one or more):
