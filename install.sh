@@ -19,7 +19,20 @@ fi
 
 # Install the CLI
 echo "📦 Installing Zen CLI..."
-pip install -e .
+
+# Try to find pip or pip3
+if command -v pip3 &> /dev/null; then
+    PIP_CMD="pip3"
+elif command -v pip &> /dev/null; then
+    PIP_CMD="pip"
+else
+    echo "❌ Error: pip not found. Please install pip first."
+    echo "Try: python3 -m ensurepip --upgrade"
+    exit 1
+fi
+
+echo "Using: $PIP_CMD"
+$PIP_CMD install -e .
 
 # Check for API keys
 echo ""
