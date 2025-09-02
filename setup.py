@@ -33,6 +33,10 @@ setup(
         "httpx>=0.25.0",
         "pydantic>=2.0.0",
         "python-dotenv>=1.0.0",
+        "google-generativeai>=0.3.0",
+        "openai>=1.0.0",
+        "redis>=5.0.0",
+        "tiktoken>=0.5.0",
     ],
     entry_points={
         "console_scripts": [

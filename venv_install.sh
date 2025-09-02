@@ -16,7 +16,12 @@ source zen-venv/bin/activate
 
 # Install zen-cli
 echo "Installing Zen CLI..."
-pip install -e .
+if pip install -e .; then
+    echo "✅ Zen CLI installed successfully!"
+else
+    echo "❌ Installation failed. Check the error messages above."
+    exit 1
+fi
 
 # Create activation script
 cat > activate_zen.sh << 'EOF'
