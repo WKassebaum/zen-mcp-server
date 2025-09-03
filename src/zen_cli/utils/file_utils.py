@@ -821,7 +821,7 @@ def check_total_file_size(files: list[str], model_name: str) -> Optional[dict]:
 
     logger.info(f"File size check: Using model '{model_name}' for token limit calculation")
 
-    from utils.model_context import ModelContext
+    from zen_cli.utils.model_context import ModelContext
 
     model_context = ModelContext(model_name)
     token_allocation = model_context.calculate_token_allocation()

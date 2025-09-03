@@ -26,11 +26,11 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field, field_validator
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from config import TEMPERATURE_BALANCED
-from systemprompts import PLANNER_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from zen_cli.config import TEMPERATURE_BALANCED
+from zen_cli.systemprompts import PLANNER_PROMPT
+from zen_cli.tools.shared.base_models import WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -143,7 +143,7 @@ class PlannerTool(WorkflowTool):
 
     def get_model_category(self) -> "ToolModelCategory":
         """Planner requires deep analysis and reasoning"""
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.EXTENDED_REASONING
 

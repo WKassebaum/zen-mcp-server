@@ -282,7 +282,7 @@ class DIALModelProvider(OpenAICompatibleProvider):
             raise ValueError(f"Unsupported DIAL model: {model_name}")
 
         # Check restrictions
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         if not restriction_service.is_allowed(ProviderType.DIAL, resolved_name, model_name):
@@ -317,7 +317,7 @@ class DIALModelProvider(OpenAICompatibleProvider):
                 return False
 
         # Also check restrictions via ModelRestrictionService
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         if not restriction_service.is_allowed(ProviderType.DIAL, resolved_name, model_name):

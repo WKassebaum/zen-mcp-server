@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 # Import handled via importlib.resources.files() calls directly
-from utils.file_utils import read_json_file
+from zen_cli.utils.file_utils import read_json_file
 
 from .base import (
     ModelCapabilities,

@@ -14,24 +14,24 @@ import os
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any, Optional
 
-from mcp.types import TextContent
+from zen_cli.types import TextContent
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from config import MCP_PROMPT_SIZE_LIMIT
-from providers import ModelProvider, ModelProviderRegistry
-from utils import check_token_limit
-from utils.conversation_memory import (
+from zen_cli.config import MCP_PROMPT_SIZE_LIMIT
+from zen_cli.providers import ModelProvider, ModelProviderRegistry
+from zen_cli.utils import check_token_limit
+from zen_cli.utils.conversation_memory import (
     ConversationTurn,
     get_conversation_file_list,
     get_thread,
 )
-from utils.file_utils import read_file_content, read_files
+from zen_cli.utils.file_utils import read_file_content, read_files
 
 # Import models from tools.models for compatibility
 try:
-    from tools.models import SPECIAL_STATUS_MODELS, ContinuationOffer, ToolOutput
+    from zen_cli.tools.models import SPECIAL_STATUS_MODELS, ContinuationOffer, ToolOutput
 except ImportError:
     # Fallback in case models haven't been set up yet
     SPECIAL_STATUS_MODELS = {}
@@ -87,7 +87,7 @@ class BaseTool(ABC):
         """Get cached OpenRouter registry instance, creating if needed."""
         # Use BaseTool class directly to ensure cache is shared across all subclasses
         if BaseTool._openrouter_registry_cache is None:
-            from providers.openrouter_registry import OpenRouterModelRegistry
+            from zen_cli.providers.openrouter_registry import OpenRouterModelRegistry
 
             BaseTool._openrouter_registry_cache = OpenRouterModelRegistry()
             logger.debug("Created cached OpenRouter registry instance")
@@ -188,8 +188,8 @@ class BaseTool(ABC):
         Returns:
             bool: True if model parameter should be required in the schema
         """
-        from config import DEFAULT_MODEL
-        from providers.registry import ModelProviderRegistry
+        from zen_cli.config import DEFAULT_MODEL
+        from zen_cli.providers.registry import ModelProviderRegistry
 
         # Case 1: Explicit auto mode
         if DEFAULT_MODEL.lower() == "auto":
@@ -221,7 +221,7 @@ class BaseTool(ABC):
             return True
 
         # Case 2: Requested model is not available
-        from providers.registry import ModelProviderRegistry
+        from zen_cli.providers.registry import ModelProviderRegistry
 
         provider = ModelProviderRegistry.get_provider_for_model(model_name)
         if not provider:
@@ -242,7 +242,7 @@ class BaseTool(ABC):
         Returns:
             List of model names from enabled providers only
         """
-        from providers.registry import ModelProviderRegistry
+        from zen_cli.providers.registry import ModelProviderRegistry
 
         # Get models from enabled providers only (those with valid API keys)
         all_models = ModelProviderRegistry.get_available_model_names()
@@ -300,7 +300,7 @@ class BaseTool(ABC):
         """
         import os
 
-        from config import DEFAULT_MODEL
+        from zen_cli.config import DEFAULT_MODEL
 
         # Check if OpenRouter is configured
         has_openrouter = bool(
@@ -316,8 +316,8 @@ class BaseTool(ABC):
             ]
 
             # Get descriptions from enabled providers
-            from providers.base import ProviderType
-            from providers.registry import ModelProviderRegistry
+            from zen_cli.providers.base import ProviderType
+            from zen_cli.providers.registry import ModelProviderRegistry
 
             # Map provider types to readable names
             provider_names = {
@@ -521,7 +521,7 @@ class BaseTool(ABC):
         Returns:
             ToolModelCategory: Category that influences model selection
         """
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.BALANCED
 
@@ -732,7 +732,7 @@ class BaseTool(ABC):
         appear in subsequent conversation turns.
 
         Args:
-            turn: The conversation turn to format (from utils.conversation_memory)
+            turn: The conversation turn to format (from zen_cli.utils.conversation_memory)
 
         Returns:
             list[str]: Lines of formatted content for this turn
@@ -970,7 +970,7 @@ class BaseTool(ABC):
             )
             try:
                 # Before calling read_files, expand directories to get individual file paths
-                from utils.file_utils import expand_paths
+                from zen_cli.utils.file_utils import expand_paths
 
                 expanded_files = expand_paths(files_to_embed)
                 logger.debug(
@@ -991,7 +991,7 @@ class BaseTool(ABC):
                 actually_processed_files.extend(expanded_files)
 
                 # Estimate tokens for debug logging
-                from utils.token_utils import estimate_tokens
+                from zen_cli.utils.token_utils import estimate_tokens
 
                 content_tokens = estimate_tokens(file_content)
                 logger.debug(
@@ -1174,7 +1174,7 @@ When recommending searches, be specific about what information you need and why 
             return True
 
         # Case 2: Requested model is not available
-        from providers.registry import ModelProviderRegistry
+        from zen_cli.providers.registry import ModelProviderRegistry
 
         provider = ModelProviderRegistry.get_provider_for_model(model_name)
         if not provider:
@@ -1194,7 +1194,7 @@ When recommending searches, be specific about what information you need and why 
         Returns:
             List of model names from enabled providers only
         """
-        from providers.registry import ModelProviderRegistry
+        from zen_cli.providers.registry import ModelProviderRegistry
 
         # Get models from enabled providers only (those with valid API keys)
         all_models = ModelProviderRegistry.get_available_model_names()
@@ -1203,7 +1203,7 @@ When recommending searches, be specific about what information you need and why 
         openrouter_key = os.getenv("OPENROUTER_API_KEY")
         if openrouter_key and openrouter_key != "your_openrouter_api_key_here":
             try:
-                from config import OPENROUTER_MODELS
+                from zen_cli.config import OPENROUTER_MODELS
 
                 all_models.extend(OPENROUTER_MODELS)
             except ImportError:
@@ -1241,28 +1241,30 @@ When recommending searches, be specific about what information you need and why 
             # Fallback for direct execute calls
             model_name = getattr(request, "model", None)
             if not model_name:
-                from config import DEFAULT_MODEL
+                from zen_cli.config import DEFAULT_MODEL
 
                 model_name = DEFAULT_MODEL
             logger.debug(f"Using fallback model resolution for '{model_name}' (test mode)")
 
             # For tests: Check if we should require model selection (auto mode)
+            print(f"[DEBUG] _resolve_model_context: model_name={model_name}")
+            print(f"[DEBUG] _should_require_model_selection({model_name}) = {self._should_require_model_selection(model_name)}")
             if self._should_require_model_selection(model_name):
                 # Get suggested model based on tool category
-                from providers.registry import ModelProviderRegistry
+                from zen_cli.providers.registry import ModelProviderRegistry
 
                 tool_category = self.get_model_category()
                 suggested_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+                print(f"[DEBUG] Got suggested_model: {suggested_model}")
 
-                # Build error message based on why selection is required
+                # Handle auto mode by using suggested model
                 if model_name.lower() == "auto":
-                    error_message = (
-                        f"Model parameter is required in auto mode. "
-                        f"Suggested model for {self.get_name()}: '{suggested_model}' "
-                        f"(category: {tool_category.value})"
-                    )
+                    # Use the suggested model instead of raising an error
+                    print(f"[DEBUG] Auto mode: using suggested model '{suggested_model}' for {self.get_name()}")
+                    model_name = suggested_model
+                    print(f"[DEBUG] After auto resolution: model_name={model_name}")
                 else:
-                    # Model was specified but not available
+                    # Model was specified but not available - raise error
                     available_models = self._get_available_models()
 
                     error_message = (
@@ -1271,12 +1273,13 @@ When recommending searches, be specific about what information you need and why 
                         f"Suggested model for {self.get_name()}: '{suggested_model}' "
                         f"(category: {tool_category.value})"
                     )
-                raise ValueError(error_message)
+                    raise ValueError(error_message)
 
             # Create model context for tests
-            from utils.model_context import ModelContext
+            from zen_cli.utils.model_context import ModelContext
 
-            model_context = ModelContext(model_name)
+            # Use from_arguments to ensure proper model resolution
+            model_context = ModelContext.from_arguments({"model": model_name})
 
         return model_name, model_context
 
@@ -1350,7 +1353,7 @@ When recommending searches, be specific about what information you need and why 
                 "Legacy _validate_image_limits call with model_name string. Use model_context object instead."
             )
             try:
-                from utils.model_context import ModelContext
+                from zen_cli.utils.model_context import ModelContext
 
                 model_context = ModelContext(model_context)
             except Exception as e:
@@ -1462,7 +1465,7 @@ When recommending searches, be specific about what information you need and why 
         # Apply 40MB cap for custom models if needed
         effective_limit_mb = max_size_mb
         try:
-            from providers.base import ProviderType
+            from zen_cli.providers.base import ProviderType
 
             # ModelCapabilities dataclass has provider field defined
             if capabilities.provider == ProviderType.CUSTOM:

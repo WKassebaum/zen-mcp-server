@@ -22,11 +22,11 @@ from typing import TYPE_CHECKING, Any, Literal, Optional
 from pydantic import Field, model_validator
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from config import TEMPERATURE_ANALYTICAL
-from systemprompts import CODEREVIEW_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from zen_cli.config import TEMPERATURE_ANALYTICAL
+from zen_cli.systemprompts import CODEREVIEW_PROMPT
+from zen_cli.tools.shared.base_models import WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -161,7 +161,7 @@ class CodeReviewTool(WorkflowTool):
 
     def get_model_category(self) -> "ToolModelCategory":
         """Code review requires thorough analysis and reasoning"""
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.EXTENDED_REASONING
 

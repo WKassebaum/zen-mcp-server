@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Optional
 from .base import ModelProvider, ProviderType
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
 
 class ModelProviderRegistry:
@@ -159,7 +159,7 @@ class ModelProviderRegistry:
             Dict mapping model names to provider types
         """
         # Import here to avoid circular imports
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service() if respect_restrictions else None
         models: dict[str, ProviderType] = {}
@@ -255,7 +255,7 @@ class ModelProviderRegistry:
         Returns:
             List of model names that are both supported and allowed
         """
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
 
@@ -294,7 +294,7 @@ class ModelProviderRegistry:
         Returns:
             Model name string for fallback use
         """
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         effective_category = tool_category or ToolModelCategory.BALANCED
         first_available_model = None

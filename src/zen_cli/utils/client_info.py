@@ -270,7 +270,7 @@ def log_client_info(server: Any, logger_instance: Optional[logging.Logger] = Non
 
 # Example usage in tools:
 #
-# from utils.client_info import get_client_friendly_name, get_cached_client_info
+# from zen_cli.utils.client_info import get_client_friendly_name, get_cached_client_info
 #
 # # In a tool's execute method:
 # def execute(self, arguments: dict[str, Any]) -> list[TextContent]:

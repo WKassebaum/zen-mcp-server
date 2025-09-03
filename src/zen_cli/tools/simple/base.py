@@ -15,9 +15,9 @@ capabilities from BaseTool.
 from abc import abstractmethod
 from typing import Any, Optional
 
-from tools.shared.base_models import ToolRequest
-from tools.shared.base_tool import BaseTool
-from tools.shared.schema_builders import SchemaBuilder
+from zen_cli.tools.shared.base_models import ToolRequest
+from zen_cli.tools.shared.base_tool import BaseTool
+from zen_cli.tools.shared.schema_builders import SchemaBuilder
 
 
 class SimpleTool(BaseTool):
@@ -278,9 +278,9 @@ class SimpleTool(BaseTool):
         import json
         import logging
 
-        from mcp.types import TextContent
+        from zen_cli.types import TextContent
 
-        from tools.models import ToolOutput
+        from zen_cli.tools.models import ToolOutput
 
         logger = logging.getLogger(f"tools.{self.get_name()}")
 
@@ -308,24 +308,41 @@ class SimpleTool(BaseTool):
 
             # Handle model resolution like old base.py
             model_name = self.get_request_model_name(request)
+            print(f"[DEBUG] Got model_name from request: '{model_name}'")
             if not model_name:
-                from config import DEFAULT_MODEL
+                from zen_cli.config import DEFAULT_MODEL
 
                 model_name = DEFAULT_MODEL
+                print(f"[DEBUG] Using DEFAULT_MODEL: '{model_name}'")
+
+            # Resolve "auto" model to actual model before creating context
+            print(f"[DEBUG] About to check if '{model_name}' == 'auto': {model_name.lower() == 'auto'}")
+            if model_name.lower() == "auto":
+                print("[DEBUG] Entering auto resolution logic")
+                from zen_cli.providers.registry import ModelProviderRegistry
+                tool_category = self.get_model_category()
+                resolved_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+                print(f"[DEBUG] Auto mode: resolved to '{resolved_model}' for {self.get_name()}")
+                model_name = resolved_model
+                print(f"[DEBUG] After resolution, model_name is now: '{model_name}'")
 
             # Store the current model name for later use
             self._current_model_name = model_name
+            print(f"[DEBUG] Stored current model name: '{model_name}'")
 
             # Handle model context from arguments (for in-process testing)
             if "_model_context" in arguments:
                 self._model_context = arguments["_model_context"]
-                logger.debug(f"{self.get_name()}: Using model context from arguments")
+                print(f"[DEBUG] Using model context from arguments")
             else:
-                # Create model context if not provided
-                from utils.model_context import ModelContext
-
-                self._model_context = ModelContext(model_name)
-                logger.debug(f"{self.get_name()}: Created model context for {model_name}")
+                # Create model context if not provided (using from_arguments for auto resolution)
+                from zen_cli.utils.model_context import ModelContext
+                
+                print(f"[DEBUG] About to create ModelContext with model_name: '{model_name}'")
+                # Use from_arguments to handle auto model resolution
+                temp_arguments = {"model": model_name}
+                self._model_context = ModelContext.from_arguments(temp_arguments)
+                print(f"[DEBUG] Created ModelContext, actual model_name in context: '{self._model_context.model_name}'")
 
             # Get images if present
             images = self.get_request_images(request)
@@ -344,7 +361,7 @@ class SimpleTool(BaseTool):
                     logger.debug(f"{self.get_name()}: No embedded history found, reconstructing conversation")
 
                     # Get thread context
-                    from utils.conversation_memory import add_turn, build_conversation_history, get_thread
+                    from zen_cli.utils.conversation_memory import add_turn, build_conversation_history, get_thread
 
                     thread_context = get_thread(continuation_id)
 
@@ -381,14 +398,10 @@ class SimpleTool(BaseTool):
             else:
                 # New conversation, prepare prompt normally
                 prompt = await self.prepare_prompt(request)
-
-                # Add follow-up instructions for new conversations
-                from server import get_follow_up_instructions
-
-                follow_up_instructions = get_follow_up_instructions(0)
-                prompt = f"{prompt}\n\n{follow_up_instructions}"
+                
+                # Note: Follow-up instructions removed in standalone CLI
                 logger.debug(
-                    f"Added follow-up instructions for new {self.get_name()} conversation"
+                    f"Starting new {self.get_name()} conversation"
                 )  # Validate images if any were provided
             if images:
                 image_validation_error = self._validate_image_limits(
@@ -423,7 +436,7 @@ class SimpleTool(BaseTool):
             )
 
             # Estimate tokens for logging
-            from utils.token_utils import estimate_tokens
+            from zen_cli.utils.token_utils import estimate_tokens
 
             estimated_tokens = estimate_tokens(prompt)
             logger.debug(f"Prompt length: {len(prompt)} characters (~{estimated_tokens:,} tokens)")
@@ -578,7 +591,7 @@ class SimpleTool(BaseTool):
         This simplified version focuses on the SimpleTool pattern: format the response
         using the format_response hook, then handle conversation continuation.
         """
-        from tools.models import ToolOutput
+        from zen_cli.tools.models import ToolOutput
 
         # Format the response using the hook method
         formatted_response = self.format_response(raw_text, request, model_info)
@@ -587,7 +600,7 @@ class SimpleTool(BaseTool):
         continuation_id = self.get_request_continuation_id(request)
         if continuation_id:
             # Add turn to conversation memory
-            from utils.conversation_memory import add_turn
+            from zen_cli.utils.conversation_memory import add_turn
 
             # Extract model metadata for conversation tracking
             model_provider = None
@@ -660,14 +673,14 @@ class SimpleTool(BaseTool):
         continuation_id = self.get_request_continuation_id(request)
 
         try:
-            from utils.conversation_memory import create_thread, get_thread
+            from zen_cli.utils.conversation_memory import create_thread, get_thread
 
             if continuation_id:
                 # Existing conversation
                 thread_context = get_thread(continuation_id)
                 if thread_context and thread_context.turns:
                     turn_count = len(thread_context.turns)
-                    from utils.conversation_memory import MAX_CONVERSATION_TURNS
+                    from zen_cli.utils.conversation_memory import MAX_CONVERSATION_TURNS
 
                     if turn_count >= MAX_CONVERSATION_TURNS - 1:
                         return None  # No more turns allowed
@@ -686,7 +699,7 @@ class SimpleTool(BaseTool):
                 new_thread_id = create_thread(tool_name=self.get_name(), initial_request=initial_request_dict)
 
                 # Add the initial user turn to the new thread
-                from utils.conversation_memory import MAX_CONVERSATION_TURNS, add_turn
+                from zen_cli.utils.conversation_memory import MAX_CONVERSATION_TURNS, add_turn
 
                 user_prompt = self.get_request_prompt(request)
                 user_files = self.get_request_files(request)
@@ -709,7 +722,7 @@ class SimpleTool(BaseTool):
         self, content: str, continuation_data: dict, request, model_info: Optional[dict] = None
     ):
         """Create response with continuation offer following old base.py pattern"""
-        from tools.models import ContinuationOffer, ToolOutput
+        from zen_cli.tools.models import ContinuationOffer, ToolOutput
 
         try:
             continuation_offer = ContinuationOffer(
@@ -877,7 +890,7 @@ Please provide a thoughtful, comprehensive response:"""
         validation_content = self.get_prompt_content_for_size_validation(user_content)
         size_check = self.check_prompt_size(validation_content)
         if size_check:
-            from tools.models import ToolOutput
+            from zen_cli.tools.models import ToolOutput
 
             raise ValueError(f"MCP_SIZE_CHECK:{ToolOutput(**size_check).model_dump_json()}")
 

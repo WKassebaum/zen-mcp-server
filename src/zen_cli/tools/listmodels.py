@@ -10,11 +10,11 @@ import logging
 import os
 from typing import Any, Optional
 
-from mcp.types import TextContent
+from zen_cli.types import TextContent
 
-from tools.models import ToolModelCategory, ToolOutput
-from tools.shared.base_models import ToolRequest
-from tools.shared.base_tool import BaseTool
+from zen_cli.tools.models import ToolModelCategory, ToolOutput
+from zen_cli.tools.shared.base_models import ToolRequest
+from zen_cli.tools.shared.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +79,9 @@ class ListModelsTool(BaseTool):
         Returns:
             Formatted list of models by provider
         """
-        from providers.base import ProviderType
-        from providers.openrouter_registry import OpenRouterModelRegistry
-        from providers.registry import ModelProviderRegistry
+        from zen_cli.providers.base import ProviderType
+        from zen_cli.providers.openrouter_registry import OpenRouterModelRegistry
+        from zen_cli.providers.registry import ModelProviderRegistry
 
         output_lines = ["# Available AI Models\n"]
 
@@ -160,8 +160,8 @@ class ListModelsTool(BaseTool):
 
             try:
                 # Get OpenRouter provider from registry to properly apply restrictions
-                from providers.base import ProviderType
-                from providers.registry import ModelProviderRegistry
+                from zen_cli.providers.base import ProviderType
+                from zen_cli.providers.registry import ModelProviderRegistry
 
                 provider = ModelProviderRegistry.get_provider(ProviderType.OPENROUTER)
                 if provider:
@@ -203,7 +203,7 @@ class ListModelsTool(BaseTool):
                     # Check if restrictions are applied
                     restriction_service = None
                     try:
-                        from utils.model_restrictions import get_restriction_service
+                        from zen_cli.utils.model_restrictions import get_restriction_service
 
                         restriction_service = get_restriction_service()
                         if restriction_service.has_restrictions(ProviderType.OPENROUTER):
@@ -279,7 +279,7 @@ class ListModelsTool(BaseTool):
 
         # Get total available models
         try:
-            from providers.registry import ModelProviderRegistry
+            from zen_cli.providers.registry import ModelProviderRegistry
 
             # Get all available models respecting restrictions
             available_models = ModelProviderRegistry.get_available_models(respect_restrictions=True)

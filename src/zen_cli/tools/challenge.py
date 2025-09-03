@@ -13,10 +13,10 @@ from typing import TYPE_CHECKING, Any, Optional
 from pydantic import Field
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from config import TEMPERATURE_ANALYTICAL
-from tools.shared.base_models import ToolRequest
+from zen_cli.config import TEMPERATURE_ANALYTICAL
+from zen_cli.tools.shared.base_models import ToolRequest
 
 from .simple.base import SimpleTool
 
@@ -68,7 +68,7 @@ class ChallengeTool(SimpleTool):
 
     def get_model_category(self) -> "ToolModelCategory":
         """Challenge doesn't need a model category since it doesn't use AI"""
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.FAST_RESPONSE  # Default, but not used
 
@@ -116,7 +116,7 @@ class ChallengeTool(SimpleTool):
         """
         import json
 
-        from mcp.types import TextContent
+        from zen_cli.types import TextContent
 
         try:
             # Validate request

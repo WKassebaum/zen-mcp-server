@@ -1,1 +1,1 @@
-# Tests for Zen MCP Server
+# Test package for zen-cli

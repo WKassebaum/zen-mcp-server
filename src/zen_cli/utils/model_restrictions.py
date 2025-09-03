@@ -24,7 +24,7 @@ import logging
 import os
 from typing import Optional
 
-from providers.base import ProviderType
+from zen_cli.providers.base import ProviderType
 
 logger = logging.getLogger(__name__)
 

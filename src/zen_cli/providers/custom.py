@@ -146,7 +146,7 @@ class CustomProvider(OpenAICompatibleProvider):
             config = self._registry.resolve(model_name)
             if config and not config.is_custom:
                 # This is an OpenRouter model, check restrictions
-                from utils.model_restrictions import get_restriction_service
+                from zen_cli.utils.model_restrictions import get_restriction_service
 
                 restriction_service = get_restriction_service()
                 if not restriction_service.is_allowed(ProviderType.OPENROUTER, config.model_name, model_name):

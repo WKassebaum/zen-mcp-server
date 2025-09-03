@@ -21,12 +21,12 @@ try:
 except ImportError:
     HAS_URLLIB = False
 
-from mcp.types import TextContent
+from zen_cli.types import TextContent
 
-from config import __author__, __updated__, __version__
-from tools.models import ToolModelCategory, ToolOutput
-from tools.shared.base_models import ToolRequest
-from tools.shared.base_tool import BaseTool
+from zen_cli.config import __author__, __updated__, __version__
+from zen_cli.tools.models import ToolModelCategory, ToolOutput
+from zen_cli.tools.shared.base_models import ToolRequest
+from zen_cli.tools.shared.base_tool import BaseTool
 
 logger = logging.getLogger(__name__)
 
@@ -193,19 +193,8 @@ class VersionTool(BaseTool):
         output_lines.append(f"**Last Updated**: {__updated__}")
         output_lines.append(f"**Author**: {__author__}")
 
-        # Try to get client information
-        try:
-            # We need access to the server instance
-            # This is a bit hacky but works for now
-            import server as server_module
-            from utils.client_info import format_client_info, get_client_info_from_context
-
-            client_info = get_client_info_from_context(server_module.server)
-            if client_info:
-                formatted = format_client_info(client_info)
-                output_lines.append(f"**Connected Client**: {formatted}")
-        except Exception as e:
-            logger.debug(f"Could not get client info: {e}")
+        # Client information not available in standalone CLI
+        # (This was for MCP server context)
 
         # Get the current working directory (MCP server location)
         current_path = Path.cwd()
@@ -270,8 +259,8 @@ class VersionTool(BaseTool):
 
         # Check for configured providers
         try:
-            from providers.base import ProviderType
-            from providers.registry import ModelProviderRegistry
+            from zen_cli.providers.base import ProviderType
+            from zen_cli.providers.registry import ModelProviderRegistry
 
             provider_status = []
 

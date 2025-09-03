@@ -19,11 +19,11 @@ from typing import TYPE_CHECKING, Any, Optional
 from pydantic import Field
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from config import TEMPERATURE_CREATIVE
-from systemprompts import THINKDEEP_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from zen_cli.config import TEMPERATURE_CREATIVE
+from zen_cli.systemprompts import THINKDEEP_PROMPT
+from zen_cli.tools.shared.base_models import WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -137,7 +137,7 @@ class ThinkDeepTool(WorkflowTool):
 
     def get_model_category(self) -> "ToolModelCategory":
         """Return the model category for this tool"""
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.EXTENDED_REASONING
 

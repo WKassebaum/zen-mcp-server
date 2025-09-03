@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
 from .base import (
     ModelCapabilities,
@@ -233,7 +233,7 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
         # First check if it's a key in SUPPORTED_MODELS
         if model_name in self.SUPPORTED_MODELS:
             # Check if model is allowed by restrictions
-            from utils.model_restrictions import get_restriction_service
+            from zen_cli.utils.model_restrictions import get_restriction_service
 
             restriction_service = get_restriction_service()
             if not restriction_service.is_allowed(ProviderType.OPENAI, model_name, model_name):
@@ -246,7 +246,7 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
         # Check if resolved name is a key
         if resolved_name in self.SUPPORTED_MODELS:
             # Check if model is allowed by restrictions
-            from utils.model_restrictions import get_restriction_service
+            from zen_cli.utils.model_restrictions import get_restriction_service
 
             restriction_service = get_restriction_service()
             if not restriction_service.is_allowed(ProviderType.OPENAI, resolved_name, model_name):
@@ -257,7 +257,7 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
         for key, capabilities in self.SUPPORTED_MODELS.items():
             if resolved_name == capabilities.model_name:
                 # Check if model is allowed by restrictions
-                from utils.model_restrictions import get_restriction_service
+                from zen_cli.utils.model_restrictions import get_restriction_service
 
                 restriction_service = get_restriction_service()
                 if not restriction_service.is_allowed(ProviderType.OPENAI, key, model_name):
@@ -279,7 +279,7 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
             return False
 
         # Then check if model is allowed by restrictions
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         if not restriction_service.is_allowed(ProviderType.OPENAI, resolved_name, model_name):
@@ -330,7 +330,7 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
         Returns:
             Preferred model name or None
         """
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         if not allowed_models:
             return None

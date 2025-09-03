@@ -22,14 +22,14 @@ from typing import TYPE_CHECKING, Any
 from pydantic import Field, model_validator
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from mcp.types import TextContent
+from zen_cli.types import TextContent
 
-from config import TEMPERATURE_ANALYTICAL
-from systemprompts import CONSENSUS_PROMPT
-from tools.shared.base_models import WorkflowRequest
-from utils.model_context import ModelContext
+from zen_cli.config import TEMPERATURE_ANALYTICAL
+from zen_cli.systemprompts import CONSENSUS_PROMPT
+from zen_cli.tools.shared.base_models import WorkflowRequest
+from zen_cli.utils.model_context import ModelContext
 
 from .workflow.base import WorkflowTool
 
@@ -203,7 +203,7 @@ of the evidence, even when it strongly points in one direction.""",
 
     def get_model_category(self) -> ToolModelCategory:
         """Consensus workflow requires extended reasoning"""
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.EXTENDED_REASONING
 
@@ -552,8 +552,8 @@ of the evidence, even when it strongly points in one direction.""",
             stance_prompt = model_config.get("stance_prompt")
             system_prompt = self._get_stance_enhanced_prompt(stance, stance_prompt)
 
-            # Get model context for temperature validation
-            model_context = ModelContext(model_name=model_name)
+            # Get model context for temperature validation (use from_arguments for auto resolution)
+            model_context = ModelContext.from_arguments({"model": model_name})
 
             # Validate temperature against model constraints (respects supports_temperature)
             validated_temperature, temp_warnings = self.validate_and_correct_temperature(

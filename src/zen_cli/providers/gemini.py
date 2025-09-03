@@ -6,10 +6,10 @@ import time
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from google import genai
-from google.genai import types
+import google.generativeai as genai
+from google.generativeai import types
 
 from .base import ModelCapabilities, ModelProvider, ModelResponse, ProviderType, create_temperature_constraint
 
@@ -119,15 +119,9 @@ class GeminiModelProvider(ModelProvider):
     def __init__(self, api_key: str, **kwargs):
         """Initialize Gemini provider with API key."""
         super().__init__(api_key, **kwargs)
-        self._client = None
+        # Configure Gemini API globally
+        genai.configure(api_key=self.api_key)
         self._token_counters = {}  # Cache for token counting
-
-    @property
-    def client(self):
-        """Lazy initialization of Gemini client."""
-        if self._client is None:
-            self._client = genai.Client(api_key=self.api_key)
-        return self._client
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
         """Get capabilities for a specific Gemini model."""
@@ -138,7 +132,7 @@ class GeminiModelProvider(ModelProvider):
             raise ValueError(f"Unsupported Gemini model: {model_name}")
 
         # Check if model is allowed by restrictions
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         # IMPORTANT: Parameter order is (provider_type, model_name, original_name)
@@ -194,7 +188,7 @@ class GeminiModelProvider(ModelProvider):
         contents = [{"parts": parts}]
 
         # Prepare generation config
-        generation_config = types.GenerateContentConfig(
+        generation_config = types.GenerationConfig(
             temperature=temperature,
             candidate_count=1,
         )
@@ -203,15 +197,19 @@ class GeminiModelProvider(ModelProvider):
         if max_output_tokens:
             generation_config.max_output_tokens = max_output_tokens
 
-        # Add thinking configuration for models that support it
+        # Get capabilities for metadata  
         capabilities = self.get_capabilities(model_name)
-        if capabilities.supports_extended_thinking and thinking_mode in self.THINKING_BUDGETS:
-            # Get model's max thinking tokens and calculate actual budget
-            model_config = self.SUPPORTED_MODELS.get(resolved_name)
-            if model_config and model_config.max_thinking_tokens > 0:
-                max_thinking_tokens = model_config.max_thinking_tokens
-                actual_thinking_budget = int(max_thinking_tokens * self.THINKING_BUDGETS[thinking_mode])
-                generation_config.thinking_config = types.ThinkingConfig(thinking_budget=actual_thinking_budget)
+        
+        # Add thinking configuration for models that support it
+        # Note: ThinkingConfig is not available in current google.generativeai version
+        # Commenting out for now - will be added when API is updated
+        # if capabilities.supports_extended_thinking and thinking_mode in self.THINKING_BUDGETS:
+        #     # Get model's max thinking tokens and calculate actual budget
+        #     model_config = self.SUPPORTED_MODELS.get(resolved_name)
+        #     if model_config and model_config.max_thinking_tokens > 0:
+        #         max_thinking_tokens = model_config.max_thinking_tokens
+        #         actual_thinking_budget = int(max_thinking_tokens * self.THINKING_BUDGETS[thinking_mode])
+        #         generation_config.thinking_config = types.ThinkingConfig(thinking_budget=actual_thinking_budget)
 
         # Retry logic with progressive delays
         max_retries = 4  # Total of 4 attempts
@@ -221,12 +219,15 @@ class GeminiModelProvider(ModelProvider):
 
         for attempt in range(max_retries):
             try:
-                # Generate content
-                response = self.client.models.generate_content(
-                    model=resolved_name,
-                    contents=contents,
-                    config=generation_config,
+                # Create model instance
+                model = genai.GenerativeModel(
+                    model_name=resolved_name,
+                    generation_config=generation_config,
+                    system_instruction=system_prompt if system_prompt else None
                 )
+                
+                # Generate content
+                response = model.generate_content(prompt)
 
                 # Extract usage information if available
                 usage = self._extract_usage(response)
@@ -366,7 +367,7 @@ class GeminiModelProvider(ModelProvider):
             return False
 
         # Then check if model is allowed by restrictions
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         # IMPORTANT: Parameter order is (provider_type, model_name, original_name)
@@ -560,7 +561,7 @@ class GeminiModelProvider(ModelProvider):
         Returns:
             Preferred model name or None
         """
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         if not allowed_models:
             return None

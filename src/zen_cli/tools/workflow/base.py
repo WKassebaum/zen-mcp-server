@@ -15,8 +15,8 @@ and use SchemaBuilder for consistent schema generation.
 from abc import abstractmethod
 from typing import Any, Optional
 
-from tools.shared.base_models import WorkflowRequest
-from tools.shared.base_tool import BaseTool
+from zen_cli.tools.shared.base_models import WorkflowRequest
+from zen_cli.tools.shared.base_tool import BaseTool
 
 from .schema_builders import WorkflowSchemaBuilder
 from .workflow_mixin import BaseWorkflowMixin

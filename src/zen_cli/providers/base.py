@@ -10,9 +10,9 @@ from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from utils.file_types import IMAGES, get_image_mime_type
+from zen_cli.utils.file_types import IMAGES, get_image_mime_type
 
 logger = logging.getLogger(__name__)
 
@@ -377,7 +377,7 @@ class ModelProvider(ABC):
         Returns:
             List of model names available from this provider
         """
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service() if respect_restrictions else None
         models = []

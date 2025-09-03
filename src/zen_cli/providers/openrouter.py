@@ -132,7 +132,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             True if model is allowed, False if restricted
         """
         # Check model restrictions if configured
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         if restriction_service:
@@ -216,7 +216,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         Returns:
             List of model names available from this provider
         """
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service() if respect_restrictions else None
         models = []

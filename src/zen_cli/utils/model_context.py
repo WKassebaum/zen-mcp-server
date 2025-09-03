@@ -30,8 +30,8 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from config import DEFAULT_MODEL
-from providers import ModelCapabilities, ModelProviderRegistry
+from zen_cli.config import DEFAULT_MODEL
+from zen_cli.providers import ModelCapabilities, ModelProviderRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -168,4 +168,23 @@ class ModelContext:
     def from_arguments(cls, arguments: dict[str, Any]) -> "ModelContext":
         """Create ModelContext from tool arguments."""
         model_name = arguments.get("model") or DEFAULT_MODEL
+        print(f"[DEBUG] ModelContext.from_arguments called with model_name: '{model_name}'")
+        
+        # Handle auto model resolution
+        if model_name.lower() == "auto":
+            print("[DEBUG] Auto model detected in ModelContext.from_arguments, resolving...")
+            from zen_cli.providers.registry import ModelProviderRegistry
+            from zen_cli.tools.models import ToolModelCategory
+            
+            # For now, use BALANCED as the default category when resolving from arguments
+            # Individual tools can override this by handling resolution in their own methods
+            tool_category = ToolModelCategory.BALANCED
+            print(f"[DEBUG] Using tool_category: {tool_category}")
+            
+            resolved_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+            print(f"[DEBUG] Auto mode in from_arguments: resolved to '{resolved_model}' for category {tool_category.value}")
+            model_name = resolved_model
+            print(f"[DEBUG] After resolution, model_name: '{model_name}'")
+            
+        print(f"[DEBUG] ModelContext.from_arguments returning with model_name: '{model_name}'")
         return cls(model_name)

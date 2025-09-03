@@ -1,209 +1,203 @@
 """
-Configuration management for Zen CLI
+Configuration and constants for Zen MCP Server
 
-Handles API keys, profiles, and settings stored in ~/.zen/config.yaml
+This module centralizes all configuration settings for the Zen MCP Server.
+It defines model configurations, token limits, temperature defaults, and other
+constants used throughout the application.
+
+Configuration values can be overridden by environment variables where appropriate.
 """
 
 import os
+
+# Version and metadata
+# These values are used in server responses and for tracking releases
+# IMPORTANT: This is the single source of truth for version and author info
+# Semantic versioning: MAJOR.MINOR.PATCH
+__version__ = "5.12.0"
+# Last update date in ISO format
+__updated__ = "2025-09-01"
+# Primary maintainer
+__author__ = "Fahad Gilani"
+
+# Model configuration
+# DEFAULT_MODEL: The default model used for all AI operations
+# This should be a stable, high-performance model suitable for code analysis
+# Can be overridden by setting DEFAULT_MODEL environment variable
+# Special value "auto" means Claude should pick the best model for each task
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "auto")
+
+# Auto mode detection - when DEFAULT_MODEL is "auto", Claude picks the model
+IS_AUTO_MODE = DEFAULT_MODEL.lower() == "auto"
+
+# Each provider (gemini.py, openai_provider.py, xai.py) defines its own SUPPORTED_MODELS
+# with detailed descriptions. Tools use ModelProviderRegistry.get_available_model_names()
+# to get models only from enabled providers (those with valid API keys).
+#
+# This architecture ensures:
+# - No namespace collisions (models only appear when their provider is enabled)
+# - API key-based filtering (prevents wrong models from being shown to Claude)
+# - Proper provider routing (models route to the correct API endpoint)
+# - Clean separation of concerns (providers own their model definitions)
+
+
+# Temperature defaults for different tool types
+# Temperature controls the randomness/creativity of model responses
+# Lower values (0.0-0.3) produce more deterministic, focused responses
+# Higher values (0.7-1.0) produce more creative, varied responses
+
+# TEMPERATURE_ANALYTICAL: Used for tasks requiring precision and consistency
+# Ideal for code review, debugging, and error analysis where accuracy is critical
+TEMPERATURE_ANALYTICAL = 0.2  # For code review, debugging
+
+# TEMPERATURE_BALANCED: Middle ground for general conversations
+# Provides a good balance between consistency and helpful variety
+TEMPERATURE_BALANCED = 0.5  # For general chat
+
+# TEMPERATURE_CREATIVE: Higher temperature for exploratory tasks
+# Used when brainstorming, exploring alternatives, or architectural discussions
+TEMPERATURE_CREATIVE = 0.7  # For architecture, deep thinking
+
+# Thinking Mode Defaults
+# DEFAULT_THINKING_MODE_THINKDEEP: Default thinking depth for extended reasoning tool
+# Higher modes use more computational budget but provide deeper analysis
+DEFAULT_THINKING_MODE_THINKDEEP = os.getenv("DEFAULT_THINKING_MODE_THINKDEEP", "high")
+
+# Consensus Tool Defaults
+# Consensus timeout and rate limiting settings
+DEFAULT_CONSENSUS_TIMEOUT = 120.0  # 2 minutes per model
+DEFAULT_CONSENSUS_MAX_INSTANCES_PER_COMBINATION = 2
+
+# NOTE: Consensus tool now uses sequential processing for MCP compatibility
+# Concurrent processing was removed to avoid async pattern violations
+
+# MCP Protocol Transport Limits
+#
+# IMPORTANT: This limit ONLY applies to the Claude CLI ↔ MCP Server transport boundary.
+# It does NOT limit internal MCP Server operations like system prompts, file embeddings,
+# conversation history, or content sent to external models (Gemini/OpenAI/OpenRouter).
+#
+# MCP Protocol Architecture:
+# Claude CLI ←→ MCP Server ←→ External Model (Gemini/OpenAI/etc.)
+#     ↑                              ↑
+#     │                              │
+# MCP transport                Internal processing
+# (token limit from MAX_MCP_OUTPUT_TOKENS)    (No MCP limit - can be 1M+ tokens)
+#
+# MCP_PROMPT_SIZE_LIMIT: Maximum character size for USER INPUT crossing MCP transport
+# The MCP protocol has a combined request+response limit controlled by MAX_MCP_OUTPUT_TOKENS.
+# To ensure adequate space for MCP Server → Claude CLI responses, we limit user input
+# to roughly 60% of the total token budget converted to characters. Larger user prompts
+# must be sent as prompt.txt files to bypass MCP's transport constraints.
+#
+# Token to character conversion ratio: ~4 characters per token (average for code/text)
+# Default allocation: 60% of tokens for input, 40% for response
+#
+# What IS limited by this constant:
+# - request.prompt field content (user input from Claude CLI)
+# - prompt.txt file content (alternative user input method)
+# - Any other direct user input fields
+#
+# What is NOT limited by this constant:
+# - System prompts added internally by tools
+# - File content embedded by tools
+# - Conversation history loaded from storage
+# - Web search instructions or other internal additions
+# - Complete prompts sent to external models (managed by model-specific token limits)
+#
+# This ensures MCP transport stays within protocol limits while allowing internal
+# processing to use full model context windows (200K-1M+ tokens).
+
+
+def _calculate_mcp_prompt_limit() -> int:
+    """
+    Calculate MCP prompt size limit based on MAX_MCP_OUTPUT_TOKENS environment variable.
+
+    Returns:
+        Maximum character count for user input prompts
+    """
+    # Check for Claude's MAX_MCP_OUTPUT_TOKENS environment variable
+    max_tokens_str = os.getenv("MAX_MCP_OUTPUT_TOKENS")
+
+    if max_tokens_str:
+        try:
+            max_tokens = int(max_tokens_str)
+            # Allocate 60% of tokens for input, convert to characters (~4 chars per token)
+            input_token_budget = int(max_tokens * 0.6)
+            character_limit = input_token_budget * 4
+            return character_limit
+        except (ValueError, TypeError):
+            # Fall back to default if MAX_MCP_OUTPUT_TOKENS is not a valid integer
+            pass
+
+    # Default fallback: 60,000 characters (equivalent to ~15k tokens input of 25k total)
+    return 60_000
+
+
+MCP_PROMPT_SIZE_LIMIT = _calculate_mcp_prompt_limit()
+
+# Language/Locale Configuration
+# LOCALE: Language/locale specification for AI responses
+# When set, all AI tools will respond in the specified language while
+# maintaining their analytical capabilities
+# Examples: "fr-FR", "en-US", "zh-CN", "zh-TW", "ja-JP", "ko-KR", "es-ES",
+# "de-DE", "it-IT", "pt-PT"
+# Leave empty for default language (English)
+LOCALE = os.getenv("LOCALE", "")
+
+# Threading configuration
+# Simple in-memory conversation threading for stateless MCP environment
+# Conversations persist only during the Claude session
+
+# CLI Configuration Management
+import json
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Dict, Any, Optional
 
-import yaml
-from dotenv import load_dotenv
+def get_config_dir() -> Path:
+    """Get the configuration directory for zen-cli."""
+    config_dir = Path.home() / '.zen-cli'
+    config_dir.mkdir(exist_ok=True)
+    return config_dir
 
-# Load environment variables
-load_dotenv()
-
-DEFAULT_CONFIG = {
-    'active_profile': 'default',
-    'api_endpoint': 'http://localhost:3001',
-    'token_optimization': {
-        'enabled': True,
-        'mode': 'two_stage',
-        'telemetry': True,
-        'version': 'v5.12.0'
-    },
-    'profiles': {
-        'default': {
-            'api_keys': {
-                'GEMINI_API_KEY': '',
-                'OPENAI_API_KEY': '',
-            },
-            'model_preferences': {
-                'default_model': 'auto',
-                'temperature': 0.3,
-                'thinking_mode': 'medium'
-            }
-        }
-    }
-}
-
-
-def get_config_path() -> Path:
+def get_config_file() -> Path:
     """Get the configuration file path."""
-    return Path.home() / '.zen' / 'config.yaml'
-
+    return get_config_dir() / 'config.json'
 
 def load_config() -> Dict[str, Any]:
-    """
-    Load configuration from file or create default.
-    
-    Returns:
-        Configuration dictionary
-    """
-    config_path = get_config_path()
-    
-    if config_path.exists():
+    """Load configuration from file."""
+    config_file = get_config_file()
+    if config_file.exists():
         try:
-            with open(config_path, 'r') as f:
-                config = yaml.safe_load(f) or {}
-                # Merge with defaults for any missing keys
-                return merge_configs(DEFAULT_CONFIG, config)
-        except Exception as e:
-            print(f"Warning: Error loading config: {e}")
-            return DEFAULT_CONFIG.copy()
-    else:
-        # Create default config
-        save_config(DEFAULT_CONFIG)
-        return DEFAULT_CONFIG.copy()
-
+            with open(config_file, 'r') as f:
+                return json.load(f)
+        except (json.JSONDecodeError, IOError):
+            return {}
+    return {}
 
 def save_config(config: Dict[str, Any]) -> None:
-    """
-    Save configuration to file.
-    
-    Args:
-        config: Configuration dictionary to save
-    """
-    config_path = get_config_path()
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    
-    with open(config_path, 'w') as f:
-        yaml.dump(config, f, default_flow_style=False, sort_keys=False)
+    """Save configuration to file."""
+    config_file = get_config_file()
+    with open(config_file, 'w') as f:
+        json.dump(config, f, indent=2)
 
-
-def merge_configs(default: Dict[str, Any], user: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Merge user config with defaults.
-    
-    Args:
-        default: Default configuration
-        user: User configuration
-        
-    Returns:
-        Merged configuration
-    """
-    result = default.copy()
-    
-    for key, value in user.items():
-        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
-            result[key] = merge_configs(result[key], value)
-        else:
-            result[key] = value
-    
-    return result
-
-
-def get_api_key(key_name: str, config: Optional[Dict[str, Any]] = None) -> Optional[str]:
-    """
-    Get API key from environment or config.
-    
-    Args:
-        key_name: Name of the API key
-        config: Configuration dictionary (optional)
-        
-    Returns:
-        API key value or None
-    """
+def get_api_key(provider: str) -> Optional[str]:
+    """Get API key for a provider from environment or config."""
     # First check environment variables
-    env_value = os.getenv(key_name)
-    if env_value:
-        return env_value
+    env_map = {
+        'gemini': 'GEMINI_API_KEY',
+        'openai': 'OPENAI_API_KEY',
+        'openrouter': 'OPENROUTER_API_KEY',
+        'xai': 'XAI_API_KEY',
+    }
     
-    # Then check config
-    if config:
-        profile = config.get('active_profile', 'default')
-        profiles = config.get('profiles', {})
-        profile_config = profiles.get(profile, {})
-        api_keys = profile_config.get('api_keys', {})
-        return api_keys.get(key_name)
+    env_var = env_map.get(provider.lower())
+    if env_var:
+        key = os.getenv(env_var)
+        if key:
+            return key
     
-    return None
-
-
-def set_api_key(key_name: str, value: str, profile: Optional[str] = None) -> None:
-    """
-    Set API key in configuration.
-    
-    Args:
-        key_name: Name of the API key
-        value: API key value
-        profile: Profile to set key in (uses active if None)
-    """
+    # Then check config file
     config = load_config()
-    
-    if profile is None:
-        profile = config.get('active_profile', 'default')
-    
-    # Ensure profile exists
-    if 'profiles' not in config:
-        config['profiles'] = {}
-    if profile not in config['profiles']:
-        config['profiles'][profile] = {'api_keys': {}}
-    if 'api_keys' not in config['profiles'][profile]:
-        config['profiles'][profile]['api_keys'] = {}
-    
-    # Set the key
-    config['profiles'][profile]['api_keys'][key_name] = value
-    
-    save_config(config)
-
-
-def get_active_profile() -> str:
-    """Get the active configuration profile."""
-    config = load_config()
-    return config.get('active_profile', 'default')
-
-
-def set_active_profile(profile: str) -> None:
-    """
-    Set the active configuration profile.
-    
-    Args:
-        profile: Profile name to activate
-    """
-    config = load_config()
-    
-    # Ensure profile exists
-    if 'profiles' not in config:
-        config['profiles'] = {}
-    if profile not in config['profiles']:
-        config['profiles'][profile] = {
-            'api_keys': {},
-            'model_preferences': DEFAULT_CONFIG['profiles']['default']['model_preferences'].copy()
-        }
-    
-    config['active_profile'] = profile
-    save_config(config)
-
-
-def get_model_preferences(profile: Optional[str] = None) -> Dict[str, Any]:
-    """
-    Get model preferences for a profile.
-    
-    Args:
-        profile: Profile name (uses active if None)
-        
-    Returns:
-        Model preferences dictionary
-    """
-    config = load_config()
-    
-    if profile is None:
-        profile = config.get('active_profile', 'default')
-    
-    profiles = config.get('profiles', {})
-    profile_config = profiles.get(profile, {})
-    
-    return profile_config.get('model_preferences', 
-                              DEFAULT_CONFIG['profiles']['default']['model_preferences'].copy())
+    api_keys = config.get('api_keys', {})
+    return api_keys.get(provider.lower())

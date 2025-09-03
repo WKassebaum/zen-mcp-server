@@ -11,11 +11,11 @@ from typing import TYPE_CHECKING, Any, Optional
 from pydantic import Field
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
-from config import TEMPERATURE_BALANCED
-from systemprompts import CHAT_PROMPT
-from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
+from zen_cli.config import TEMPERATURE_BALANCED
+from zen_cli.systemprompts import CHAT_PROMPT
+from zen_cli.tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
 
 from .simple.base import SimpleTool
 
@@ -68,7 +68,7 @@ class ChatTool(SimpleTool):
 
     def get_model_category(self) -> "ToolModelCategory":
         """Chat prioritizes fast responses and cost efficiency"""
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         return ToolModelCategory.FAST_RESPONSE
 

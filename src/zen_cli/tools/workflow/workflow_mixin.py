@@ -27,10 +27,10 @@ import re
 from abc import ABC, abstractmethod
 from typing import Any, Optional
 
-from mcp.types import TextContent
+from zen_cli.types import TextContent
 
-from config import MCP_PROMPT_SIZE_LIMIT
-from utils.conversation_memory import add_turn, create_thread
+from zen_cli.config import MCP_PROMPT_SIZE_LIMIT
+from zen_cli.utils.conversation_memory import add_turn, create_thread
 
 from ..shared.base_models import ConsolidatedFindings
 
@@ -343,7 +343,7 @@ class BaseWorkflowMixin(ABC):
                 continuation_id = current_arguments.get("continuation_id")
 
                 if continuation_id:
-                    from utils.conversation_memory import get_conversation_file_list, get_thread
+                    from zen_cli.utils.conversation_memory import get_conversation_file_list, get_thread
 
                     thread_context = get_thread(continuation_id)
                     if thread_context:
@@ -393,7 +393,7 @@ class BaseWorkflowMixin(ABC):
             tuple[str, list[str]]: (file_content, processed_files)
         """
         # Use read_files directly with token budgeting, bypassing filter_new_files
-        from utils.file_utils import expand_paths, read_files
+        from zen_cli.utils.file_utils import expand_paths, read_files
 
         # Get token budget for files
         current_model_context = self.get_current_model_context()
@@ -537,10 +537,11 @@ class BaseWorkflowMixin(ABC):
                 except Exception as e:
                     logger.error(f"[WORKFLOW_FILES] {self.get_name()}: Failed to resolve model context: {e}")
                     # Create fallback model context (preserves existing test behavior)
-                    from utils.model_context import ModelContext
+                    from zen_cli.utils.model_context import ModelContext
 
                     model_name = self.get_request_model_name(request)
-                    self._model_context = ModelContext(model_name)
+                    # Use from_arguments to ensure proper model resolution
+                    self._model_context = ModelContext.from_arguments({"model": model_name})
                     self._current_model_name = model_name
 
             # Use the same file preparation logic as BaseTool with token budgeting
@@ -620,7 +621,7 @@ class BaseWorkflowMixin(ABC):
         7. Step guidance and required actions
         8. Conversation memory integration
         """
-        from mcp.types import TextContent
+        from zen_cli.types import TextContent
 
         try:
             # Store arguments for access by helper methods
@@ -633,7 +634,7 @@ class BaseWorkflowMixin(ABC):
             # If step is too large, user should use shorter instructions and put details in files
             step_content = request.step
             if step_content and len(step_content) > MCP_PROMPT_SIZE_LIMIT:
-                from tools.models import ToolOutput
+                from zen_cli.tools.models import ToolOutput
 
                 error_output = ToolOutput(
                     status="resend_prompt",
@@ -648,7 +649,7 @@ class BaseWorkflowMixin(ABC):
             try:
                 path_error = self.validate_file_paths(request)
                 if path_error:
-                    from tools.models import ToolOutput
+                    from zen_cli.tools.models import ToolOutput
 
                     error_output = ToolOutput(
                         status="error",
@@ -679,7 +680,7 @@ class BaseWorkflowMixin(ABC):
 
             # Restore workflow state on continuation
             if continuation_id:
-                from utils.conversation_memory import get_thread
+                from zen_cli.utils.conversation_memory import get_thread
 
                 thread = get_thread(continuation_id)
                 if thread and thread.turns:
@@ -1469,9 +1470,10 @@ class BaseWorkflowMixin(ABC):
                     logger.error(f"Failed to resolve model context for expert analysis: {e}")
                     # Use request model as fallback (preserves existing test behavior)
                     model_name = self.get_request_model_name(request)
-                    from utils.model_context import ModelContext
+                    from zen_cli.utils.model_context import ModelContext
 
-                    model_context = ModelContext(model_name)
+                    # Use from_arguments to ensure proper model resolution
+                    model_context = ModelContext.from_arguments({"model": model_name})
                     self._model_context = model_context
                     self._current_model_name = model_name
             else:

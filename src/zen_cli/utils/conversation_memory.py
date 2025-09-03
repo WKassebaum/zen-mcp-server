@@ -594,7 +594,7 @@ def _plan_file_inclusion_by_size(all_files: list[str], max_file_tokens: int) -> 
 
     for file_path in all_files:
         try:
-            from utils.file_utils import estimate_file_tokens
+            from zen_cli.utils.file_utils import estimate_file_tokens
 
             if os.path.exists(file_path) and os.path.isfile(file_path):
                 # Use centralized token estimation for consistency
@@ -769,14 +769,14 @@ def build_conversation_history(context: ThreadContext, model_context=None, read_
     # Get model-specific token allocation early (needed for both files and turns)
     if model_context is None:
         from config import DEFAULT_MODEL, IS_AUTO_MODE
-        from utils.model_context import ModelContext
+        from zen_cli.utils.model_context import ModelContext
 
         # In auto mode, use an intelligent fallback model for token calculations
         # since "auto" is not a real model with a provider
         model_name = DEFAULT_MODEL
         if IS_AUTO_MODE and model_name.lower() == "auto":
             # Use intelligent fallback based on available API keys
-            from providers.registry import ModelProviderRegistry
+            from zen_cli.providers.registry import ModelProviderRegistry
 
             model_name = ModelProviderRegistry.get_preferred_fallback_model()
 
@@ -829,7 +829,7 @@ def build_conversation_history(context: ThreadContext, model_context=None, read_
             )
 
             if read_files_func is None:
-                from utils.file_utils import read_file_content
+                from zen_cli.utils.file_utils import read_file_content
 
                 # Process files for embedding
                 file_contents = []
@@ -886,7 +886,7 @@ def build_conversation_history(context: ThreadContext, model_context=None, read_
                 files_content = read_files_func(all_files)
                 if files_content:
                     # Add token validation for the combined file content
-                    from utils.token_utils import check_token_limit
+                    from zen_cli.utils.token_utils import check_token_limit
 
                     within_limit, estimated_tokens = check_token_limit(files_content)
                     if within_limit:
@@ -999,7 +999,7 @@ def build_conversation_history(context: ThreadContext, model_context=None, read_
 
     # Calculate total tokens for the complete conversation history
     complete_history = "\n".join(history_parts)
-    from utils.token_utils import estimate_tokens
+    from zen_cli.utils.token_utils import estimate_tokens
 
     total_conversation_tokens = estimate_tokens(complete_history)
 
@@ -1027,24 +1027,9 @@ def _get_tool_formatted_content(turn: ConversationTurn) -> list[str]:
     Returns:
         list[str]: Formatted content lines for this turn
     """
-    if turn.tool_name:
-        try:
-            # Dynamically import to avoid circular dependencies
-            from server import TOOLS
-
-            tool = TOOLS.get(turn.tool_name)
-            if tool:
-                # Use inheritance pattern - try to call the method directly
-                # If it doesn't exist or raises AttributeError, fall back to default
-                try:
-                    return tool.format_conversation_turn(turn)
-                except AttributeError:
-                    # Tool doesn't implement format_conversation_turn - use default
-                    pass
-        except Exception as e:
-            # Log but don't fail - fall back to default formatting
-            logger.debug(f"[HISTORY] Could not get tool-specific formatting for {turn.tool_name}: {e}")
-
+    # Note: Tool-specific formatting removed in standalone CLI
+    # Always use default formatting (was importing from server module)
+    
     # Default formatting
     return _default_turn_formatting(turn)
 

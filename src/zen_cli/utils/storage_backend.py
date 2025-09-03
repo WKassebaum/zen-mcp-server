@@ -1,21 +1,30 @@
 """
-In-memory storage backend for conversation threads
+Multi-backend storage system for conversation threads
 
-This module provides a thread-safe, in-memory alternative to Redis for storing
-conversation contexts. It's designed for ephemeral MCP server sessions where
-conversations only need to persist during a single Claude session.
+This module provides a unified interface for conversation storage with support for:
+1. File-based storage (default) - Persistent storage in ~/.zen-cli/conversations/
+2. Redis storage - Distributed storage for team environments
+3. In-memory storage - Ephemeral storage for testing/development
 
-⚠️  PROCESS-SPECIFIC STORAGE: This storage is confined to a single Python process.
-    Data stored in one process is NOT accessible from other processes or subprocesses.
-    This is why simulator tests that run server.py as separate subprocesses cannot
-    share conversation state between tool calls.
+Storage Backend Selection:
+Set ZEN_STORAGE_TYPE environment variable to choose backend:
+- "file" (default): File-based persistence
+- "redis": Redis-based distributed storage  
+- "memory": In-memory storage (ephemeral)
+
+Redis Configuration (when ZEN_STORAGE_TYPE=redis):
+- REDIS_HOST: Redis server host (default: localhost)
+- REDIS_PORT: Redis server port (default: 6379)
+- REDIS_DB: Redis database number (default: 0)
+- REDIS_PASSWORD: Redis password (if required)
+- REDIS_KEY_PREFIX: Key prefix for namespacing (default: zen:)
 
 Key Features:
-- Thread-safe operations using locks
+- Thread-safe operations across all backends
 - TTL support with automatic expiration
-- Background cleanup thread for memory management
-- Singleton pattern for consistent state within a single process
-- Drop-in replacement for Redis storage (for single-process scenarios)
+- Graceful fallback between storage types
+- Singleton pattern for consistent state
+- Drop-in compatibility between backends
 """
 
 import logging
@@ -102,12 +111,69 @@ _storage_instance = None
 _storage_lock = threading.Lock()
 
 
-def get_storage_backend() -> InMemoryStorage:
+def get_storage_backend():
     """Get the global storage instance (singleton pattern)"""
     global _storage_instance
     if _storage_instance is None:
         with _storage_lock:
             if _storage_instance is None:
-                _storage_instance = InMemoryStorage()
-                logger.info("Initialized in-memory conversation storage")
+                # Check storage preference - default to file-based for CLI
+                storage_type = os.getenv("ZEN_STORAGE_TYPE", "file").lower()
+                print(f"[DEBUG] Storage type selected: {storage_type}")
+                
+                if storage_type == "redis":
+                    # Redis storage for distributed/team environments
+                    try:
+                        from .redis_storage import RedisStorage
+                        _storage_instance = RedisStorage()
+                        logger.info("Initialized Redis conversation storage")
+                    except ImportError as e:
+                        logger.warning(f"Redis storage unavailable - redis package not installed ({e})")
+                        logger.warning("Install with: pip install redis")
+                        logger.info("Falling back to file-based storage")
+                        try:
+                            from .file_storage import FileBasedStorage
+                            _storage_instance = FileBasedStorage()
+                            logger.info("Initialized file-based conversation storage (Redis fallback)")
+                        except ImportError:
+                            _storage_instance = InMemoryStorage()
+                            logger.info("Initialized in-memory conversation storage (final fallback)")
+                    except Exception as e:
+                        logger.warning(f"Redis connection failed ({e}), falling back to file storage")
+                        try:
+                            from .file_storage import FileBasedStorage
+                            _storage_instance = FileBasedStorage()
+                            logger.info("Initialized file-based conversation storage (Redis fallback)")
+                        except ImportError:
+                            _storage_instance = InMemoryStorage()
+                            logger.info("Initialized in-memory conversation storage (final fallback)")
+                            
+                elif storage_type == "file":
+                    # File-based storage for CLI persistence
+                    try:
+                        from .file_storage import FileBasedStorage
+                        _storage_instance = FileBasedStorage()
+                        logger.info("Initialized file-based conversation storage")
+                    except ImportError as e:
+                        logger.warning(f"File storage unavailable ({e}), falling back to in-memory")
+                        _storage_instance = InMemoryStorage()
+                        logger.info("Initialized in-memory conversation storage (fallback)")
+                        
+                elif storage_type == "memory":
+                    # Explicitly requested in-memory storage
+                    _storage_instance = InMemoryStorage()
+                    logger.info("Initialized in-memory conversation storage")
+                    
+                else:
+                    # Unknown storage type, default to file
+                    logger.warning(f"Unknown storage type '{storage_type}', defaulting to file storage")
+                    try:
+                        from .file_storage import FileBasedStorage
+                        _storage_instance = FileBasedStorage()
+                        logger.info("Initialized file-based conversation storage (default)")
+                    except ImportError as e:
+                        logger.warning(f"File storage unavailable ({e}), falling back to in-memory")
+                        _storage_instance = InMemoryStorage()
+                        logger.info("Initialized in-memory conversation storage (final fallback)")
+                    
     return _storage_instance

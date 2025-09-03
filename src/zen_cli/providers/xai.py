@@ -4,7 +4,7 @@ import logging
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
-    from tools.models import ToolModelCategory
+    from zen_cli.tools.models import ToolModelCategory
 
 from .base import (
     ModelCapabilities,
@@ -131,7 +131,7 @@ class XAIModelProvider(OpenAICompatibleProvider):
             raise ValueError(f"Unsupported X.AI model: {model_name}")
 
         # Check if model is allowed by restrictions
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         if not restriction_service.is_allowed(ProviderType.XAI, resolved_name, model_name):
@@ -153,7 +153,7 @@ class XAIModelProvider(OpenAICompatibleProvider):
             return False
 
         # Then check if model is allowed by restrictions
-        from utils.model_restrictions import get_restriction_service
+        from zen_cli.utils.model_restrictions import get_restriction_service
 
         restriction_service = get_restriction_service()
         if not restriction_service.is_allowed(ProviderType.XAI, resolved_name, model_name):
@@ -203,7 +203,7 @@ class XAIModelProvider(OpenAICompatibleProvider):
         Returns:
             Preferred model name or None
         """
-        from tools.models import ToolModelCategory
+        from zen_cli.tools.models import ToolModelCategory
 
         if not allowed_models:
             return None
@@ -218,8 +218,11 @@ class XAIModelProvider(OpenAICompatibleProvider):
             return allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer GROK-3-Fast for speed, then GROK-4
-            if "grok-3-fast" in allowed_models:
+            # Prefer grok-code-fast-1 for coding tasks (fast, cheap, smart)
+            # Then GROK-3-Fast for general speed, then GROK-4
+            if "grok-code-fast-1" in allowed_models:
+                return "grok-code-fast-1"
+            elif "grok-3-fast" in allowed_models:
                 return "grok-3-fast"
             elif "grok-4" in allowed_models:
                 return "grok-4"
@@ -227,8 +230,10 @@ class XAIModelProvider(OpenAICompatibleProvider):
             return allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer GROK-4 for balanced use (best overall capabilities)
-            if "grok-4" in allowed_models:
+            # Prefer grok-code-fast-1 for balanced coding tasks, then GROK-4 for other balanced use
+            if "grok-code-fast-1" in allowed_models:
+                return "grok-code-fast-1"  # Smart and fast for general coding use
+            elif "grok-4" in allowed_models:
                 return "grok-4"
             elif "grok-3" in allowed_models:
                 return "grok-3"

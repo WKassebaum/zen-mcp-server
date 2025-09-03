@@ -1,169 +1,67 @@
 #!/bin/bash
-
 # Zen CLI Installation Script
-# This script installs the Zen CLI and sets up basic configuration
 
 set -e
 
-echo "🚀 Zen CLI Installation"
-echo "======================"
+echo "🚀 Installing Zen CLI..."
 
-# Check Python version
-python_version=$(python3 --version 2>&1 | grep -oE '[0-9]+\.[0-9]+')
-required_version="3.11"
-
-if [ "$(printf '%s\n' "$required_version" "$python_version" | sort -V | head -n1)" != "$required_version" ]; then
-    echo "❌ Error: Python 3.11+ required (found $python_version)"
-    exit 1
+# Check if pipx is installed
+if ! command -v pipx &> /dev/null; then
+    echo "📦 pipx not found. Installing pipx..."
+    if command -v brew &> /dev/null; then
+        brew install pipx
+    else
+        python3 -m pip install --user pipx
+    fi
+    pipx ensurepath
 fi
 
-# Install the CLI
-echo "📦 Installing Zen CLI..."
-
-# Try to find pip or pip3
-if command -v pip3 &> /dev/null; then
-    PIP_CMD="pip3"
-elif command -v pip &> /dev/null; then
-    PIP_CMD="pip"
-else
-    echo "❌ Error: pip not found. Please install pip first."
-    echo "Try: python3 -m ensurepip --upgrade"
-    exit 1
-fi
-
-echo "Using: $PIP_CMD"
-
-# Try to install with different methods to handle PEP 668
-echo "Attempting installation..."
-
-# First try normal install
-if $PIP_CMD install -e . 2>/dev/null; then
-    echo "✅ Installation successful"
-elif $PIP_CMD install --user -e . 2>/dev/null; then
-    echo "✅ Installation successful (user install)"
-    echo "ℹ️  Installed to user directory"
-else
-    echo ""
-    echo "⚠️  macOS Python protection detected (PEP 668)"
-    echo ""
-    echo "Choose installation method:"
-    echo "1. User install (recommended)"
-    echo "2. Virtual environment (best for development)"
-    echo "3. Override protection (not recommended)"
-    echo ""
-    read -p "Select option (1-3): " -n 1 -r
-    echo ""
-    
-    case $REPLY in
-        1)
-            echo "Installing to user directory..."
-            $PIP_CMD install --user -e .
-            echo "✅ Installed to user directory"
-            echo "ℹ️  You may need to add ~/.local/bin to your PATH"
-            ;;
-        2)
-            echo "Creating virtual environment..."
-            python3 -m venv .venv
-            echo "Activating virtual environment..."
-            source .venv/bin/activate
-            pip install -e .
-            echo "✅ Installed in virtual environment"
-            echo ""
-            echo "To use zen-cli, activate the environment first:"
-            echo "  source .venv/bin/activate"
-            ;;
-        3)
-            echo "Installing with override..."
-            $PIP_CMD install --break-system-packages --user -e .
-            echo "✅ Installed with override"
-            ;;
-        *)
-            echo "Invalid option. Exiting."
-            exit 1
-            ;;
-    esac
-fi
-
-# Check for API keys
-echo ""
-echo "🔑 Checking API keys..."
-has_key=false
-
-if [ ! -z "$GEMINI_API_KEY" ]; then
-    echo "✅ GEMINI_API_KEY found"
-    has_key=true
-else
-    echo "⚠️  GEMINI_API_KEY not set"
-fi
-
-if [ ! -z "$OPENAI_API_KEY" ]; then
-    echo "✅ OPENAI_API_KEY found"
-    has_key=true
-else
-    echo "⚠️  OPENAI_API_KEY not set"
-fi
-
-if [ ! -z "$OPENROUTER_API_KEY" ]; then
-    echo "✅ OPENROUTER_API_KEY found"
-    has_key=true
-else
-    echo "⚠️  OPENROUTER_API_KEY not set"
-fi
-
-if [ "$has_key" = false ]; then
-    echo ""
-    echo "❌ No API keys found! You need at least one."
-    echo ""
-    echo "Set API keys with:"
-    echo "  export GEMINI_API_KEY='your-key-here'"
-    echo "  export OPENAI_API_KEY='your-key-here'"
-    echo ""
-    echo "Get keys from:"
-    echo "  Gemini: https://makersuite.google.com/app/apikey"
-    echo "  OpenAI: https://platform.openai.com/api-keys"
-    exit 1
-fi
+# Install zen-cli with pipx
+echo "📦 Installing zen-cli package..."
+pipx install . --force
 
 # Create config directory
-echo ""
-echo "📁 Creating configuration directory..."
-mkdir -p ~/.zen
+CONFIG_DIR="$HOME/.zen-cli"
+mkdir -p "$CONFIG_DIR"
 
-# Test the installation
-echo ""
-echo "✨ Testing installation..."
-if zen --version > /dev/null 2>&1; then
-    echo "✅ Zen CLI installed successfully!"
-    echo ""
-    zen --version
-    echo ""
-    echo "Available commands:"
-    echo "  zen chat       - AI consultation"
-    echo "  zen debug      - Systematic debugging"
-    echo "  zen codereview - Code quality review"
-    echo "  zen consensus  - Multi-model consensus"
-    echo "  zen analyze    - Architecture analysis"
-    echo "  zen planner    - Project planning"
-    echo "  zen listmodels - Show available models"
-    echo "  zen config     - Check configuration"
-    echo ""
-    echo "Try: zen chat 'Hello, Zen!'"
+# Check if .env exists
+if [ ! -f "$CONFIG_DIR/.env" ]; then
+    echo "📝 Setting up configuration..."
+    
+    # Check for existing .env in various locations
+    if [ -f "/Users/wrk/WorkDev/MCP-Dev/zen-mcp-server/.env" ]; then
+        echo "📋 Copying existing .env from zen-mcp-server..."
+        cp "/Users/wrk/WorkDev/MCP-Dev/zen-mcp-server/.env" "$CONFIG_DIR/.env"
+    elif [ -f ".env.example" ]; then
+        echo "📋 Creating .env from example..."
+        cp ".env.example" "$CONFIG_DIR/.env"
+        echo ""
+        echo "⚠️  Please edit $CONFIG_DIR/.env and add your API keys:"
+        echo "   - GEMINI_API_KEY"
+        echo "   - OPENAI_API_KEY"
+    else
+        echo "⚠️  No .env file found. Creating empty configuration..."
+        touch "$CONFIG_DIR/.env"
+        echo "# Zen CLI Configuration" > "$CONFIG_DIR/.env"
+        echo "GEMINI_API_KEY=your_gemini_api_key_here" >> "$CONFIG_DIR/.env"
+        echo "OPENAI_API_KEY=your_openai_api_key_here" >> "$CONFIG_DIR/.env"
+        echo ""
+        echo "⚠️  Please edit $CONFIG_DIR/.env and add your API keys"
+    fi
 else
-    echo "❌ Installation failed. Please check the errors above."
-    exit 1
+    echo "✅ Configuration already exists at $CONFIG_DIR/.env"
 fi
 
-# Optional: Add to Claude instructions
 echo ""
-echo "📝 Optional: Add Zen CLI to Claude Code"
-echo "======================================="
+echo "✅ Zen CLI installed successfully!"
 echo ""
-echo "To enable Claude Code to use Zen CLI, add to ~/.claude/CLAUDE.md:"
+echo "To get started:"
+echo "  zen --version      # Check installation"
+echo "  zen listmodels     # List available AI models"
+echo "  zen chat \"Hello!\"  # Start chatting"
 echo ""
-echo "## Zen CLI Integration"
-echo "Use \`zen\` command for AI assistance:"
-echo "- Second opinions: \`zen chat \"question\"\`"
-echo "- Debugging: \`zen debug \"issue\" --files code.py\`"
-echo "- Code review: \`zen codereview --files src/*.py\`"
-echo ""
-echo "Installation complete! 🎉"
+
+# Check if API keys are configured
+if grep -q "your_.*_api_key_here" "$CONFIG_DIR/.env" 2>/dev/null; then
+    echo "⚠️  Don't forget to add your API keys to $CONFIG_DIR/.env"
+fi
