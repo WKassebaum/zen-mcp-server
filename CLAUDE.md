@@ -307,3 +307,123 @@ python3 -c "import sys; print('\n'.join(sys.path))"
 - Tools don't take constructor parameters (initialized empty)
 - User has multiple Redis instances for different projects - needs project switching
 - The zen command is installed at `/Users/wrk/Library/Python/3.13/bin/zen`
+
+---
+
+# Zen CLI Integration for Claude Code
+
+## Auto-Trigger Patterns
+
+You have access to the Zen CLI tool. Use it automatically when you encounter these situations:
+
+### Low Confidence Situations
+When confidence < high on critical decisions:
+```bash
+zen consensus "Should we use microservices or monolith for this e-commerce platform?" \
+  --models gemini-pro,o3 \
+  --context-files architecture.md,requirements.txt
+```
+
+### Complex Debugging
+When stuck on difficult bugs:
+```bash
+zen debug "OAuth tokens not persisting across sessions" \
+  --files src/auth.py,src/session.py \
+  --confidence exploring \
+  --model gemini-pro
+```
+
+### Architecture Decisions
+For important architectural choices:
+```bash
+zen analyze --files src/**/*.py \
+  --analysis-type architecture \
+  --model gemini-pro
+```
+
+### Security Reviews
+Before handling sensitive data:
+```bash
+zen codereview --files auth_handler.py payment.py \
+  --type security \
+  --model o3
+```
+
+### Usage Patterns for Claude Code
+
+#### Pattern 1: Quick Consultation
+When you need a second opinion:
+```bash
+# Get quick advice
+zen chat "Is using Redis for session storage a good idea for our scale?"
+
+# With specific model
+zen chat "Explain the tradeoffs of JWT vs session cookies" --model gemini-pro
+```
+
+#### Pattern 2: Systematic Debugging
+When facing complex bugs:
+```bash
+# Start exploration
+zen debug "Memory leak in production" --confidence exploring
+
+# Provide more context
+zen debug "Memory leak occurs after 1000 requests" \
+  --files app.py,worker.py \
+  --confidence medium
+```
+
+#### Pattern 3: Code Quality Checks
+Before important commits:
+```bash
+# Full review
+zen codereview --files src/*.py --type all
+
+# Security focus
+zen codereview --files auth/*.py --type security --model o3
+
+# Performance analysis
+zen codereview --files api/*.py --type performance --model gemini-flash
+```
+
+#### Pattern 4: Multi-Model Consensus
+For critical decisions:
+```bash
+# Architecture decisions
+zen consensus "Should we migrate from REST to GraphQL?" \
+  --models gemini-pro,o3,gpt-4 \
+  --context-files api_spec.yaml
+
+# Technology choices
+zen consensus "PostgreSQL vs MongoDB for our use case?" \
+  --models gemini-pro,o3
+```
+
+### When to Use Each Tool
+
+| Situation | Command | Purpose |
+|-----------|---------|---------|
+| Stuck on bug | `zen debug` | Systematic investigation |
+| Need validation | `zen chat` | Quick consultation |
+| Code quality | `zen codereview` | Professional review |
+| Big decision | `zen consensus` | Multiple perspectives |
+| Complex analysis | `zen analyze` | Architecture understanding |
+| Project breakdown | `zen planner` | Task decomposition |
+
+### Performance Tips
+
+1. **Model Selection**:
+   - `gemini-flash`: Fast responses for simple queries
+   - `gemini-pro`: Deep analysis and complex reasoning
+   - `o3`: Strong logical reasoning
+   - `auto`: Let Zen choose based on task
+
+2. **File Context**:
+   - Use `--files` to provide relevant context
+   - Glob patterns work: `--files "src/**/*.py"`
+   - Keep file count reasonable for token limits
+
+3. **Output Formats**:
+   - Use `--json` for structured data
+   - Default markdown output for readability
+   - Pipe to files for documentation: `> analysis.md`
