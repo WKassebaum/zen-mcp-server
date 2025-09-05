@@ -26,29 +26,29 @@ logger = logging.getLogger(__name__)
 # Mode selection descriptions for Claude
 MODE_DESCRIPTIONS = {
     "debug": "Systematic debugging and root cause analysis for bugs, errors, performance issues",
-    "review": "Code review workflow for quality, security, performance, and architecture",
+    "codereview": "Code review workflow for quality, security, performance, and architecture",
     "analyze": "Comprehensive code analysis for architecture, patterns, and improvements",
     "consensus": "Multi-model consensus for complex decisions and architectural choices",
     "chat": "General AI consultation and brainstorming",
     "security": "Security audit and vulnerability assessment",
     "refactor": "Refactoring analysis and code improvement recommendations",
-    "test": "Test generation with edge case coverage",
-    "plan": "Sequential task planning and breakdown",
-    "trace": "Code tracing and dependency analysis",
+    "testgen": "Test generation with edge case coverage",
+    "planner": "Sequential task planning and breakdown",
+    "tracer": "Code tracing and dependency analysis",
 }
 
 # Keywords that suggest specific modes
 MODE_KEYWORDS = {
     "debug": ["error", "bug", "broken", "fix", "issue", "problem", "debug", "troubleshoot", "crash", "fail"],
-    "review": ["review", "check", "quality", "standards", "code review", "pr review", "pull request"],
+    "codereview": ["review", "check", "quality", "standards", "code review", "pr review", "pull request"],
     "analyze": ["analyze", "understand", "explain", "architecture", "structure", "pattern", "codebase"],
     "consensus": ["should we", "decision", "choice", "approach", "consensus", "which", "compare", "vs"],
     "chat": ["help", "explain", "tell me", "what is", "how to", "general", "brainstorm", "idea"],
     "security": ["security", "vulnerability", "auth", "authentication", "encryption", "safe", "exploit"],
     "refactor": ["refactor", "improve", "clean", "optimize", "simplify", "restructure", "modernize"],
-    "test": ["test", "testing", "coverage", "edge case", "unit test", "integration test"],
-    "plan": ["plan", "planning", "breakdown", "steps", "strategy", "roadmap", "implement"],
-    "trace": ["trace", "flow", "execution", "dependency", "call chain", "follows", "path"],
+    "testgen": ["test", "testing", "coverage", "edge case", "unit test", "integration test"],
+    "planner": ["plan", "planning", "breakdown", "steps", "strategy", "roadmap", "implement"],
+    "tracer": ["trace", "flow", "execution", "dependency", "call chain", "follows", "path"],
 }
 
 
@@ -91,8 +91,8 @@ class ModeSelectorTool(SimpleTool):
         return (
             "Intelligently select the right Zen tool mode for your task. "
             "First stage of the optimized two-stage workflow that reduces token usage by 95%. "
-            "Analyzes your task and recommends: debug, review, analyze, consensus, chat, "
-            "security, refactor, test, plan, or trace modes."
+            "Analyzes your task and recommends: debug, codereview, analyze, consensus, chat, "
+            "security, refactor, testgen, planner, or tracer modes."
         )
     
     def get_system_prompt(self) -> str:
@@ -270,7 +270,7 @@ class ModeSelectorTool(SimpleTool):
             return "simple"  # Clear understanding
         
         # Mode-specific defaults
-        if mode in ["debug", "review", "security", "analyze"]:
+        if mode in ["debug", "codereview", "security", "analyze"]:
             return "workflow"  # These typically need investigation
         elif mode in ["chat", "consensus"]:
             return "simple"  # Usually single-shot
@@ -298,17 +298,17 @@ class ModeSelectorTool(SimpleTool):
         field_map = {
             ("debug", "simple"): ["problem", "files", "confidence"],
             ("debug", "workflow"): ["step", "step_number", "findings", "next_step_required"],
-            ("review", "simple"): ["files", "review_type", "focus"],
-            ("review", "workflow"): ["step", "step_number", "findings", "relevant_files"],
+            ("codereview", "simple"): ["files", "review_type", "focus"],
+            ("codereview", "workflow"): ["step", "step_number", "findings", "relevant_files"],
             ("analyze", "simple"): ["files", "analysis_type"],
             ("analyze", "workflow"): ["step", "findings", "confidence"],
             ("consensus", "simple"): ["question", "models"],
             ("chat", "simple"): ["prompt", "model"],
             ("security", "workflow"): ["step", "findings", "audit_focus"],
             ("refactor", "simple"): ["files", "refactor_type"],
-            ("test", "simple"): ["files", "test_framework"],
-            ("plan", "workflow"): ["step", "step_number", "next_step_required"],
-            ("trace", "simple"): ["target", "trace_mode"],
+            ("testgen", "simple"): ["files", "test_framework"],
+            ("planner", "workflow"): ["step", "step_number", "next_step_required"],
+            ("tracer", "simple"): ["target", "trace_mode"],
         }
         
         fields = field_map.get((mode, complexity), ["context"])

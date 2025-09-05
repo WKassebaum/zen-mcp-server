@@ -346,7 +346,7 @@ PROMPT_TEMPLATES = {
         "template": "Start comprehensive consensus workflow with {model}",
     },
     "codereview": {
-        "name": "review",
+        "name": "codereview",
         "description": "Perform a comprehensive code review",
         "template": "Perform a comprehensive code review with {model}",
     },
