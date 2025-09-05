@@ -109,8 +109,8 @@ class RefactorRequest(WorkflowRequest):
         default_factory=list, description=REFACTOR_FIELD_DESCRIPTIONS["relevant_context"]
     )
     issues_found: list[dict] = Field(default_factory=list, description=REFACTOR_FIELD_DESCRIPTIONS["issues_found"])
-    confidence: Optional[Literal["exploring", "incomplete", "partial", "complete"]] = Field(
-        "incomplete", description=REFACTOR_FIELD_DESCRIPTIONS["confidence"]
+    confidence: Optional[Literal["high", "medium", "low"]] = Field(
+        "low", description=REFACTOR_FIELD_DESCRIPTIONS["confidence"]
     )
 
     # Optional backtracking field

@@ -101,11 +101,11 @@ class TracerRequest(WorkflowRequest):
     relevant_context: list[str] = Field(
         default_factory=list, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["relevant_context"]
     )
-    confidence: Optional[str] = Field("exploring", description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["confidence"])
+    confidence: Optional[Literal["high", "medium", "low"]] = Field("low", description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["confidence"])
 
     # Tracer-specific fields (used in step 1 to initialize)
-    trace_mode: Optional[Literal["precision", "dependencies", "ask"]] = Field(
-        "ask", description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["trace_mode"]
+    trace_mode: Optional[Literal["precision", "dependencies"]] = Field(
+        "precision", description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["trace_mode"]
     )
     target_description: Optional[str] = Field(
         None, description=TRACER_WORKFLOW_FIELD_DESCRIPTIONS["target_description"]

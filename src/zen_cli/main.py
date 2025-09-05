@@ -57,7 +57,7 @@ def load_env_files():
 loaded_envs = load_env_files()
 
 # Import our standalone components
-from .config import load_config, save_config, get_api_key
+from .config import load_config, save_config, get_api_key, __version__
 from .providers.registry import ModelProviderRegistry
 from .utils.file_utils import read_files
 
@@ -214,7 +214,7 @@ class ZenCLI:
 
 
 @click.group()
-@click.version_option(version="1.0.0", prog_name="zen")
+@click.version_option(version=__version__, prog_name="zen")
 @click.option('--session', '-s', help='Conversation session ID (auto-creates if not specified)')
 @click.option('--format', 'output_format', type=click.Choice(['auto', 'json', 'markdown', 'plain']), 
               default='auto', help='Output format (auto adapts to context)')

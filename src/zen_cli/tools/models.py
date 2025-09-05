@@ -311,7 +311,7 @@ class DebugHypothesis(BaseModel):
     """A debugging hypothesis with detailed analysis"""
 
     name: str = Field(..., description="Name/title of the hypothesis")
-    confidence: Literal["High", "Medium", "Low"] = Field(..., description="Confidence level")
+    confidence: Literal["high", "medium", "low"] = Field(..., description="Confidence level")
     root_cause: str = Field(..., description="Technical explanation of the root cause")
     evidence: str = Field(..., description="Logs or code clues supporting this hypothesis")
     correlation: str = Field(..., description="How symptoms map to the cause")
@@ -347,7 +347,7 @@ class NoBugFound(BaseModel):
     summary: str = Field(..., description="Summary of what was thoroughly investigated")
     investigation_steps: list[str] = Field(..., description="Steps taken during the investigation")
     areas_examined: list[str] = Field(..., description="Code areas and potential failure points examined")
-    confidence_level: Literal["High", "Medium", "Low"] = Field(
+    confidence_level: Literal["high", "medium", "low"] = Field(
         ..., description="Confidence level in the no-bug finding"
     )
     alternative_explanations: list[str] = Field(
