@@ -1,22 +1,47 @@
-# Zen CLI - Claude Code Integration Template
+# Zen CLI v2.0 - Claude Code Integration Template
 
-This template enables Claude Code to leverage the standalone Zen CLI for enhanced AI-powered development assistance. The Zen CLI provides direct access to multiple AI models (Gemini, OpenAI, etc.) through simple command-line interfaces.
+This template enables Claude Code to leverage the production-ready Zen CLI v2.0 for enhanced AI-powered development assistance. The Zen CLI provides direct access to multiple AI models (Gemini, OpenAI, etc.) with enterprise-grade features including project management, multi-backend storage, and conversation continuity.
 
 ## Installation for Claude Code Users
 
-### Quick Install
+### 🚀 Automated Installation (Recommended)
 ```bash
-# Clone and install Zen CLI
+# Clone and install with auto-detection
 git clone https://github.com/WKassebaum/zen-mcp-server.git zen-cli
 cd zen-cli
-git checkout feature/cli-implementation
-pip install -e .
+git checkout v2.0
+./install.sh
+```
 
-# Set API keys
-export GEMINI_API_KEY="your-key-here"
-export OPENAI_API_KEY="your-key-here"
+The installer will:
+- ✅ Auto-detect Claude Code installation  
+- ✅ Install Zen CLI with pipx
+- ✅ Offer to install Claude Code integration template
+- ✅ Set up configuration automatically
 
-# Verify installation
+### 📦 Alternative Installation Methods
+```bash
+# Method 1: Direct from GitHub with pipx
+pipx install git+https://github.com/WKassebaum/zen-mcp-server.git@v2.0
+
+# Method 2: Template installer only (if Zen CLI already installed)  
+curl -sSL https://raw.githubusercontent.com/WKassebaum/zen-mcp-server/v2.0/install-claude-template.sh | bash
+
+# Method 3: Manual installation
+git clone https://github.com/WKassebaum/zen-mcp-server.git zen-cli
+cd zen-cli && git checkout v2.0
+pip install --user --break-system-packages .
+./install-claude-template.sh
+```
+
+### ⚙️ API Key Setup
+```bash
+# Add to your ~/.zshrc or ~/.bashrc
+export GEMINI_API_KEY="your-gemini-key-here"
+export OPENAI_API_KEY="your-openai-key-here"
+
+# Reload shell and verify
+source ~/.zshrc
 zen --version
 zen listmodels
 ```
@@ -138,6 +163,36 @@ zen planner "Migrate from monolith to microservices" \
   --context-files architecture.md,tech_debt.md
 ```
 
+#### Pattern 6: Interactive Development (v2.0 New)
+Enhanced development workflows:
+```bash
+# Interactive mode with conversation continuity
+zen interactive --model gemini-pro
+
+# Continue previous debugging session
+zen continue-chat --session oauth_debug
+
+# Project-specific conversations
+zen --project client_work chat "Review authentication requirements"
+```
+
+#### Pattern 7: Multi-Backend Storage (v2.0 New)
+Enterprise storage and team collaboration:
+```bash
+# File storage (default)
+zen chat "Local development question" --session local_dev
+
+# Redis storage for team collaboration
+export ZEN_STORAGE_TYPE=redis
+export REDIS_HOST=redis.company.com
+zen chat "Team-accessible conversation" --session team_project
+
+# Project-specific Redis configuration
+zen project create enterprise_app "Enterprise development"
+zen config set projects.enterprise_app.storage.type=redis
+zen --project enterprise_app debug "Enterprise-specific issue"
+```
+
 ### Advanced Integration
 
 #### Automated Workflows
@@ -151,14 +206,39 @@ zen consensus "Are there any critical issues?" \
   --models gemini-pro,o3
 ```
 
-#### JSON Output for Processing
-Get structured output for further processing:
+#### JSON Output for Processing (v2.0 Enhanced)
+Get structured output with flexible formatting:
 ```bash
-# Get JSON for parsing
-zen debug "API timeout issues" --json | jq '.result.hypothesis'
+# JSON for parsing and automation
+zen debug "API timeout issues" --format json | jq '.result.hypothesis'
 
-# Store results
-zen analyze --files src/ --json > analysis.json
+# Markdown for documentation
+zen analyze --files src/ --format markdown > analysis.md
+
+# Plain text for simple scripts  
+zen chat "Quick question" --format plain
+
+# Store structured results
+zen codereview --files src/*.py --format json > review.json
+```
+
+#### Project Management Workflows (v2.0 New)
+Organize work by projects and clients:
+```bash
+# Create and manage projects
+zen project create client_alpha "Alpha Corp development"
+zen project create internal_tools "Internal tooling project"
+
+# Switch project context
+zen project switch client_alpha
+
+# Project-specific debugging with isolated conversations
+zen --project client_alpha debug "Client-specific OAuth issue" \
+  --files client_auth.py --session alpha_oauth
+
+# List and manage projects
+zen project list
+zen project delete old_project
 ```
 
 #### Conditional Execution
@@ -174,7 +254,7 @@ if [ "$DEPLOY_ENV" = "production" ]; then
 fi
 ```
 
-### When to Use Each Tool
+### When to Use Each Tool (v2.0 Updated)
 
 | Situation | Command | Purpose |
 |-----------|---------|---------|
@@ -185,6 +265,11 @@ fi
 | Complex analysis | `zen analyze` | Architecture understanding |
 | Project breakdown | `zen planner` | Task decomposition |
 | Deep reasoning | `zen thinkdeep` | Extended analysis |
+| Interactive development | `zen interactive` | Multi-turn conversations |
+| Continue session | `zen continue-chat` | Resume previous conversations |
+| Project management | `zen project` | Organize work by client/context |
+| Configuration | `zen config` | Manage settings and health |
+| Session management | `zen sessions` | List and manage active sessions |
 
 ### Environment Variables
 

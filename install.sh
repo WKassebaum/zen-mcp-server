@@ -55,13 +55,64 @@ fi
 echo ""
 echo "✅ Zen CLI installed successfully!"
 echo ""
-echo "To get started:"
+
+# Check for Claude Code installation and offer template integration
+echo "🔍 Checking for Claude Code integration opportunity..."
+CLAUDE_CODE_DETECTED=false
+
+if [ -f "$HOME/.claude/config.json" ] || command -v claude-code &> /dev/null || [ -d "$HOME/.claude" ]; then
+    CLAUDE_CODE_DETECTED=true
+    echo "🤖 Claude Code detected!"
+    echo ""
+    echo "Zen CLI can integrate with Claude Code to provide enhanced AI development assistance."
+    echo "This allows Claude Code to automatically use Zen CLI for complex debugging, architecture"
+    echo "decisions, code reviews, and multi-model consensus."
+    echo ""
+    
+    read -p "Would you like to install the Claude Code integration template? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        if [ -f "./install-claude-template.sh" ]; then
+            echo "📦 Running Claude Code template installer..."
+            bash ./install-claude-template.sh
+        else
+            echo "⚠️  Template installer not found. Manual installation instructions:"
+            echo ""
+            echo "1. Add the following to your ~/.claude/CLAUDE.md file:"
+            echo "2. See CLAUDE_CODE_TEMPLATE.md for complete integration guide"
+            echo "3. Or download and run: https://github.com/WKassebaum/zen-mcp-server/blob/v2.0/install-claude-template.sh"
+        fi
+    else
+        echo ""
+        echo "💡 You can install Claude Code integration later by running:"
+        echo "   ./install-claude-template.sh"
+        echo ""
+        echo "📖 See CLAUDE_CODE_TEMPLATE.md for manual integration instructions"
+    fi
+    echo ""
+fi
+
+echo "To get started with Zen CLI:"
 echo "  zen --version      # Check installation"
-echo "  zen listmodels     # List available AI models"
+echo "  zen listmodels     # List available AI models"  
 echo "  zen chat \"Hello!\"  # Start chatting"
+
+if [ "$CLAUDE_CODE_DETECTED" = true ]; then
+    echo ""
+    echo "With Claude Code integration:"
+    echo "  • Claude Code can automatically use zen debug, zen consensus, etc."
+    echo "  • Get second opinions from specialized AI models"
+    echo "  • Multi-model consensus for critical decisions"
+    echo "  • Enhanced debugging and code review capabilities"
+fi
+
 echo ""
 
 # Check if API keys are configured
 if grep -q "your_.*_api_key_here" "$CONFIG_DIR/.env" 2>/dev/null; then
     echo "⚠️  Don't forget to add your API keys to $CONFIG_DIR/.env"
+    echo "   Required: GEMINI_API_KEY and/or OPENAI_API_KEY"
 fi
+
+echo ""
