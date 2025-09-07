@@ -35,7 +35,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zen = "zen_cli.main_typer:app"
+zen = "zen_cli.main_typer:cli"
 
 [project.urls]
 Homepage = "https://github.com/WKassebaum/zen-mcp-server"

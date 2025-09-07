@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 
 # Import our standalone components
 from .config import load_config, save_config, get_api_key, __version__
+from .constants import ReviewType
 from .providers.registry import ModelProviderRegistry
 from .utils.file_utils import read_files
 from .utils import validators
@@ -479,7 +480,7 @@ def analyze(
 def codereview(
     files: List[str] = typer.Option(..., "--files", "-f", help="Files to review"),
     review_type: str = typer.Option(ReviewType.ALL.value, help="Type of review (all, security, performance, quality)"),
-    model: str = typer.Option(MODEL_AUTO, help="Model to use"),
+    model: str = typer.Option("auto", help="Model to use"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON")
 ):
     """Perform code review on specified files."""
