@@ -1,0 +1,67 @@
+# Zen CLI Docker Compose Configuration
+# This provides a Redis instance for zen-cli conversation storage and caching
+
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: zen-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    networks:
+      - zen-network
+
+volumes:
+  redis-data:
+    driver: local
+    name: zen-redis-data
+
+networks:
+  zen-network:
+    name: zen-network
+    driver: bridge
+
+# Usage:
+# 1. Start Redis:
+#    docker-compose up -d
+#
+# 2. Check Redis status:
+#    docker-compose ps
+#    docker-compose logs redis
+#
+# 3. Test Redis connection:
+#    docker exec -it zen-redis redis-cli ping
+#
+# 4. Configure Zen CLI to use Redis:
+#    zen configure storage
+#    Or set in ~/.zen-cli/.env:
+#      ZEN_STORAGE_TYPE=redis
+#      REDIS_HOST=localhost
+#      REDIS_PORT=6379
+#
+# 5. Stop Redis:
+#    docker-compose down
+#
+# 6. Remove Redis data:
+#    docker-compose down -v
+
+# Advanced Configuration:
+# To use a custom Redis port, create a .env file in this directory:
+#   echo "REDIS_PORT=6381" > .env
+#
+# To use Redis with authentication, modify the command:
+#   command: redis-server --appendonly yes --requirepass your-password
+#   Then set REDIS_PASSWORD in your ~/.zen-cli/.env

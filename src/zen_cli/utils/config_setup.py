@@ -6,6 +6,8 @@ environment, including storage backends, API keys, and cache settings.
 """
 
 import os
+import subprocess
+import time
 from pathlib import Path
 from typing import Dict, Optional, Any
 import click
@@ -97,6 +99,17 @@ class ConfigurationWizard:
             click.echo("\n" + "-"*40)
             click.echo("Redis Configuration")
             click.echo("-"*40)
+            
+            # Check if Docker is available and offer to set up Redis
+            if self._check_docker_available() and self._check_docker_compose_available():
+                click.echo("\n🐳 Docker is available!")
+                if click.confirm("Would you like to set up Redis using Docker?", default=True):
+                    docker_config = self._setup_docker_redis()
+                    if docker_config:
+                        config.update(docker_config)
+                        return config
+                    else:
+                        click.echo("\n📝 Falling back to manual Redis configuration...")
             
             config['REDIS_HOST'] = self._prompt_with_default(
                 "Redis host",
@@ -262,6 +275,117 @@ class ConfigurationWizard:
             click.echo("\n⚠️  Warning: No API keys configured. At least one is required.")
         
         return config
+    
+    def _check_docker_available(self) -> bool:
+        """Check if Docker is installed and running."""
+        try:
+            result = subprocess.run(
+                ["docker", "info"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            return result.returncode == 0
+        except (subprocess.SubprocessError, FileNotFoundError):
+            return False
+    
+    def _check_docker_compose_available(self) -> bool:
+        """Check if Docker Compose is available."""
+        try:
+            # Try docker-compose first
+            result = subprocess.run(
+                ["docker-compose", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                return True
+            
+            # Try docker compose (v2 syntax)
+            result = subprocess.run(
+                ["docker", "compose", "version"],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            return result.returncode == 0
+        except (subprocess.SubprocessError, FileNotFoundError):
+            return False
+    
+    def _setup_docker_redis(self) -> Optional[Dict[str, str]]:
+        """Set up Redis using Docker Compose."""
+        # Find docker-compose.yaml in the zen-cli directory
+        zen_cli_dir = Path(__file__).parent.parent.parent
+        docker_compose_file = zen_cli_dir / "docker-compose.yaml"
+        
+        if not docker_compose_file.exists():
+            click.echo("⚠️  docker-compose.yaml not found in zen-cli directory")
+            return None
+        
+        click.echo(f"\n📁 Found docker-compose.yaml at: {docker_compose_file}")
+        
+        # Ask for custom port if needed
+        default_port = 6379
+        custom_port = self._prompt_with_default(
+            "Redis port",
+            str(default_port),
+            type_=int
+        )
+        
+        # Create .env file for docker-compose if using custom port
+        if custom_port != default_port:
+            env_file = docker_compose_file.parent / ".env"
+            with open(env_file, "w") as f:
+                f.write(f"REDIS_PORT={custom_port}\n")
+            click.echo(f"✅ Created .env file with REDIS_PORT={custom_port}")
+        
+        # Start Redis container
+        click.echo("\n🚀 Starting Redis container...")
+        try:
+            # Determine which command to use
+            compose_cmd = ["docker-compose"] if subprocess.run(
+                ["docker-compose", "--version"],
+                capture_output=True
+            ).returncode == 0 else ["docker", "compose"]
+            
+            # Run docker-compose up -d
+            result = subprocess.run(
+                compose_cmd + ["-f", str(docker_compose_file), "up", "-d"],
+                capture_output=True,
+                text=True,
+                cwd=docker_compose_file.parent
+            )
+            
+            if result.returncode != 0:
+                click.echo(f"❌ Failed to start Redis container: {result.stderr}")
+                return None
+            
+            click.echo("✅ Redis container started successfully!")
+            
+            # Wait for Redis to be ready
+            click.echo("⏳ Waiting for Redis to be ready...")
+            time.sleep(3)
+            
+            # Test connection
+            config = {
+                'REDIS_HOST': 'localhost',
+                'REDIS_PORT': str(custom_port),
+                'REDIS_DB': '0',
+                'REDIS_KEY_PREFIX': 'zen:'
+            }
+            
+            if self._test_redis_connection(config):
+                click.echo("✅ Redis is ready and accepting connections!")
+                return config
+            else:
+                click.echo("⚠️  Redis container started but connection test failed")
+                click.echo("   You may need to wait a moment and try again")
+                return config
+                
+        except Exception as e:
+            click.echo(f"❌ Error starting Redis container: {e}")
+            return None
     
     def _test_redis_connection(self, config: Dict[str, str]) -> bool:
         """Test Redis connection with provided config."""

@@ -340,7 +340,7 @@ class GeminiModelProvider(ModelProvider):
 
                 # Cache the successful response
                 if response.text:  # Only cache non-empty responses
-                    token_count = usage.total_tokens if usage else None
+                    token_count = usage.get("total_tokens") if usage else None
                     cache.set(
                         prompt, 
                         resolved_name, 

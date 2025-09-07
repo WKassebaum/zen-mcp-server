@@ -16,6 +16,7 @@ from typing import Optional, List
 from enum import Enum
 
 import typer
+from typing_extensions import Annotated
 
 logger = logging.getLogger(__name__)
 from rich.console import Console
@@ -254,6 +255,12 @@ def get_zen_instance() -> ZenCLI:
         state._initialized = True
     return state.zen
 
+def version_callback(value: bool):
+    """Handle --version flag."""
+    if value:
+        typer.echo(f"zen {__version__}")
+        raise typer.Exit()
+
 @app.callback()
 def main(
     session: Optional[str] = typer.Option(None, "--session", "-s", 
@@ -266,17 +273,14 @@ def main(
                                  help="Enable verbose output"),
     config_file: Optional[str] = typer.Option(None, "--config-file",
                                               help="Custom config file path"),
-    version: bool = typer.Option(None, "--version",
-                                 help="Show version and exit")
+    version: Annotated[Optional[bool], typer.Option("--version",
+                                 callback=version_callback,
+                                 help="Show version and exit")] = None
 ):
     """
     Initialize global state for all commands.
     This callback runs before any command.
     """
-    # Handle version flag specially
-    if version:
-        typer.echo(f"zen, version {__version__}")
-        raise typer.Exit()
     
     # Store global options in state
     state.session = session

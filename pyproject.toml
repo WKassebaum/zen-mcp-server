@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "zen-cli"
-version = "5.12.2"
+version = "5.13.0"
 description = "AI-powered development assistant CLI with 95% token optimization"
 readme = "README.md"
 authors = [
