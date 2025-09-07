@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 import google.generativeai as genai
 from google.generativeai import types
 
+from zen_cli.utils.retry import with_retry, API_RETRY
 from .base import ModelCapabilities, ModelProvider, ModelResponse, ProviderType, create_temperature_constraint
 
 logger = logging.getLogger(__name__)
@@ -143,6 +144,7 @@ class GeminiModelProvider(ModelProvider):
         # Return the ModelCapabilities object directly from SUPPORTED_MODELS
         return self.SUPPORTED_MODELS[resolved_name]
 
+    @with_retry(config=API_RETRY)
     def generate_content(
         self,
         prompt: str,

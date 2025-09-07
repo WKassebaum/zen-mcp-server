@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional
 if TYPE_CHECKING:
     from zen_cli.tools.models import ToolModelCategory
 
+from zen_cli.utils.retry import with_retry, API_RETRY
 from .base import (
     ModelCapabilities,
     ModelResponse,
@@ -288,6 +289,7 @@ class OpenAIModelProvider(OpenAICompatibleProvider):
 
         return True
 
+    @with_retry(config=API_RETRY)
     def generate_content(
         self,
         prompt: str,

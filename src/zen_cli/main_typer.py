@@ -5,6 +5,7 @@ Migrated from Click to resolve hanging issues and improve maintainability.
 """
 
 import json
+import logging
 import os
 import sys
 
@@ -15,6 +16,8 @@ from typing import Optional, List
 from enum import Enum
 
 import typer
+
+logger = logging.getLogger(__name__)
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -134,9 +137,9 @@ class ZenCLI:
         # Initialize and register providers
         self._initialize_providers()
         
-        # Initialize all tools using lazy loading
-        tool_classes = get_tool_classes()
-        self.tools = {name: tool_class() for name, tool_class in tool_classes.items()}
+        # Lazy tool loading - don't initialize until needed
+        self.tools = {}  # Will be populated on demand
+        self._tool_classes = None  # Will be loaded when first needed
     
     def _initialize_providers(self, verbose=False):
         """Initialize and register all available providers based on API keys."""
@@ -165,15 +168,32 @@ class ZenCLI:
         
         return registered
     
+    def _get_tool_classes(self):
+        """Lazy load tool classes only when needed."""
+        if self._tool_classes is None:
+            self._tool_classes = get_tool_classes()
+        return self._tool_classes
+    
+    def _get_tool(self, tool_name: str):
+        """Get or create a tool instance on demand."""
+        if tool_name not in self.tools:
+            tool_classes = self._get_tool_classes()
+            if tool_name not in tool_classes:
+                return None
+            
+            # Lazy loading tool
+            self.tools[tool_name] = tool_classes[tool_name]()
+        
+        return self.tools[tool_name]
+    
     def execute_tool(self, tool_name: str, arguments: dict) -> dict:
         """Execute a tool with given arguments."""
-        if tool_name not in self.tools:
+        tool = self._get_tool(tool_name)
+        if tool is None:
             return {
                 'status': 'error',
                 'message': f"Unknown tool: {tool_name}"
             }
-        
-        tool = self.tools[tool_name]
         try:
             # AUTO-SESSION MANAGEMENT
             # Use UUID for unique session IDs to prevent collisions
@@ -458,8 +478,8 @@ def analyze(
 @app.command()
 def codereview(
     files: List[str] = typer.Option(..., "--files", "-f", help="Files to review"),
-    review_type: str = typer.Option("all", help="Type of review (all, security, performance, quality)"),
-    model: str = typer.Option("auto", help="Model to use"),
+    review_type: str = typer.Option(ReviewType.ALL.value, help="Type of review (all, security, performance, quality)"),
+    model: str = typer.Option(MODEL_AUTO, help="Model to use"),
     output_json: bool = typer.Option(False, "--json", help="Output as JSON")
 ):
     """Perform code review on specified files."""

@@ -6,6 +6,7 @@ import time
 from typing import Any, Dict
 
 from zen_cli.types import TextContent
+from zen_cli.utils.retry import RetryError
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +82,17 @@ def execute_chat_sync(tool, arguments: dict, registry=None) -> list[TextContent]
             text=json.dumps(result)
         )]
         
+    except RetryError as e:
+        logger.error(f"All retry attempts exhausted in chat: {e}")
+        error_msg = f"Failed after multiple attempts: {str(e.last_error) if e.last_error else str(e)}"
+        return [TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "error",
+                "error": error_msg,
+                "retry_exhausted": True
+            })
+        )]
     except Exception as e:
         logger.error(f"Error in chat sync execution: {e}")
         return [TextContent(
@@ -283,6 +295,17 @@ def execute_debug_sync(tool, arguments: dict, registry=None) -> list[TextContent
             text=json.dumps(result)
         )]
         
+    except RetryError as e:
+        logger.error(f"All retry attempts exhausted in debug: {e}")
+        error_msg = f"Failed after multiple attempts: {str(e.last_error) if e.last_error else str(e)}"
+        return [TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "error",
+                "error": error_msg,
+                "retry_exhausted": True
+            })
+        )]
     except Exception as e:
         logger.error(f"Error in debug sync execution: {e}")
         return [TextContent(
@@ -340,6 +363,17 @@ def execute_simple_tool_sync(tool, arguments: dict, registry=None) -> list[TextC
             text=json.dumps(result)
         )]
         
+    except RetryError as e:
+        logger.error(f"All retry attempts exhausted in {tool.get_name() if hasattr(tool, 'get_name') else 'tool'}: {e}")
+        error_msg = f"Failed after multiple attempts: {str(e.last_error) if e.last_error else str(e)}"
+        return [TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "error",
+                "error": error_msg,
+                "retry_exhausted": True
+            })
+        )]
     except Exception as e:
         logger.error(f"Error in simple tool sync execution: {e}")
         return [TextContent(
@@ -522,6 +556,19 @@ def execute_workflow_tool_sync(tool, arguments: dict, registry=None) -> list[Tex
             text=json.dumps(result)
         )]
         
+    except RetryError as e:
+        logger.error(f"All retry attempts exhausted in workflow {tool_name}: {e}")
+        # Clean up on error
+        manager.delete_state(continuation_id, tool_name)
+        error_msg = f"Failed after multiple attempts: {str(e.last_error) if e.last_error else str(e)}"
+        return [TextContent(
+            type="text",
+            text=json.dumps({
+                "status": "error",
+                "error": error_msg,
+                "retry_exhausted": True
+            })
+        )]
     except Exception as e:
         logger.error(f"Error in workflow tool sync execution: {e}")
         # Clean up on error
