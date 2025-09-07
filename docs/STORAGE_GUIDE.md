@@ -41,9 +41,11 @@ ZEN_CACHE_ENABLED=true       # Enable response caching
 ZEN_CACHE_TTL=3600          # Cache TTL in seconds (1 hour)
 ZEN_FILE_CACHE_SIZE=100     # File cache size in MB
 
-# API Keys (Required)
+# API Keys (At least one required)
 GEMINI_API_KEY=your_key_here
 OPENAI_API_KEY=your_key_here
+OPENROUTER_API_KEY=your_key_here
+XAI_API_KEY=your_key_here
 ```
 
 ## Storage Architecture

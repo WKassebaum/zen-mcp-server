@@ -39,6 +39,8 @@ class ConfigurationWizard:
             'ZEN_CACHE_ENABLED',
             'GEMINI_API_KEY',
             'OPENAI_API_KEY',
+            'OPENROUTER_API_KEY',
+            'XAI_API_KEY',
         ]
         
         config = {}
@@ -75,12 +77,13 @@ class ConfigurationWizard:
         # Storage type selection
         current_storage = self.current_config.get('ZEN_STORAGE_TYPE', 'file')
         click.echo("\nStorage Backend Options:")
-        click.echo("  1. file   - Local file storage (default)")
-        click.echo("  2. redis  - Redis for distributed/team storage")
-        click.echo("  3. memory - In-memory only (testing)")
+        click.echo("  file   - Local file storage (default)")
+        click.echo("  redis  - Redis for distributed/team storage")
+        click.echo("  memory - In-memory only (testing)")
+        click.echo(f"\nCurrent: {current_storage}")
         
         storage_type = self._prompt_with_default(
-            "\nSelect storage type",
+            "Select storage type",
             current_storage
         ).lower()
         
@@ -113,12 +116,25 @@ class ConfigurationWizard:
             ))
             
             # Password is optional
-            if click.confirm("Does your Redis require a password?", default=False):
-                config['REDIS_PASSWORD'] = self._prompt_with_default(
-                    "Redis password",
-                    self.current_config.get('REDIS_PASSWORD'),
-                    password=True
-                )
+            current_password = self.current_config.get('REDIS_PASSWORD')
+            if current_password:
+                masked_password = self._mask_api_key(current_password)  # Reuse masking function
+                click.echo(f"\nCurrent Redis password: {masked_password}")
+                if click.confirm("Update Redis password?", default=False):
+                    new_password = self._prompt_with_default(
+                        "Redis password",
+                        None,
+                        password=True
+                    )
+                    if new_password:
+                        config['REDIS_PASSWORD'] = new_password
+            else:
+                if click.confirm("Does your Redis require a password?", default=False):
+                    config['REDIS_PASSWORD'] = self._prompt_with_default(
+                        "Redis password",
+                        None,
+                        password=True
+                    )
             
             config['REDIS_KEY_PREFIX'] = self._prompt_with_default(
                 "Redis key prefix (for namespacing)",
@@ -172,41 +188,78 @@ class ConfigurationWizard:
         
         return config
     
+    def _mask_api_key(self, key: str) -> str:
+        """Mask an API key showing first 6 and last 6 characters."""
+        if not key:
+            return ""
+        if len(key) <= 14:
+            # Key is too short to mask properly, just show partial
+            return key[:3] + "..." + key[-3:] if len(key) > 6 else "***"
+        return key[:6] + "..." + key[-6:]
+    
+    def _prompt_for_api_key(self, name: str, env_var: str, current_value: Optional[str]) -> Optional[str]:
+        """Prompt for an API key with existing value handling."""
+        if current_value:
+            masked = self._mask_api_key(current_value)
+            prompt = f"{name} API key [{masked}]"
+            click.echo(f"Current: {masked}")
+        else:
+            masked = None
+            prompt = f"{name} API key (not set)"
+        
+        # Prompt with password hiding
+        value = click.prompt(
+            prompt, 
+            default='', 
+            hide_input=True,
+            show_default=False,
+            type=str
+        )
+        
+        # If empty and there's an existing value, keep it
+        if not value and current_value:
+            return None  # Don't update, keep existing
+        elif value:
+            return value  # Update with new value
+        else:
+            return None  # No existing value and no new value
+    
     def setup_api_keys(self) -> Dict[str, str]:
         """Configure API keys."""
         click.echo("\n" + "="*60)
         click.echo("API KEY CONFIGURATION")
         click.echo("="*60)
-        click.echo("\nNote: API keys are required for Zen CLI to function.")
-        click.echo("Leave blank to keep existing values.")
+        click.echo("\nPress Enter to keep existing values, or type new key.")
+        click.echo("At least one API key is required for Zen CLI to function.")
         
         config = {}
         
-        # Gemini API Key
-        current_gemini = self.current_config.get('GEMINI_API_KEY')
-        if current_gemini:
-            masked_gemini = current_gemini[:10] + '...' + current_gemini[-4:]
-            click.echo(f"\nCurrent Gemini API key: {masked_gemini}")
+        # API key configurations
+        api_keys = [
+            ('Gemini', 'GEMINI_API_KEY'),
+            ('OpenAI', 'OPENAI_API_KEY'),
+            ('OpenRouter', 'OPENROUTER_API_KEY'),
+            ('X.AI (Grok)', 'XAI_API_KEY'),
+        ]
         
-        if click.confirm("Update Gemini API key?", default=not bool(current_gemini)):
-            config['GEMINI_API_KEY'] = self._prompt_with_default(
-                "Gemini API key",
-                None,
-                password=True
-            )
+        for name, env_var in api_keys:
+            click.echo(f"\n{name}:")
+            current_value = self.current_config.get(env_var)
+            new_value = self._prompt_for_api_key(name, env_var, current_value)
+            
+            if new_value:  # Only add to config if there's a new value
+                config[env_var] = new_value
         
-        # OpenAI API Key
-        current_openai = self.current_config.get('OPENAI_API_KEY')
-        if current_openai:
-            masked_openai = current_openai[:10] + '...' + current_openai[-4:]
-            click.echo(f"\nCurrent OpenAI API key: {masked_openai}")
+        # Check if at least one API key is configured
+        configured_keys = []
+        for name, env_var in api_keys:
+            if config.get(env_var) or self.current_config.get(env_var):
+                configured_keys.append(name)
         
-        if click.confirm("Update OpenAI API key?", default=not bool(current_openai)):
-            config['OPENAI_API_KEY'] = self._prompt_with_default(
-                "OpenAI API key",
-                None,
-                password=True
-            )
+        if configured_keys:
+            click.echo(f"\n✅ API keys configured for: {', '.join(configured_keys)}")
+        else:
+            click.echo("\n⚠️  Warning: No API keys configured. At least one is required.")
         
         return config
     
@@ -285,7 +338,7 @@ class ConfigurationWizard:
             for key, value in all_config.items():
                 if 'PASSWORD' in key or 'API_KEY' in key:
                     if value:
-                        display_value = value[:10] + '...' if len(value) > 10 else value
+                        display_value = self._mask_api_key(value)
                     else:
                         display_value = '(unchanged)'
                 else:

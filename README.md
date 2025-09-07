@@ -61,7 +61,7 @@ pip install -e .
 zen configure
 
 # This will help you set up:
-# - API keys (Gemini, OpenAI)
+# - API keys (Gemini, OpenAI, OpenRouter, X.AI)
 # - Storage backend (file, Redis, memory)
 # - Caching settings
 # - All settings saved to ~/.zen-cli/.env
@@ -69,13 +69,17 @@ zen configure
 
 ### 2. Manual Configuration (Alternative)
 ```bash
-# Set environment variables directly
+# Set environment variables directly (at least one required)
 export GEMINI_API_KEY="your-gemini-key-here"
 export OPENAI_API_KEY="your-openai-key-here"
+export OPENROUTER_API_KEY="your-openrouter-key-here"
+export XAI_API_KEY="your-xai-key-here"
 
 # Or edit ~/.zen-cli/.env
 echo 'GEMINI_API_KEY=your-key-here' >> ~/.zen-cli/.env
 echo 'OPENAI_API_KEY=your-key-here' >> ~/.zen-cli/.env
+echo 'OPENROUTER_API_KEY=your-key-here' >> ~/.zen-cli/.env
+echo 'XAI_API_KEY=your-key-here' >> ~/.zen-cli/.env
 ```
 
 ### 3. Basic Usage
@@ -279,9 +283,11 @@ ZEN_CACHE_ENABLED=true          # Enable response caching
 ZEN_CACHE_TTL=3600              # Cache TTL in seconds
 ZEN_FILE_CACHE_SIZE=100         # File cache size in MB
 
-# API Keys
+# API Keys (At least one required)
 GEMINI_API_KEY=your_gemini_key
 OPENAI_API_KEY=your_openai_key
+OPENROUTER_API_KEY=your_openrouter_key
+XAI_API_KEY=your_xai_key
 
 # Session Settings
 SESSION_TIMEOUT_HOURS=6
