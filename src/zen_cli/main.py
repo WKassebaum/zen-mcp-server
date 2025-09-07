@@ -42,42 +42,61 @@ def load_env_files():
             load_dotenv(env_path, override=False)  # Don't override existing env vars
             loaded_from.append(str(env_path))
     
-    # Create config directory and show setup instructions if no .env found
+    # Create config directory quietly (remove console output that might block)
     config_dir = Path.home() / '.zen-cli'
     config_file = config_dir / '.env'
     if not config_file.exists():
         config_dir.mkdir(parents=True, exist_ok=True)
-        if not loaded_from:
-            console.print(f"[yellow]No .env file found. Please create one at: {config_file}[/yellow]")
-            console.print("[yellow]You can copy from: /Users/wrk/WorkDev/MCP-Dev/zen-mcp-server/.env.example[/yellow]")
+        # Silently skip setup instructions to avoid potential console blocking
     
     return loaded_from
 
-# Load environment variables before importing components
-loaded_envs = load_env_files()
+# Remove module-level environment loading entirely - let individual components handle it
+# def load_env_files() is still available for explicit calls
 
 # Import our standalone components
 from .config import load_config, save_config, get_api_key, __version__
 from .providers.registry import ModelProviderRegistry
 from .utils.file_utils import read_files
 
-# Import tools (using actual class names from the files)
-from .tools.chat import ChatTool
-from .tools.debug import DebugIssueTool
-from .tools.codereview import CodeReviewTool
-from .tools.consensus import ConsensusTool
-from .tools.analyze import AnalyzeTool
-from .tools.planner import PlannerTool
-from .tools.thinkdeep import ThinkDeepTool
-from .tools.challenge import ChallengeTool
-from .tools.precommit import PrecommitTool
-from .tools.refactor import RefactorTool
-from .tools.secaudit import SecauditTool
-from .tools.testgen import TestGenTool
-from .tools.docgen import DocgenTool
-from .tools.tracer import TracerTool
-from .tools.listmodels import ListModelsTool
-from .tools.version import VersionTool
+# Lazy import tools to avoid blocking operations during module import
+def _get_tool_classes():
+    """Lazy import tool classes to avoid blocking during module import."""
+    from .tools.chat import ChatTool
+    from .tools.debug import DebugIssueTool
+    from .tools.codereview import CodeReviewTool
+    from .tools.consensus import ConsensusTool
+    from .tools.analyze import AnalyzeTool
+    from .tools.planner import PlannerTool
+    from .tools.thinkdeep import ThinkDeepTool
+    from .tools.challenge import ChallengeTool
+    from .tools.precommit import PrecommitTool
+    from .tools.refactor import RefactorTool
+    from .tools.secaudit import SecauditTool
+    from .tools.testgen import TestGenTool
+    from .tools.docgen import DocgenTool
+    from .tools.tracer import TracerTool
+    from .tools.listmodels import ListModelsTool
+    from .tools.version import VersionTool
+    
+    return {
+        'chat': ChatTool,
+        'debug': DebugIssueTool,
+        'codereview': CodeReviewTool,
+        'consensus': ConsensusTool,
+        'analyze': AnalyzeTool,
+        'planner': PlannerTool,
+        'thinkdeep': ThinkDeepTool,
+        'challenge': ChallengeTool,
+        'precommit': PrecommitTool,
+        'refactor': RefactorTool,
+        'secaudit': SecauditTool,
+        'testgen': TestGenTool,
+        'docgen': DocgenTool,
+        'tracer': TracerTool,
+        'listmodels': ListModelsTool,
+        'version': VersionTool,
+    }
 
 
 class ZenCLI:
@@ -85,31 +104,23 @@ class ZenCLI:
     
     def __init__(self, config: Dict[str, Any]):
         """Initialize the CLI with configuration."""
+        print("[DEBUG] ZenCLI.__init__ starting")
         self.config = config
+        print("[DEBUG] Config set")
         self.registry = ModelProviderRegistry()
+        print("[DEBUG] Registry created")
         
         # Initialize and register providers
+        print("[DEBUG] Calling _initialize_providers...")
         self._initialize_providers()
+        print("[DEBUG] Providers initialized")
         
-        # Initialize all tools (tools don't take parameters in constructor)
-        self.tools = {
-            'chat': ChatTool(),
-            'debug': DebugIssueTool(),
-            'codereview': CodeReviewTool(),
-            'consensus': ConsensusTool(),
-            'analyze': AnalyzeTool(),
-            'planner': PlannerTool(),
-            'thinkdeep': ThinkDeepTool(),
-            'challenge': ChallengeTool(),
-            'precommit': PrecommitTool(),
-            'refactor': RefactorTool(),
-            'secaudit': SecauditTool(),
-            'testgen': TestGenTool(),
-            'docgen': DocgenTool(),
-            'tracer': TracerTool(),
-            'listmodels': ListModelsTool(),
-            'version': VersionTool(),
-        }
+        # Initialize all tools using lazy loading (tools don't take parameters in constructor)  
+        print("[DEBUG] Creating tools dictionary...")
+        tool_classes = _get_tool_classes()
+        self.tools = {name: tool_class() for name, tool_class in tool_classes.items()}
+        print("[DEBUG] All tools created successfully!")
+        print("[DEBUG] ZenCLI.__init__ completed")
     
     def _initialize_providers(self, verbose=False):
         """Initialize and register all available providers based on API keys."""
@@ -223,51 +234,29 @@ class ZenCLI:
 @click.option('--config-file', help='Custom config file path')
 @click.pass_context
 def cli(ctx, session, output_format, project, verbose, config_file):
-    """
-    Zen CLI - Standalone AI-powered development assistant.
+    """Zen CLI - Standalone AI-powered development assistant."""
+    # Do absolutely nothing in the group function to avoid hanging
+    pass
+
+def _get_zen_instance(ctx):
+    """Lazy initialization of ZenCLI instance only when needed."""
+    # Initialize context object if it doesn't exist
+    if ctx.obj is None:
+        ctx.obj = {}
     
-    Direct access to all Zen tools without requiring an MCP server.
-    Perfect for use with Claude Code, bash scripts, or interactive sessions.
-    
-    Examples:
-      zen chat "Explain REST APIs"
-      zen debug "OAuth not working" --files auth.py
-      zen codereview --files src/*.py --model gemini-pro
-      zen consensus "Should we use microservices?" --models gemini,o3
-    
-    Global Options:
-      --session: Use specific conversation session
-      --format: Control output format (auto, json, markdown, plain)
-      --project: Override current project setting
-    """
-    ctx.ensure_object(dict)
-    
-    # Store global options in context for child commands
-    ctx.obj['global_session'] = session
-    ctx.obj['global_format'] = output_format
-    ctx.obj['global_project'] = project
-    ctx.obj['global_verbose'] = verbose
-    ctx.obj['global_config_file'] = config_file
-    
-    # Initialize configuration
-    if config_file:
-        # TODO: Support custom config files
-        config = load_config()
-    else:
-        config = load_config()
-    
-    # Set project context if specified
-    if project:
+    if not ctx.obj.get('_zen_initialized', False):
+        # Load environment and config only when actually needed
         try:
-            from zen_cli.utils.config_manager import get_config_manager
-            config_manager = get_config_manager()
-            config_manager.set_current_project(project)
-        except Exception as e:
-            if verbose:
-                console.print(f"[yellow]Warning: Could not set project '{project}': {e}[/yellow]")
+            load_env_files()
+        except Exception:
+            pass  # Silently continue if env loading fails
+        
+        config = load_config()
+        ctx.obj['config'] = config  
+        ctx.obj['zen'] = ZenCLI(config)
+        ctx.obj['_zen_initialized'] = True
     
-    ctx.obj['config'] = config
-    ctx.obj['zen'] = ZenCLI(config)
+    return ctx.obj['zen']
 
 
 
@@ -534,7 +523,7 @@ def version(ctx):
 @click.pass_context
 def chat(ctx, message, model, files, session, output_json):
     """Chat with AI assistant."""
-    zen = ctx.obj['zen']
+    zen = _get_zen_instance(ctx)
     
     tool_args = {
         'prompt': message,  # ChatTool expects 'prompt' not 'query'

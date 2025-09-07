@@ -499,6 +499,7 @@ class SimpleTool(BaseTool):
                         retry_prompt = f"{original_prompt}\n\nIMPORTANT: Please provide a substantive response. If you cannot respond to the above request, please explain why and suggest alternatives."
 
                         try:
+                            # Retry with modified prompt
                             retry_response = provider.generate_content(
                                 prompt=retry_prompt,
                                 model_name=self._current_model_name,

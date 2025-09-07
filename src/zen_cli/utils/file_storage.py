@@ -21,14 +21,16 @@ import os
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, List, Optional
 import hashlib
 import subprocess
+
+from .storage_base import StorageBackend
 
 logger = logging.getLogger(__name__)
 
 
-class FileBasedStorage:
+class FileBasedStorage(StorageBackend):
     """File-based storage for conversation threads with persistence"""
 
     def __init__(self, storage_dir: str = "~/.zen-cli"):
@@ -46,9 +48,13 @@ class FileBasedStorage:
         self._cleanup_interval = max(300, self._cleanup_interval)  # Minimum 5 minutes
         self._shutdown = False
 
-        # Start background cleanup thread
-        self._cleanup_thread = threading.Thread(target=self._cleanup_worker, daemon=True)
-        self._cleanup_thread.start()
+        # Start background cleanup thread (disabled in CLI mode to prevent hanging)
+        # TODO: Fix thread interaction with CLI frameworks
+        if os.getenv("ZEN_CLI_MODE") != "1":
+            self._cleanup_thread = threading.Thread(target=self._cleanup_worker, daemon=True)
+            self._cleanup_thread.start()
+        else:
+            self._cleanup_thread = None
 
         logger.info(
             f"File-based storage initialized in {self.conversations_dir} with {timeout_hours}h timeout, cleanup every {self._cleanup_interval//60}m"
@@ -259,7 +265,7 @@ def get_storage_backend() -> FileBasedStorage:
                     logger.info("Initialized file-based conversation storage")
                 else:
                     # Fall back to in-memory storage
-                    from .storage_backend import InMemoryStorage
+                    from .storage_base import InMemoryStorage
                     _storage_instance = InMemoryStorage()
                     logger.info("Initialized in-memory conversation storage")
     return _storage_instance

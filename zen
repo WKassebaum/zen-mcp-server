@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Zen CLI wrapper script that uses source code directly."""
+"""Zen CLI wrapper script - Typer implementation."""
 
 import sys
 import os
@@ -9,8 +9,8 @@ from pathlib import Path
 src_dir = Path(__file__).parent / 'src'
 sys.path.insert(0, str(src_dir))
 
-# Import and run CLI
-from zen_cli.main import cli
+# Import and run Typer CLI
+from zen_cli.main_typer import cli
 
 if __name__ == '__main__':
     cli()
