@@ -12,6 +12,7 @@ import google.generativeai as genai
 from google.generativeai import types
 
 from zen_cli.utils.retry import with_retry, API_RETRY
+from zen_cli.utils.response_cache import get_response_cache
 from .base import ModelCapabilities, ModelProvider, ModelResponse, ProviderType, create_temperature_constraint
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,34 @@ class GeminiModelProvider(ModelProvider):
         # Validate parameters
         resolved_name = self._resolve_model_name(model_name)
         self.validate_parameters(model_name, temperature)
+        
+        # Check cache first
+        cache = get_response_cache()
+        cache_params = {
+            "temperature": temperature,
+            "max_output_tokens": max_output_tokens,
+            "thinking_mode": thinking_mode,
+            "system_prompt": system_prompt
+        }
+        
+        # Try to get cached response
+        cached_response = cache.get(prompt, resolved_name, **cache_params)
+        if cached_response:
+            # Return cached response with metadata
+            capabilities = self.get_capabilities(model_name)
+            return ModelResponse(
+                content=cached_response,
+                usage=None,  # No usage info for cached responses
+                model_name=resolved_name,
+                friendly_name="Gemini",
+                provider=ProviderType.GOOGLE,
+                metadata={
+                    "finish_reason": "CACHED",
+                    "from_cache": True,
+                    "max_thinking_tokens": capabilities.max_thinking_tokens if capabilities.supports_extended_thinking else None,
+                    "supports_thinking": capabilities.supports_extended_thinking,
+                }
+            )
 
         # Prepare content parts (text and potentially images)
         parts = []
@@ -309,6 +338,21 @@ class GeminiModelProvider(ModelProvider):
                         # prompt_feedback doesn't exist or has unexpected attributes; stick with the default message
                         pass
 
+                # Cache the successful response
+                if response.text:  # Only cache non-empty responses
+                    token_count = usage.total_tokens if usage else None
+                    cache.set(
+                        prompt, 
+                        resolved_name, 
+                        response.text,
+                        token_count=token_count,
+                        metadata={
+                            "finish_reason": finish_reason_str,
+                            "safety_blocked": is_blocked_by_safety
+                        },
+                        **cache_params
+                    )
+                
                 return ModelResponse(
                     content=response.text,
                     usage=usage,

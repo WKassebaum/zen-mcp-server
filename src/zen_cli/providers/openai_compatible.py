@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from openai import OpenAI
 
+from zen_cli.utils.response_cache import get_response_cache
 from .base import (
     ModelCapabilities,
     ModelProvider,
@@ -408,6 +409,17 @@ class OpenAICompatibleProvider(ModelProvider):
                         "total_tokens": input_tokens + output_tokens,
                     }
 
+                # Cache the successful response (only if no images)
+                if content and not images:
+                    token_count = usage.get("total_tokens") if usage else None
+                    cache.set(
+                        prompt,
+                        model_name,
+                        content,
+                        token_count=token_count,
+                        **cache_params
+                    )
+
                 return ModelResponse(
                     content=content,
                     usage=usage,
@@ -476,6 +488,32 @@ class OpenAICompatibleProvider(ModelProvider):
         if effective_temperature is not None:
             # Validate parameters with the effective temperature
             self.validate_parameters(model_name, effective_temperature)
+
+        # Check cache first
+        cache = get_response_cache()
+        cache_params = {
+            "temperature": effective_temperature,
+            "max_output_tokens": max_output_tokens,
+            "system_prompt": system_prompt,
+            "has_images": bool(images)
+        }
+        
+        # Try to get cached response (only if no images - images make responses unique)
+        if not images:
+            cached_response = cache.get(prompt, model_name, **cache_params)
+            if cached_response:
+                # Return cached response with metadata
+                return ModelResponse(
+                    content=cached_response,
+                    usage=None,  # No usage info for cached responses
+                    model_name=model_name,
+                    friendly_name=self.FRIENDLY_NAME,
+                    provider=self.get_provider_type(),
+                    metadata={
+                        "finish_reason": "CACHED",
+                        "from_cache": True
+                    }
+                )
 
         # Prepare messages
         messages = []
@@ -567,6 +605,17 @@ class OpenAICompatibleProvider(ModelProvider):
                 # Extract content and usage
                 content = response.choices[0].message.content
                 usage = self._extract_usage(response)
+
+                # Cache the successful response (only if no images)
+                if content and not images:
+                    token_count = usage.get("total_tokens") if usage else None
+                    cache.set(
+                        prompt,
+                        model_name,
+                        content,
+                        token_count=token_count,
+                        **cache_params
+                    )
 
                 return ModelResponse(
                     content=content,
