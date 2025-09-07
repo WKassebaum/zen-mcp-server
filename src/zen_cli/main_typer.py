@@ -175,12 +175,12 @@ class ZenCLI:
         tool = self.tools[tool_name]
         try:
             # AUTO-SESSION MANAGEMENT
-            # Temporarily use simple session IDs until file storage is fully fixed
+            # Use UUID for unique session IDs to prevent collisions
             if "continuation_id" not in arguments or not arguments["continuation_id"]:
                 utility_tools = {"listmodels", "version"}
                 if tool_name not in utility_tools:
-                    import time
-                    arguments["continuation_id"] = f"cli_session_{int(time.time())}"
+                    import uuid
+                    arguments["continuation_id"] = f"cli_session_{uuid.uuid4().hex[:8]}"
             
             # AUTO MODEL RESOLUTION
             model_name = arguments.get("model", "auto")
@@ -415,7 +415,7 @@ def consensus(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -445,7 +445,7 @@ def analyze(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -460,8 +460,13 @@ def codereview(
     """Perform code review on specified files."""
     zen = get_zen_instance()
     
+    # Read file contents for the tool
+    from .utils.file_utils import read_files
+    file_contents = read_files(list(files))
+    
     tool_args = {
         'files': list(files),
+        'file_contents': file_contents,  # Pass actual content
         'type': review_type,
         'model': model
     }
@@ -475,7 +480,7 @@ def codereview(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -523,7 +528,7 @@ def planner(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -567,7 +572,7 @@ def testgen(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -612,7 +617,7 @@ def refactor(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -660,7 +665,7 @@ def secaudit(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -708,7 +713,7 @@ def tracer(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -757,7 +762,7 @@ def docgen(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -813,7 +818,7 @@ def precommit(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -858,7 +863,7 @@ def thinkdeep(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
@@ -884,7 +889,7 @@ def challenge(
             try:
                 result_data = json.loads(result['result'])
                 console.print(Markdown(result_data.get('content', result['result'])))
-            except:
+            except (json.JSONDecodeError, KeyError, TypeError):
                 console.print(Markdown(result['result']))
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")

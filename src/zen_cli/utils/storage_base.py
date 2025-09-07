@@ -4,6 +4,7 @@ This module defines the storage interface and provides the in-memory implementat
 to avoid circular imports between storage modules.
 """
 
+import os
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -141,6 +142,3 @@ class InMemoryStorage(StorageBackend):
         self._shutdown = True
         if hasattr(self, '_cleanup_thread') and self._cleanup_thread.is_alive():
             self._cleanup_thread.join(timeout=1)
-
-
-import os  # Import os here to avoid issues

@@ -286,13 +286,14 @@ def execute_simple_tool_sync(tool, arguments: dict) -> list[TextContent]:
     prompt = arguments.get('prompt', '')
     model_name = arguments.get('model', 'auto')
     
+    # Create registry once
+    registry = ModelProviderRegistry()
+    
     # Handle auto model resolution
     if model_name.lower() == 'auto':
-        registry = ModelProviderRegistry()
         model_name = registry.get_preferred_fallback_model(tool.get_model_category())
     
     # Get the provider
-    registry = ModelProviderRegistry()
     provider = registry.get_provider_for_model(model_name)
     if not provider:
         error_msg = f"Model '{model_name}' is not available"
@@ -338,17 +339,19 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
     from zen_cli.providers.registry import ModelProviderRegistry
     
     # For workflow tools, we need to handle the step-by-step nature
+    # TODO: Implement proper multi-step workflow execution
     # For now, just execute the first step
     request = arguments.get('request', {})
     model_name = arguments.get('model', 'auto')
     
+    # Create registry once
+    registry = ModelProviderRegistry()
+    
     # Handle auto model resolution
     if model_name.lower() == 'auto':
-        registry = ModelProviderRegistry()
         model_name = registry.get_preferred_fallback_model(tool.get_model_category())
     
     # Get the provider
-    registry = ModelProviderRegistry()
     provider = registry.get_provider_for_model(model_name)
     if not provider:
         error_msg = f"Model '{model_name}' is not available"
