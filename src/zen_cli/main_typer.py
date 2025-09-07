@@ -194,7 +194,7 @@ class ZenCLI:
             
             # Use synchronous execution for CLI context
             from .tools.sync_wrapper import execute_tool_sync
-            result = execute_tool_sync(tool_name, tool, arguments)
+            result = execute_tool_sync(tool_name, tool, arguments, registry=self.registry)
             
             # Convert result to consistent format
             if isinstance(result, dict):

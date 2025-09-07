@@ -22,6 +22,7 @@ classifiers = [
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.1.0",
+    "typer>=0.9.0",
     "rich>=13.0.0",
     "pyyaml>=6.0",
     "httpx>=0.25.0",
@@ -34,7 +35,7 @@ dependencies = [
 ]
 
 [project.scripts]
-zen = "zen_cli.main:cli"
+zen = "zen_cli.main_typer:app"
 
 [project.urls]
 Homepage = "https://github.com/WKassebaum/zen-mcp-server"

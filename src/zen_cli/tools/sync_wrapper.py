@@ -10,9 +10,13 @@ from zen_cli.types import TextContent
 logger = logging.getLogger(__name__)
 
 
-def execute_chat_sync(tool, arguments: dict) -> list[TextContent]:
+def execute_chat_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute chat tool synchronously."""
     from zen_cli.providers.registry import ModelProviderRegistry
+    
+    # Use provided registry or create new one
+    if registry is None:
+        registry = ModelProviderRegistry()
     
     # Extract required arguments
     prompt = arguments.get('prompt', '')
@@ -22,11 +26,9 @@ def execute_chat_sync(tool, arguments: dict) -> list[TextContent]:
     
     # Handle auto model resolution
     if model_name.lower() == 'auto':
-        registry = ModelProviderRegistry()
         model_name = registry.get_preferred_fallback_model('default')
     
     # Get the provider
-    registry = ModelProviderRegistry()
     provider = registry.get_provider_for_model(model_name)
     if not provider:
         error_msg = f"Model '{model_name}' is not available"
@@ -90,10 +92,12 @@ def execute_chat_sync(tool, arguments: dict) -> list[TextContent]:
         )]
 
 
-def execute_listmodels_sync(tool, arguments: dict) -> list[TextContent]:
+def execute_listmodels_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute listmodels tool synchronously."""
     from zen_cli.providers.registry import ModelProviderRegistry
     import os
+    
+    # Registry not needed for listmodels but accept for consistency
     
     try:
         registry = ModelProviderRegistry()
@@ -162,11 +166,13 @@ def execute_listmodels_sync(tool, arguments: dict) -> list[TextContent]:
         )]
 
 
-def execute_version_sync(tool, arguments: dict) -> list[TextContent]:
+def execute_version_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute version tool synchronously."""
     from zen_cli.config import __version__
     import os
     from pathlib import Path
+    
+    # Registry not needed for version but accept for consistency
     
     try:
         output_lines = ["# Zen CLI Version\n"]
@@ -209,11 +215,22 @@ def execute_version_sync(tool, arguments: dict) -> list[TextContent]:
         )]
 
 
-def execute_debug_sync(tool, arguments: dict) -> list[TextContent]:
+def execute_debug_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute debug tool synchronously."""
     from zen_cli.providers.registry import ModelProviderRegistry
     from zen_cli.systemprompts.debug_prompt import DEBUG_ISSUE_PROMPT
+    from zen_cli.tools.workflow.base import WorkflowTool
     
+    # Check if this is actually a WorkflowTool
+    if isinstance(tool, WorkflowTool):
+        # Debug is a workflow tool, use the workflow executor
+        return execute_workflow_tool_sync(tool, arguments, registry)
+    
+    # Use provided registry or create new one
+    if registry is None:
+        registry = ModelProviderRegistry()
+    
+    # Fall back to simple implementation for non-workflow debug
     # Extract arguments
     request = arguments.get('request', '')
     model_name = arguments.get('model', 'auto')
@@ -222,11 +239,9 @@ def execute_debug_sync(tool, arguments: dict) -> list[TextContent]:
     
     # Handle auto model resolution
     if model_name.lower() == 'auto':
-        registry = ModelProviderRegistry()
         model_name = registry.get_preferred_fallback_model('reasoning')
     
     # Get the provider
-    registry = ModelProviderRegistry()
     provider = registry.get_provider_for_model(model_name)
     if not provider:
         error_msg = f"Model '{model_name}' is not available"
@@ -278,16 +293,17 @@ def execute_debug_sync(tool, arguments: dict) -> list[TextContent]:
             })
         )]
 
-def execute_simple_tool_sync(tool, arguments: dict) -> list[TextContent]:
+def execute_simple_tool_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute a SimpleTool synchronously."""
     from zen_cli.providers.registry import ModelProviderRegistry
+    
+    # Use provided registry or create new one
+    if registry is None:
+        registry = ModelProviderRegistry()
     
     # Extract arguments
     prompt = arguments.get('prompt', '')
     model_name = arguments.get('model', 'auto')
-    
-    # Create registry once
-    registry = ModelProviderRegistry()
     
     # Handle auto model resolution
     if model_name.lower() == 'auto':
@@ -334,10 +350,15 @@ def execute_simple_tool_sync(tool, arguments: dict) -> list[TextContent]:
             })
         )]
 
-def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
+def execute_workflow_tool_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute a WorkflowTool synchronously with multi-step support."""
     from zen_cli.providers.registry import ModelProviderRegistry
     from zen_cli.utils.workflow_state import get_workflow_manager, WorkflowState
+    from zen_cli.utils.file_utils import read_files
+    
+    # Use provided registry or create new one
+    if registry is None:
+        registry = ModelProviderRegistry()
     
     # Get workflow manager
     manager = get_workflow_manager()
@@ -348,9 +369,31 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
     request = arguments.get('request', {})
     model_name = arguments.get('model', 'auto')
     max_steps = arguments.get('max_steps', 5)  # Safety limit
+    files = arguments.get('files', [])  # Extract files early
     
-    # Create registry once
-    registry = ModelProviderRegistry()
+    # Handle initial call from CLI where request is just a string
+    if isinstance(request, str):
+        # Convert simple string request to workflow format for first step
+        request = {
+            'problem': request,  # Store original problem description
+            'step': f"Starting investigation: {request}",
+            'step_number': 1,
+            'total_steps': 3,  # Initial estimate
+            'next_step_required': True,
+            'findings': "Beginning investigation",
+            'files_checked': [],
+            'relevant_files': files if files else [],
+            'issues_found': [],
+            'confidence': arguments.get('confidence', 'exploring')
+        }
+    
+    # Handle files if provided
+    file_content_str = ""
+    if files:
+        logger.debug(f"Reading {len(files)} files for workflow tool {tool_name}")
+        file_contents = read_files(files)
+        if file_contents:
+            file_content_str = f"\n\n=== FILE CONTENTS ===\n{file_contents}\n=== END FILE CONTENTS ==="
     
     # Handle auto model resolution
     if model_name.lower() == 'auto':
@@ -393,7 +436,7 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
                 'total_steps': state.total_steps,
                 'findings': state.findings,
                 'files_checked': state.files_checked,
-                'relevant_files': state.relevant_files,
+                'relevant_files': state.relevant_files if not files else files,  # Use provided files
                 'issues_found': state.issues_found,
                 'confidence': state.confidence,
                 'continuation_id': continuation_id
@@ -401,6 +444,11 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
             
             # Build prompt for workflow step
             prompt = json.dumps(step_request)
+            
+            # Add file contents if we have them
+            if file_content_str and state.current_step == 1:
+                # Only add file contents on first step to avoid duplication
+                prompt = f"{prompt}{file_content_str}"
             
             logger.debug(f"Executing {tool_name} step {state.current_step}/{state.total_steps}")
             
@@ -486,7 +534,7 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
             })
         )]
 
-def execute_tool_sync(tool_name: str, tool, arguments: dict) -> list[TextContent]:
+def execute_tool_sync(tool_name: str, tool, arguments: dict, registry=None) -> list[TextContent]:
     """Execute any tool synchronously based on tool name."""
     
     # Map specific tools to their sync executors
@@ -500,16 +548,16 @@ def execute_tool_sync(tool_name: str, tool, arguments: dict) -> list[TextContent
     
     executor = sync_executors.get(tool_name)
     if executor:
-        return executor(tool, arguments)
+        return executor(tool, arguments, registry)
     
     # Check tool type for generic handlers
     from .simple.base import SimpleTool
     from .workflow.base import WorkflowTool
     
     if isinstance(tool, SimpleTool):
-        return execute_simple_tool_sync(tool, arguments)
+        return execute_simple_tool_sync(tool, arguments, registry)
     elif isinstance(tool, WorkflowTool):
-        return execute_workflow_tool_sync(tool, arguments)
+        return execute_workflow_tool_sync(tool, arguments, registry)
     else:
         # Fallback for tools without sync implementation
         return [TextContent(
