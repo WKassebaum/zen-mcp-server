@@ -335,14 +335,19 @@ def execute_simple_tool_sync(tool, arguments: dict) -> list[TextContent]:
         )]
 
 def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
-    """Execute a WorkflowTool synchronously."""
+    """Execute a WorkflowTool synchronously with multi-step support."""
     from zen_cli.providers.registry import ModelProviderRegistry
+    from zen_cli.utils.workflow_state import get_workflow_manager, WorkflowState
     
-    # For workflow tools, we need to handle the step-by-step nature
-    # TODO: Implement proper multi-step workflow execution
-    # For now, just execute the first step
+    # Get workflow manager
+    manager = get_workflow_manager()
+    
+    # Extract key arguments
+    tool_name = tool.get_name() if hasattr(tool, 'get_name') else 'unknown'
+    continuation_id = arguments.get('continuation_id', 'default')
     request = arguments.get('request', {})
     model_name = arguments.get('model', 'auto')
+    max_steps = arguments.get('max_steps', 5)  # Safety limit
     
     # Create registry once
     registry = ModelProviderRegistry()
@@ -363,22 +368,106 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
             })
         )]
     
-    try:
-        # Build prompt for workflow step
-        prompt = json.dumps(request)
-        
-        # Generate content synchronously
-        response = provider.generate_content(
-            prompt=prompt,
-            model_name=model_name,
-            system_prompt=tool.get_system_prompt(),
-            temperature=tool.get_default_temperature()
+    # Get or create workflow state
+    state = manager.get_state(continuation_id, tool_name)
+    if state is None:
+        # First execution - create new state
+        state = WorkflowState(
+            tool_name=tool_name,
+            continuation_id=continuation_id,
+            current_step=1,
+            total_steps=request.get('total_steps', 3),
+            next_step_required=True
         )
+    
+    # Collect all step results
+    all_results = []
+    steps_executed = 0
+    
+    try:
+        while state.next_step_required and steps_executed < max_steps:
+            # Update request with current state
+            step_request = {**request}
+            step_request.update({
+                'step_number': state.current_step,
+                'total_steps': state.total_steps,
+                'findings': state.findings,
+                'files_checked': state.files_checked,
+                'relevant_files': state.relevant_files,
+                'issues_found': state.issues_found,
+                'confidence': state.confidence,
+                'continuation_id': continuation_id
+            })
+            
+            # Build prompt for workflow step
+            prompt = json.dumps(step_request)
+            
+            logger.debug(f"Executing {tool_name} step {state.current_step}/{state.total_steps}")
+            
+            # Generate content synchronously
+            response = provider.generate_content(
+                prompt=prompt,
+                model_name=model_name,
+                system_prompt=tool.get_system_prompt(),
+                temperature=tool.get_default_temperature()
+            )
+            
+            # Parse response to check for workflow continuation
+            if response and response.content:
+                try:
+                    # Try to parse as JSON to extract workflow metadata
+                    response_data = json.loads(response.content)
+                    
+                    # Update state from response
+                    state = manager.update_from_response(state, response_data)
+                    
+                    # Save the updated state
+                    manager.save_state(state)
+                    
+                    # Add this step's result
+                    all_results.append(response_data)
+                    
+                    # Check if we should continue
+                    if not state.next_step_required:
+                        logger.debug(f"{tool_name} workflow complete at step {state.current_step}")
+                        break
+                    
+                    # Advance to next step
+                    state.advance_step()
+                    
+                except json.JSONDecodeError:
+                    # Response isn't JSON, treat as final result
+                    all_results.append({"content": response.content})
+                    break
+            
+            steps_executed += 1
         
-        result = {
-            "status": "success",
-            "content": response.content if response else "No response generated"
-        }
+        # Clean up completed workflow
+        if not state.next_step_required:
+            manager.delete_state(continuation_id, tool_name)
+        
+        # Format final result
+        if len(all_results) == 1:
+            # Single step result
+            result = {
+                "status": "success",
+                "content": json.dumps(all_results[0]) if isinstance(all_results[0], dict) else all_results[0]
+            }
+        else:
+            # Multi-step result - combine findings
+            combined_result = {
+                "status": "success",
+                "total_steps_executed": steps_executed,
+                "workflow_complete": not state.next_step_required,
+                "final_confidence": state.confidence,
+                "all_findings": state.findings,
+                "issues_found": state.issues_found,
+                "steps": all_results
+            }
+            result = {
+                "status": "success",
+                "content": json.dumps(combined_result)
+            }
         
         return [TextContent(
             type="text",
@@ -387,6 +476,8 @@ def execute_workflow_tool_sync(tool, arguments: dict) -> list[TextContent]:
         
     except Exception as e:
         logger.error(f"Error in workflow tool sync execution: {e}")
+        # Clean up on error
+        manager.delete_state(continuation_id, tool_name)
         return [TextContent(
             type="text",
             text=json.dumps({

@@ -25,6 +25,7 @@ from dotenv import load_dotenv
 from .config import load_config, save_config, get_api_key, __version__
 from .providers.registry import ModelProviderRegistry
 from .utils.file_utils import read_files
+from .utils import validators
 
 # Create the Typer app
 app = typer.Typer(
@@ -430,8 +431,12 @@ def analyze(
     """Analyze code files for architecture, complexity, or general insights."""
     zen = get_zen_instance()
     
+    # Read file contents for analysis
+    file_contents = read_files(list(files))
+    
     tool_args = {
         'files': list(files),
+        'file_contents': file_contents,
         'analysis_type': analysis_type,
         'model': model
     }
@@ -460,9 +465,18 @@ def codereview(
     """Perform code review on specified files."""
     zen = get_zen_instance()
     
+    # Validate inputs
+    try:
+        validated_files = validators.validate_file_paths(list(files))
+        review_type = validators.validate_review_type(review_type)
+        model = validators.validate_model_name(model, zen.registry)
+    except typer.BadParameter as e:
+        console.print(f"[bold red]Error:[/bold red] {e}")
+        raise typer.Exit(1)
+    
     # Read file contents for the tool
     from .utils.file_utils import read_files
-    file_contents = read_files(list(files))
+    file_contents = read_files(validated_files)
     
     tool_args = {
         'files': list(files),
@@ -543,6 +557,9 @@ def testgen(
     """Generate comprehensive tests with edge case analysis."""
     zen = get_zen_instance()
     
+    # Read file contents for test generation
+    file_contents = read_files(list(files))
+    
     tool_args = {
         'request': {
             'step': f"Generating {test_type} tests",
@@ -550,6 +567,7 @@ def testgen(
             'total_steps': 2,
             'next_step_required': False,
             'files_checked': list(files),
+            'file_contents': file_contents,
             'findings': f"Analyzing code for {test_type} test generation"
         },
         'model': model
@@ -587,6 +605,9 @@ def refactor(
     """Analyze code for refactoring opportunities."""
     zen = get_zen_instance()
     
+    # Read file contents for refactoring analysis
+    file_contents = read_files(list(files))
+    
     tool_args = {
         'request': {
             'step': f"Analyzing for {focus} refactoring opportunities",
@@ -594,6 +615,7 @@ def refactor(
             'total_steps': 2,
             'next_step_required': False,
             'files_checked': list(files),
+            'file_contents': file_contents,
             'findings': f"Searching for {focus} refactoring opportunities",
             'confidence': 'exploring'
         },
@@ -633,6 +655,9 @@ def secaudit(
     """Comprehensive security audit with vulnerability assessment."""
     zen = get_zen_instance()
     
+    # Read file contents for security audit
+    file_contents = read_files(list(files))
+    
     tool_args = {
         'request': {
             'step': f"Security audit for {scope} application",
@@ -640,6 +665,7 @@ def secaudit(
             'total_steps': 3,
             'next_step_required': False,
             'files_checked': list(files),
+            'file_contents': file_contents,
             'findings': f"Performing security audit with {threat_level} threat level",
             'confidence': 'exploring',
             'security_scope': scope,
@@ -681,6 +707,9 @@ def tracer(
     """Trace code execution flow and dependencies."""
     zen = get_zen_instance()
     
+    # Read file contents if provided
+    file_contents = read_files(list(files)) if files else None
+    
     tool_args = {
         'request': {
             'step': f"Tracing {target}",
@@ -688,6 +717,7 @@ def tracer(
             'total_steps': 3,
             'next_step_required': False,
             'files_checked': list(files) if files else [],
+            'file_contents': file_contents if file_contents else '',
             'findings': f"Analyzing execution flow for {target}",
             'confidence': 'exploring',
             'trace_mode': trace_mode,
@@ -729,6 +759,9 @@ def docgen(
     """Generate comprehensive documentation with complexity analysis."""
     zen = get_zen_instance()
     
+    # Read file contents for documentation generation
+    file_contents = read_files(list(files))
+    
     tool_args = {
         'request': {
             'step': "Generating documentation",
@@ -736,6 +769,7 @@ def docgen(
             'total_steps': len(files) + 1,
             'next_step_required': False,
             'relevant_files': list(files),
+            'file_contents': file_contents,
             'findings': "Analyzing code for documentation",
             'num_files_documented': 0,
             'total_files_to_document': len(files),
@@ -833,6 +867,9 @@ def thinkdeep(
     """Extended reasoning for complex problem analysis."""
     zen = get_zen_instance()
     
+    # Read file contents if provided
+    file_contents = read_files(list(files)) if files else None
+    
     tool_args = {
         'request': {
             'step': f"Deep analysis of: {problem}",
@@ -841,6 +878,7 @@ def thinkdeep(
             'next_step_required': False,
             'findings': "Beginning deep reasoning analysis",
             'files_checked': list(files) if files else [],
+            'file_contents': file_contents if file_contents else '',
             'confidence': 'low'
         },
         'model': model
