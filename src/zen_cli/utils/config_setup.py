@@ -315,12 +315,26 @@ class ConfigurationWizard:
     
     def _setup_docker_redis(self) -> Optional[Dict[str, str]]:
         """Set up Redis using Docker Compose."""
-        # Find docker-compose.yaml in the zen-cli directory
-        zen_cli_dir = Path(__file__).parent.parent.parent
-        docker_compose_file = zen_cli_dir / "docker-compose.yaml"
+        # Try multiple locations for docker-compose.yaml
+        search_paths = [
+            # If running from development directory
+            Path(__file__).parent.parent.parent.parent / "docker-compose.yaml",
+            # Try common locations
+            Path("/Users/wrk/WorkDev/MCP-Dev/zen-cli/docker-compose.yaml"),
+            Path.home() / ".zen-cli" / "docker-compose.yaml",
+            Path.cwd() / "docker-compose.yaml",
+        ]
         
-        if not docker_compose_file.exists():
-            click.echo("⚠️  docker-compose.yaml not found in zen-cli directory")
+        docker_compose_file = None
+        for path in search_paths:
+            if path.exists():
+                docker_compose_file = path
+                break
+        
+        if not docker_compose_file:
+            click.echo("⚠️  docker-compose.yaml not found. Searched locations:")
+            for path in search_paths:
+                click.echo(f"     - {path}")
             return None
         
         click.echo(f"\n📁 Found docker-compose.yaml at: {docker_compose_file}")
