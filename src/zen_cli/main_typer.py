@@ -952,6 +952,28 @@ def challenge(
         else:
             console.print(f"[bold red]Error: {result['message']}[/bold red]")
 
+@app.command()
+def configure(
+    section: Optional[str] = typer.Argument(None, help="Specific section to configure: storage, cache, or api_keys"),
+    all: bool = typer.Option(False, "--all", "-a", help="Configure all sections")
+):
+    """Interactive configuration setup for Zen CLI."""
+    from zen_cli.utils.config_setup import run_configuration_wizard
+    
+    if all:
+        sections = None  # Configure everything
+    elif section:
+        valid_sections = ['storage', 'cache', 'api_keys']
+        if section not in valid_sections:
+            console.print(f"[bold red]Invalid section: {section}[/bold red]")
+            console.print(f"Valid sections: {', '.join(valid_sections)}")
+            raise typer.Exit(1)
+        sections = [section]
+    else:
+        sections = None  # Let wizard ask what to configure
+    
+    run_configuration_wizard(sections)
+
 def cli():
     """Entry point for the CLI."""
     app()
