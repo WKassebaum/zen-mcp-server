@@ -1,5 +1,7 @@
 # Zen CLI Installation Guide
 
+[← Back to Documentation](../README.md) | [← Back to Main README](../../README.md)
+
 ## 🚨 For "externally-managed-environment" Error
 
 If you get this error, your Python is managed by Homebrew/system package manager. **Use one of these solutions:**
@@ -10,7 +12,7 @@ If you get this error, your Python is managed by Homebrew/system package manager
 brew install pipx
 
 # Install zen-cli with pipx (handles virtual env automatically)
-pipx install git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.0
+pipx install git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.1
 
 # Verify installation
 zen --version
@@ -56,7 +58,7 @@ source ~/.zshrc
 ### Option 4: System Python
 ```bash
 # If you have system Python (not Homebrew)
-pip3 install --user git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.0
+pip3 install --user git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.1
 export PATH="$PATH:$HOME/.local/bin"
 ```
 
@@ -71,6 +73,7 @@ zen configure
 # Or set environment variables
 export GEMINI_API_KEY="your_gemini_api_key"
 export OPENAI_API_KEY="your_openai_api_key"
+export ANTHROPIC_API_KEY="your_anthropic_api_key"  # For Claude models
 export OPENROUTER_API_KEY="your_openrouter_key"  # Optional
 export XAI_API_KEY="your_xai_key"  # Optional
 ```
@@ -172,9 +175,10 @@ If you prefer not to install locally, use Docker:
 # Create Dockerfile
 cat > Dockerfile <<'EOF'
 FROM python:3.11-slim
-RUN pip install git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.0
+RUN pip install git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.1
 ENV GEMINI_API_KEY=${GEMINI_API_KEY}
 ENV OPENAI_API_KEY=${OPENAI_API_KEY}
+ENV ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
 ENTRYPOINT ["zen"]
 EOF
 
@@ -183,6 +187,7 @@ docker build -t zen-cli .
 docker run -it --rm \
   -e GEMINI_API_KEY="$GEMINI_API_KEY" \
   -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+  -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
   zen-cli chat "Hello"
 ```
 
@@ -190,7 +195,7 @@ docker run -it --rm \
 
 - Python 3.11 or higher
 - pip or pipx
-- At least one API key (Gemini, OpenAI, OpenRouter, or XAI)
+- At least one API key (Gemini, OpenAI, Anthropic, OpenRouter, or XAI)
 
 ## Uninstall
 

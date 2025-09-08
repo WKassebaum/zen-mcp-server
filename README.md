@@ -21,6 +21,14 @@ Production-ready AI development assistant with revolutionary 95% token optimizat
 - **Health Monitoring**: Storage backend health checks and recovery
 - **Comprehensive Testing**: 44+ test methods covering all components
 
+## 📚 Documentation
+
+Complete documentation is organized in the [docs/](docs/) directory:
+- **[User Guides](docs/user/)** - Installation, usage, and configuration
+- **[Architecture](docs/architecture/)** - System design and storage backends
+- **[Development](docs/development/)** - Contributing and extending Zen CLI
+- **[Integration](docs/integration/)** - Claude Code and MCP integration
+
 ## Installation
 
 ### Recommended Installation (pipx)
@@ -114,7 +122,7 @@ zen --project work_project chat "Review client requirements"
 
 ### Storage & Caching System
 
-Zen CLI features a sophisticated multi-backend storage system with automatic fallback and response caching. For complete details, see the [Storage Guide](docs/STORAGE_GUIDE.md).
+Zen CLI features a sophisticated multi-backend storage system with automatic fallback and response caching. For complete details, see the [Storage Guide](docs/user/STORAGE_GUIDE.md).
 
 #### Quick Storage Setup
 ```bash
@@ -453,7 +461,12 @@ zen-cli/
 │   ├── test_storage_backends.py # Storage backend tests
 │   ├── test_cli_tools.py        # CLI tool tests
 │   └── run_tests.py             # Test runner
-├── ADVANCED_README.md            # Detailed technical documentation  
+├── docs/                         # Organized documentation
+│   ├── user/                   # User guides and tutorials
+│   ├── architecture/           # System design documentation
+│   ├── development/            # Developer documentation
+│   ├── integration/            # Integration guides
+│   └── historical/             # Legacy documentation
 └── README.md                     # This file
 ```
 
@@ -516,7 +529,7 @@ pre-commit install
 1. **Fork the repository** and create a feature branch
 2. **Follow the existing code style** and architecture patterns
 3. **Add comprehensive tests** for new features
-4. **Update documentation** including README and ADVANCED_README
+4. **Update documentation** in the appropriate docs/ subdirectory
 5. **Test thoroughly** across different storage backends and configurations
 6. **Submit a pull request** with detailed description of changes
 
@@ -534,7 +547,8 @@ MIT License - See LICENSE file for full details
 ## 🆘 Support & Documentation
 
 - **GitHub Issues**: https://github.com/WKassebaum/zen-mcp-server/issues
-- **Advanced Documentation**: [ADVANCED_README.md](./ADVANCED_README.md)
+- **Documentation Hub**: [docs/](docs/)
+- **Installation Guide**: [docs/user/INSTALL.md](docs/user/INSTALL.md)
 - **Main Project**: https://github.com/WKassebaum/zen-mcp-server
 
 ## 🎉 Credits
