@@ -43,6 +43,7 @@ class ConfigurationWizard:
             'OPENAI_API_KEY',
             'OPENROUTER_API_KEY',
             'XAI_API_KEY',
+            'ANTHROPIC_API_KEY',
         ]
         
         config = {}
@@ -253,6 +254,7 @@ class ConfigurationWizard:
             ('OpenAI', 'OPENAI_API_KEY'),
             ('OpenRouter', 'OPENROUTER_API_KEY'),
             ('X.AI (Grok)', 'XAI_API_KEY'),
+            ('Anthropic (Claude)', 'ANTHROPIC_API_KEY'),
         ]
         
         for name, env_var in api_keys:

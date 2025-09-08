@@ -129,6 +129,9 @@ class ZenCLI:
         # Import provider classes
         from zen_cli.providers.gemini import GeminiModelProvider
         from zen_cli.providers.openai_provider import OpenAIModelProvider
+        from zen_cli.providers.xai import XAIModelProvider
+        from zen_cli.providers.openrouter import OpenRouterProvider
+        from zen_cli.providers.anthropic import AnthropicProvider
         
         registered = []
         
@@ -144,12 +147,30 @@ class ZenCLI:
             ModelProviderRegistry.register_provider(ProviderType.OPENAI, OpenAIModelProvider)
             registered.append("OpenAI")
         
+        # Register XAI provider if API key is available
+        xai_key = os.getenv("XAI_API_KEY")
+        if xai_key and xai_key != "your_xai_api_key_here":
+            ModelProviderRegistry.register_provider(ProviderType.XAI, XAIModelProvider)
+            registered.append("X.AI")
+        
+        # Register OpenRouter provider if API key is available
+        openrouter_key = os.getenv("OPENROUTER_API_KEY")
+        if openrouter_key and openrouter_key != "your_openrouter_api_key_here":
+            ModelProviderRegistry.register_provider(ProviderType.OPENROUTER, OpenRouterProvider)
+            registered.append("OpenRouter")
+        
+        # Register Anthropic provider if API key is available
+        anthropic_key = os.getenv("ANTHROPIC_API_KEY")
+        if anthropic_key and anthropic_key != "your_anthropic_api_key_here":
+            ModelProviderRegistry.register_provider(ProviderType.ANTHROPIC, AnthropicProvider)
+            registered.append("Anthropic")
+        
         # Only show messages if verbose or if no providers registered
         if verbose or not registered:
             if registered:
                 console.print(f"[green]✓ Providers registered:[/green] {', '.join(registered)}")
             else:
-                console.print("[yellow]Warning: No AI providers configured. Set GEMINI_API_KEY or OPENAI_API_KEY[/yellow]")
+                console.print("[yellow]Warning: No AI providers configured. Set API keys for Gemini, OpenAI, X.AI, OpenRouter, or Anthropic[/yellow]")
         
         return registered
     

@@ -24,6 +24,7 @@ class ProviderType(Enum):
     OPENAI = "openai"
     XAI = "xai"
     OPENROUTER = "openrouter"
+    ANTHROPIC = "anthropic"
     CUSTOM = "custom"
     DIAL = "dial"
 

@@ -105,69 +105,23 @@ def execute_chat_sync(tool, arguments: dict, registry=None) -> list[TextContent]
 
 
 def execute_listmodels_sync(tool, arguments: dict, registry=None) -> list[TextContent]:
-    """Execute listmodels tool synchronously."""
-    from zen_cli.providers.registry import ModelProviderRegistry
-    import os
-    
-    # Registry not needed for listmodels but accept for consistency
+    """Execute listmodels tool synchronously by calling the actual tool."""
+    import asyncio
     
     try:
-        registry = ModelProviderRegistry()
-        output_lines = ["# Available AI Models\n"]
+        # Create or get event loop
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
         
-        # List models from each provider
-        provider_info = {
-            'google': {
-                'name': 'Google Gemini',
-                'env_key': 'GEMINI_API_KEY',
-            },
-            'openai': {
-                'name': 'OpenAI',
-                'env_key': 'OPENAI_API_KEY',
-            }
-        }
+        # Run the actual listmodels tool's execute method
+        result = loop.run_until_complete(tool.execute(arguments))
         
-        configured_count = 0
-        total_models = 0
+        # Result is already in the correct format (list of TextContent)
+        return result
         
-        for provider_type, info in provider_info.items():
-            api_key = os.getenv(info['env_key'])
-            is_configured = api_key and api_key != f"your_{provider_type}_api_key_here"
-            
-            output_lines.append(f"\n## {info['name']} {'✅' if is_configured else '❌'}")
-            
-            if is_configured:
-                configured_count += 1
-                output_lines.append(f"**Status**: Configured and available\n")
-                
-                # Get provider
-                from zen_cli.providers.base import ProviderType
-                provider = ModelProviderRegistry.get_provider(getattr(ProviderType, provider_type.upper()))
-                
-                if provider:
-                    output_lines.append("**Models**:")
-                    models = provider.list_models()
-                    total_models += len(models)
-                    for model in models:
-                        output_lines.append(f"- {model}")
-            else:
-                output_lines.append(f"**Status**: Not configured (set {info['env_key']})")
-            
-            output_lines.append("")
-        
-        output_lines.append(f"\n## Summary")
-        output_lines.append(f"**Configured Providers**: {configured_count}")
-        output_lines.append(f"**Total Available Models**: {total_models}")
-        
-        result = "\n".join(output_lines)
-        
-        return [TextContent(
-            type="text",
-            text=json.dumps({
-                "status": "success",
-                "content": result
-            })
-        )]
     except Exception as e:
         return [TextContent(
             type="text",
