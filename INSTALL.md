@@ -1,32 +1,62 @@
 # Zen CLI Installation Guide
 
-## Quick Install (Recommended)
+## 🚨 For "externally-managed-environment" Error
 
-### Option 1: Install from GitHub (Latest)
+If you get this error, your Python is managed by Homebrew/system package manager. **Use one of these solutions:**
+
+### Option 1: pipx (Recommended - Easiest)
+```bash
+# Install pipx if you don't have it
+brew install pipx
+
+# Install zen-cli with pipx (handles virtual env automatically)
+pipx install git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.0
+
+# Verify installation
+zen --version
+```
+
+### Option 2: Virtual Environment (Development)
+```bash
+# Clone and create virtual environment
+git clone https://github.com/WKassebaum/zen-mcp-server.git zen-cli
+cd zen-cli
+
+# Create and activate virtual environment
+python3 -m venv zen-venv
+source zen-venv/bin/activate  # On Windows: zen-venv\Scripts\activate
+
+# Install in virtual environment
+pip install -e .
+
+# Add alias for easy access (add to ~/.zshrc or ~/.bashrc)
+echo "alias zen='$(pwd)/zen-venv/bin/zen'" >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Option 3: Force Install (If Other Options Don't Work)
 ```bash
 # Clone the repository
 git clone https://github.com/WKassebaum/zen-mcp-server.git zen-cli
 cd zen-cli
 
-# Install with pip (user install)
-pip3 install --user .
+# Force install with --break-system-packages (requires BOTH flags)
+pip3 install --user --break-system-packages -e .
 
-# Or for development (editable install)
-pip3 install --user -e .
+# Add to PATH (check your Python version first: python3 --version)
+export PATH="$PATH:$HOME/Library/Python/3.13/bin"  # Adjust version as needed
 
-# Add to PATH if needed (macOS/Linux)
-export PATH="$PATH:$HOME/.local/bin"
-
-# For macOS with Python 3.11+
-export PATH="$PATH:$HOME/Library/Python/3.11/bin"
+# Make PATH permanent
+echo 'export PATH="$PATH:$HOME/Library/Python/3.13/bin"' >> ~/.zshrc
+source ~/.zshrc
 ```
 
-### Option 2: Direct pip install from GitHub
-```bash
-# Install directly from GitHub
-pip3 install --user git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.0
+## Legacy Install (If Above Don't Work)
 
-# Add to PATH
+### Option 4: System Python
+```bash
+# If you have system Python (not Homebrew)
+pip3 install --user git+https://github.com/WKassebaum/zen-mcp-server.git@v5.13.0
 export PATH="$PATH:$HOME/.local/bin"
 ```
 
@@ -103,13 +133,34 @@ source ~/.zshrc
 pip3 install --user typer rich pyyaml httpx pydantic python-dotenv google-generativeai openai redis tiktoken
 ```
 
+### "externally-managed-environment" Specific Fixes
+
+If `--break-system-packages` didn't work, try these:
+
+```bash
+# 1. Make sure you use BOTH flags together
+pip3 install --user --break-system-packages -e .
+
+# 2. Check if pip.conf is blocking it
+ls ~/.pip/pip.conf ~/.config/pip/pip.conf
+# If these exist, temporarily rename them and try again
+
+# 3. Use correct Python version
+which python3
+python3 --version
+# Then use the specific version: pip3.13 instead of pip3
+
+# 4. Force with specific Python
+/opt/homebrew/bin/python3 -m pip install --user --break-system-packages -e .
+```
+
 ### Permission Issues
 
 ```bash
 # If you get permission errors, use --user flag
 pip3 install --user zen-cli
 
-# Or use pipx for isolated install
+# Or use pipx for isolated install (RECOMMENDED)
 pipx install git+https://github.com/WKassebaum/zen-mcp-server.git
 ```
 
