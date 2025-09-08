@@ -24,9 +24,9 @@ class AnthropicProvider(ModelProvider):
 
     # Model configurations using ModelCapabilities objects
     SUPPORTED_MODELS = {
-        "claude-opus-4.1-20250805": ModelCapabilities(
+        "claude-opus-4-1-20250805": ModelCapabilities(
             provider=ProviderType.ANTHROPIC,
-            model_name="claude-opus-4.1-20250805",
+            model_name="claude-opus-4-1-20250805",
             friendly_name="Anthropic (Claude Opus 4.1)",
             context_window=200_000,  # 200K tokens
             max_output_tokens=4_096,  # 4K max output
@@ -40,33 +40,15 @@ class AnthropicProvider(ModelProvider):
             supports_temperature=True,
             temperature_constraint=RangeTemperatureConstraint(0.0, 1.0, 0.7),
             description="Claude Opus 4.1 - Most capable Claude model with frontier intelligence",
-            aliases=["opus-4.1", "claude-opus", "opus", "claude-opus-4.1"],
+            aliases=["opus-4.1", "claude-opus", "opus", "claude-opus-4.1", "claude-opus-4-1"],
         ),
-        "claude-3.5-sonnet-20241022": ModelCapabilities(
+        "claude-sonnet-4-20250514": ModelCapabilities(
             provider=ProviderType.ANTHROPIC,
-            model_name="claude-3.5-sonnet-20241022",
-            friendly_name="Anthropic (Claude 3.5 Sonnet)",
-            context_window=200_000,  # 200K tokens
-            max_output_tokens=8_192,  # 8K max output
-            supports_extended_thinking=False,
-            supports_system_prompts=True,
-            supports_streaming=True,
-            supports_function_calling=True,
-            supports_json_mode=True,
-            supports_images=True,
-            max_image_size_mb=20.0,
-            supports_temperature=True,
-            temperature_constraint=RangeTemperatureConstraint(0.0, 1.0, 0.7),
-            description="Claude 3.5 Sonnet - Best balance of intelligence and speed",
-            aliases=["sonnet-3.5", "claude-sonnet", "sonnet", "claude-3.5-sonnet"],
-        ),
-        "claude-sonnet-4": ModelCapabilities(
-            provider=ProviderType.ANTHROPIC,
-            model_name="claude-sonnet-4",
+            model_name="claude-sonnet-4-20250514",
             friendly_name="Anthropic (Claude Sonnet 4)",
-            context_window=200_000,  # 200K tokens
+            context_window=200_000,  # 200K tokens, 1M in preview
             max_output_tokens=8_192,  # 8K max output
-            supports_extended_thinking=False,
+            supports_extended_thinking=True,
             supports_system_prompts=True,
             supports_streaming=True,
             supports_function_calling=True,
@@ -75,12 +57,30 @@ class AnthropicProvider(ModelProvider):
             max_image_size_mb=20.0,
             supports_temperature=True,
             temperature_constraint=RangeTemperatureConstraint(0.0, 1.0, 0.7),
-            description="Claude Sonnet 4 - Next generation balanced model",
-            aliases=["sonnet-4", "claude-sonnet-4", "sonnet4"],
+            description="Claude Sonnet 4 - Hybrid reasoning model with extended thinking",
+            aliases=["sonnet-4", "claude-sonnet-4", "sonnet4", "sonnet"],
         ),
-        "claude-3.5-haiku-20241022": ModelCapabilities(
+        "claude-3-7-sonnet-20250219": ModelCapabilities(
             provider=ProviderType.ANTHROPIC,
-            model_name="claude-3.5-haiku-20241022",
+            model_name="claude-3-7-sonnet-20250219",
+            friendly_name="Anthropic (Claude 3.7 Sonnet)",
+            context_window=200_000,  # 200K tokens
+            max_output_tokens=8_192,  # 8K max output
+            supports_extended_thinking=True,
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_json_mode=True,
+            supports_images=True,
+            max_image_size_mb=20.0,
+            supports_temperature=True,
+            temperature_constraint=RangeTemperatureConstraint(0.0, 1.0, 0.7),
+            description="Claude 3.7 Sonnet - First hybrid reasoning model generally available",
+            aliases=["sonnet-3.7", "claude-3-7-sonnet", "claude-3-7-sonnet-latest"],
+        ),
+        "claude-3-5-haiku-20241022": ModelCapabilities(
+            provider=ProviderType.ANTHROPIC,
+            model_name="claude-3-5-haiku-20241022",
             friendly_name="Anthropic (Claude 3.5 Haiku)",
             context_window=200_000,  # 200K tokens
             max_output_tokens=8_192,  # 8K max output
@@ -94,34 +94,37 @@ class AnthropicProvider(ModelProvider):
             supports_temperature=True,
             temperature_constraint=RangeTemperatureConstraint(0.0, 1.0, 0.7),
             description="Claude 3.5 Haiku - Fast and cost-effective",
-            aliases=["haiku-3.5", "claude-haiku", "haiku", "claude-3.5-haiku"],
+            aliases=["haiku-3.5", "claude-haiku", "haiku", "claude-3.5-haiku", "claude-3-5-haiku-latest"],
         ),
     }
 
     # Model resolution aliases - map common names to official model names
     MODEL_ALIASES = {
         # Opus 4.1 aliases
-        "opus-4.1": "claude-opus-4.1-20250805",
-        "claude-opus": "claude-opus-4.1-20250805",
-        "opus": "claude-opus-4.1-20250805",
-        "claude-opus-4.1": "claude-opus-4.1-20250805",
-        
-        # Sonnet 3.5 aliases
-        "sonnet-3.5": "claude-3.5-sonnet-20241022",
-        "claude-sonnet": "claude-3.5-sonnet-20241022",
-        "sonnet": "claude-3.5-sonnet-20241022",
-        "claude-3.5-sonnet": "claude-3.5-sonnet-20241022",
+        "opus-4.1": "claude-opus-4-1-20250805",
+        "claude-opus": "claude-opus-4-1-20250805",
+        "opus": "claude-opus-4-1-20250805",
+        "claude-opus-4.1": "claude-opus-4-1-20250805",
+        "claude-opus-4-1": "claude-opus-4-1-20250805",
         
         # Sonnet 4 aliases
-        "sonnet-4": "claude-sonnet-4",
-        "claude-sonnet-4": "claude-sonnet-4",
-        "sonnet4": "claude-sonnet-4",
+        "sonnet-4": "claude-sonnet-4-20250514",
+        "claude-sonnet-4": "claude-sonnet-4-20250514",
+        "sonnet4": "claude-sonnet-4-20250514",
+        "sonnet": "claude-sonnet-4-20250514",
+        
+        # Sonnet 3.7 aliases
+        "sonnet-3.7": "claude-3-7-sonnet-20250219",
+        "claude-3-7-sonnet": "claude-3-7-sonnet-20250219",
+        "claude-3-7-sonnet-latest": "claude-3-7-sonnet-20250219",
         
         # Haiku 3.5 aliases
-        "haiku-3.5": "claude-3.5-haiku-20241022",
-        "claude-haiku": "claude-3.5-haiku-20241022",
-        "haiku": "claude-3.5-haiku-20241022",
-        "claude-3.5-haiku": "claude-3.5-haiku-20241022",
+        "haiku-3.5": "claude-3-5-haiku-20241022",
+        "claude-haiku": "claude-3-5-haiku-20241022",
+        "haiku": "claude-3-5-haiku-20241022",
+        "claude-3.5-haiku": "claude-3-5-haiku-20241022",
+        "claude-3-5-haiku": "claude-3-5-haiku-20241022",
+        "claude-3-5-haiku-latest": "claude-3-5-haiku-20241022",
     }
 
     def __init__(self, api_key: Optional[str] = None, **kwargs):
