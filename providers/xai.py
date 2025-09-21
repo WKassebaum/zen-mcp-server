@@ -96,6 +96,24 @@ class XAIModelProvider(OpenAICompatibleProvider):
             description="GROK-4 Heavy (256K context) - Multi-agent reasoning model that spawns multiple agents for collaborative problem-solving",
             aliases=["grok4heavy", "grok-heavy", "grok4-heavy"],
         ),
+        "grok-4-fast": ModelCapabilities(
+            provider=ProviderType.XAI,
+            model_name="grok-4-fast",
+            friendly_name="X.AI (Grok 4 Fast)",
+            context_window=2_000_000,  # 2M tokens - massive context for large coding tasks
+            max_output_tokens=256_000,  # 256K tokens max output
+            supports_extended_thinking=True,  # Grok-4 variant with reasoning capabilities
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,  # Function calling supported
+            supports_json_mode=True,  # Structured outputs supported
+            supports_images=True,  # Multimodal capabilities like Grok-4
+            max_image_size_mb=20.0,  # Standard image size limit
+            supports_temperature=True,
+            temperature_constraint=create_temperature_constraint("range"),
+            description="GROK-4 Fast (2M context) - Ultra-high context model optimized for large coding tasks, entire codebases, and extensive documentation processing",
+            aliases=["grok4fast", "grok-fast", "grok4-fast", "grok-2m"],
+        ),
         "grok-code-fast-1": ModelCapabilities(
             provider=ProviderType.XAI,
             model_name="grok-code-fast-1",
@@ -218,8 +236,14 @@ class XAIModelProvider(OpenAICompatibleProvider):
             return allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer GROK-3-Fast for speed, then GROK-4
-            if "grok-3-fast" in allowed_models:
+            # Prefer grok-4-fast for large coding tasks with 2M context
+            # Then grok-code-fast-1 for regular coding tasks (fast, cheap, smart)
+            # Then GROK-3-Fast for general speed, then GROK-4
+            if "grok-4-fast" in allowed_models:
+                return "grok-4-fast"  # 2M context for large codebases
+            elif "grok-code-fast-1" in allowed_models:
+                return "grok-code-fast-1"
+            elif "grok-3-fast" in allowed_models:
                 return "grok-3-fast"
             elif "grok-4" in allowed_models:
                 return "grok-4"
@@ -227,8 +251,12 @@ class XAIModelProvider(OpenAICompatibleProvider):
             return allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer GROK-4 for balanced use (best overall capabilities)
-            if "grok-4" in allowed_models:
+            # Prefer grok-4-fast for large context needs, then grok-code-fast-1 for balanced coding tasks
+            if "grok-4-fast" in allowed_models:
+                return "grok-4-fast"  # Optimal for large coding tasks with 2M context
+            elif "grok-code-fast-1" in allowed_models:
+                return "grok-code-fast-1"  # Smart and fast for general coding use
+            elif "grok-4" in allowed_models:
                 return "grok-4"
             elif "grok-3" in allowed_models:
                 return "grok-3"
