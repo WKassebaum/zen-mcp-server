@@ -19,7 +19,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
@@ -70,6 +70,17 @@ class ConsensusSimpleRequest(BaseModel):
         None,
         description="Optional images (absolute paths or base64)"
     )
+
+    @field_validator('models', mode='before')
+    @classmethod
+    def validate_models_required(cls, v):
+        """Provide helpful error message when models field is missing"""
+        if v is None or (isinstance(v, list) and len(v) == 0):
+            raise ValueError(
+                'Missing required "models" field. '
+                'Example: "models": [{"model": "o3", "stance": "neutral"}]'
+            )
+        return v
 
     @model_validator(mode="after")
     def validate_models(self):

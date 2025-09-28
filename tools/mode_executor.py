@@ -13,7 +13,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
@@ -97,6 +97,17 @@ class ConsensusSimpleRequest(ToolRequest):
     models: List[dict] = Field(..., description="Models to consult. Example: [{'model': 'o3', 'stance': 'neutral'}]")
     relevant_files: Optional[List[str]] = Field(None, description="Optional context files")
     images: Optional[List[str]] = Field(None, description="Optional images")
+
+    @field_validator('models', mode='before')
+    @classmethod
+    def validate_models_required(cls, v):
+        """Provide helpful error message when models field is missing"""
+        if v is None or (isinstance(v, list) and len(v) == 0):
+            raise ValueError(
+                'Missing required "models" field. '
+                'Example: "models": [{"model": "o3", "stance": "neutral"}]'
+            )
+        return v
 
 
 class ConsensusWorkflowRequest(ToolRequest):
