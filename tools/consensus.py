@@ -19,7 +19,7 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
-from pydantic import Field, model_validator
+from pydantic import BaseModel, Field, model_validator
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
@@ -37,47 +37,65 @@ logger = logging.getLogger(__name__)
 
 # Tool-specific field descriptions for consensus workflow
 CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS = {
-    "step": (
-        "The core question for consensus. Step 1: Provide the EXACT proposal for all models to evaluate. "
-        "CRITICAL: This text is sent to all models and must be a clear question, not a self-referential statement "
-        "(e.g., use 'Evaluate...' not 'I will evaluate...'). Steps 2+: Internal notes on the last model's response; this is NOT sent to other models."
-    ),
-    "step_number": (
-        "The index of the current step in the consensus workflow, beginning at 1. Step 1 is your analysis, "
-        "steps 2+ are for processing individual model responses."
-    ),
-    "total_steps": (
-        "Total number of steps needed. This equals the number of models to consult. "
-        "Step 1 includes your analysis + first model consultation on return of the call. Final step includes "
-        "last model consultation + synthesis."
-    ),
-    "next_step_required": ("Set to true if more models need to be consulted. False when ready for final synthesis."),
-    "findings": (
-        "Your analysis of the consensus topic. Step 1: Your independent, comprehensive analysis of the proposal. "
-        "CRITICAL: This is for the final synthesis and is NOT sent to the other models. "
-        "Steps 2+: A summary of the key points from the most recent model's response."
-    ),
-    "relevant_files": (
-        "Files that are relevant to the consensus analysis. Include files that help understand the proposal, "
-        "provide context, or contain implementation details."
-    ),
-    "models": (
-        "List of model configurations to consult. Each can have a model name, stance (for/against/neutral), "
-        "and optional custom stance prompt. The same model can be used multiple times with different stances, "
-        "but each model + stance combination must be unique. "
-        "Example: [{'model': 'o3', 'stance': 'for'}, {'model': 'o3', 'stance': 'against'}, "
-        "{'model': 'flash', 'stance': 'neutral'}]"
-    ),
-    "current_model_index": (
-        "Internal tracking of which model is being consulted (0-based index). Used to determine which model "
-        "to call next."
-    ),
-    "model_responses": ("Accumulated responses from models consulted so far. Internal field for tracking progress."),
-    "images": (
-        "Optional list of image paths or base64 data URLs for visual context. Useful for UI/UX discussions, "
-        "architecture diagrams, mockups, or any visual references that help inform the consensus analysis."
-    ),
+    "step": "Step 1: The question/proposal to evaluate. Steps 2+: Progress notes (not sent to models).",
+    "step_number": "Current step number (starts at 1).",
+    "total_steps": "Total steps = number of models to consult.",
+    "next_step_required": "True if more models to consult, false when ready for synthesis.",
+    "findings": "Step 1: Your analysis. Steps 2+: Summary of last model's response.",
+    "relevant_files": "Optional context files (absolute paths).",
+    "models": "Models to consult. Example: [{'model': 'o3', 'stance': 'for'}]",
+    "current_model_index": "Internal: Index of current model being consulted.",
+    "model_responses": "Internal: Accumulated model responses.",
+    "images": "Optional images for visual context (absolute paths or base64).",
 }
+
+
+class ConsensusSimpleRequest(BaseModel):
+    """Simplified request model for initial consensus calls - only essential fields"""
+
+    # Only the absolutely essential fields for starting consensus
+    prompt: str = Field(..., description="The question or proposal to evaluate")
+    models: list[dict] = Field(
+        ...,
+        description="Models to consult. Example: [{'model': 'o3', 'stance': 'neutral'}]",
+        min_items=1
+    )
+
+    # Optional but commonly used
+    relevant_files: list[str] | None = Field(
+        None,
+        description="Optional context files (absolute paths)"
+    )
+    images: list[str] | None = Field(
+        None,
+        description="Optional images (absolute paths or base64)"
+    )
+
+    @model_validator(mode="after")
+    def validate_models(self):
+        """Validate model configurations"""
+        seen_combinations = set()
+        for model_config in self.models:
+            model_name = model_config.get("model", "")
+            if not model_name:
+                raise ValueError(
+                    "Each model config must have a 'model' field. "
+                    "Example: {'model': 'o3', 'stance': 'neutral'}"
+                )
+
+            stance = model_config.get("stance", "neutral")
+            combination = f"{model_name}:{stance}"
+
+            if combination in seen_combinations:
+                raise ValueError(
+                    f"Duplicate model+stance: {model_name} with '{stance}'. "
+                    f"Each combination must be unique. "
+                    f"Try: [{'model': '{model_name}', 'stance': 'for'}, "
+                    f"{'model': '{model_name}', 'stance': 'against'}]"
+                )
+            seen_combinations.add(combination)
+
+        return self
 
 
 class ConsensusRequest(WorkflowRequest):
@@ -130,7 +148,11 @@ class ConsensusRequest(WorkflowRequest):
         """Ensure step 1 has required models field and unique model+stance combinations."""
         if self.step_number == 1:
             if not self.models:
-                raise ValueError("Step 1 requires 'models' field to specify which models to consult")
+                raise ValueError(
+                    "Missing required 'models' field for consensus. "
+                    "Example: \"models\": [{\"model\": \"o3\", \"stance\": \"neutral\"}, "
+                    "{\"model\": \"flash\", \"stance\": \"for\"}]"
+                )
 
             # Check for unique model + stance combinations
             seen_combinations = set()
@@ -141,8 +163,10 @@ class ConsensusRequest(WorkflowRequest):
 
                 if combination in seen_combinations:
                     raise ValueError(
-                        f"Duplicate model + stance combination found: {model_name} with stance '{stance}'. "
-                        f"Each model + stance combination must be unique."
+                        f"Duplicate model+stance: {model_name} with '{stance}'. "
+                        f"Each combination must be unique. Try different stances or models. "
+                        f"Example: [{{'model': '{model_name}', 'stance': 'for'}}, "
+                        f"{{'model': '{model_name}', 'stance': 'against'}}]"
                     )
                 seen_combinations.add(combination)
 
@@ -211,39 +235,107 @@ of the evidence, even when it strongly points in one direction.""",
         """Return the consensus workflow-specific request model."""
         return ConsensusRequest
 
+    def get_simple_schema(self) -> dict[str, Any]:
+        """Generate simplified schema for initial consensus calls"""
+        return {
+            "type": "object",
+            "properties": {
+                "prompt": {
+                    "type": "string",
+                    "description": "The question or proposal to evaluate",
+                    "examples": [
+                        "Should we migrate from REST to GraphQL?",
+                        "Is microservices architecture right for our project?"
+                    ]
+                },
+                "models": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "model": {"type": "string", "examples": ["o3", "flash", "pro"]},
+                            "stance": {
+                                "type": "string",
+                                "enum": ["for", "against", "neutral"],
+                                "default": "neutral"
+                            },
+                            "stance_prompt": {
+                                "type": "string",
+                                "examples": ["Focus on security implications"]
+                            },
+                        },
+                        "required": ["model"],
+                    },
+                    "description": "Models to consult. Example: [{'model': 'o3', 'stance': 'neutral'}]",
+                    "examples": [
+                        [{"model": "o3", "stance": "neutral"}],
+                        [{"model": "flash", "stance": "for"}, {"model": "pro", "stance": "against"}]
+                    ],
+                    "minItems": 1
+                },
+                "relevant_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional context files (absolute paths)",
+                    "examples": [["/Users/project/src/api.py"]]
+                },
+                "images": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional images (absolute paths or base64)"
+                }
+            },
+            "required": ["prompt", "models"],
+            "additionalProperties": False
+        }
+
     def get_input_schema(self) -> dict[str, Any]:
-        """Generate input schema for consensus workflow."""
+        """Generate input schema - simple for initial calls, full for workflow."""
+        # Check if we should use simple mode (this is a heuristic)
+        # In practice, the mode executor will tell us which to use
         from .workflow.schema_builders import WorkflowSchemaBuilder
 
-        # Consensus tool-specific field definitions
+        # If called through zen_execute with simple mode, use simple schema
+        # Otherwise use full workflow schema
+
+        # For now, we'll provide the simple schema by default to reduce confusion
+        # The workflow schema is still available when needed
+
+        # Consensus tool-specific field definitions for workflow mode
         consensus_field_overrides = {
             # Override standard workflow fields that need consensus-specific descriptions
             "step": {
                 "type": "string",
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["step"],
+                "examples": ["Should we migrate from REST to GraphQL?", "Evaluate using microservices architecture"],
             },
             "step_number": {
                 "type": "integer",
                 "minimum": 1,
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["step_number"],
+                "default": 1,
             },
             "total_steps": {
                 "type": "integer",
                 "minimum": 1,
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["total_steps"],
+                "examples": [2, 3],
             },
             "next_step_required": {
                 "type": "boolean",
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["next_step_required"],
+                "default": True,
             },
             "findings": {
                 "type": "string",
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["findings"],
+                "examples": ["GraphQL offers better flexibility but adds complexity..."],
             },
             "relevant_files": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"],
+                "examples": [["/Users/project/src/api.py", "/Users/project/src/schema.py"]],
             },
             # consensus-specific fields (not in base workflow)
             "models": {
@@ -251,13 +343,19 @@ of the evidence, even when it strongly points in one direction.""",
                 "items": {
                     "type": "object",
                     "properties": {
-                        "model": {"type": "string"},
+                        "model": {"type": "string", "examples": ["o3", "flash", "pro"]},
                         "stance": {"type": "string", "enum": ["for", "against", "neutral"], "default": "neutral"},
-                        "stance_prompt": {"type": "string"},
+                        "stance_prompt": {"type": "string", "examples": ["Focus on security implications"]},
                     },
                     "required": ["model"],
                 },
                 "description": CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["models"],
+                "examples": [
+                    [{"model": "o3", "stance": "neutral"}],
+                    [{"model": "flash", "stance": "for"}, {"model": "pro", "stance": "against"}],
+                    [{"model": "o3", "stance": "for", "stance_prompt": "Focus on performance benefits"}],
+                ],
+                "minItems": 1,
             },
             "current_model_index": {
                 "type": "integer",

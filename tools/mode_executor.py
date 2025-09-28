@@ -91,8 +91,16 @@ class AnalyzeSimpleRequest(ToolRequest):
     output_format: Optional[str] = Field("detailed", description="Output format")
 
 
-class ConsensusRequest(ToolRequest):
-    """Consensus building request with required workflow fields"""
+class ConsensusSimpleRequest(ToolRequest):
+    """Simplified consensus request - only essential fields"""
+    prompt: str = Field(..., description="The question or proposal to evaluate")
+    models: List[dict] = Field(..., description="Models to consult. Example: [{'model': 'o3', 'stance': 'neutral'}]")
+    relevant_files: Optional[List[str]] = Field(None, description="Optional context files")
+    images: Optional[List[str]] = Field(None, description="Optional images")
+
+
+class ConsensusWorkflowRequest(ToolRequest):
+    """Full consensus workflow request for complex multi-step scenarios"""
     # Required workflow fields
     step: str = Field("Consensus building", description="Current consensus step")
     step_number: int = Field(1, description="Step number")
@@ -104,7 +112,7 @@ class ConsensusRequest(ToolRequest):
     relevant_context: Optional[List[str]] = Field(default_factory=list)
     issues_found: Optional[List[str]] = Field(default_factory=list)
     confidence: Optional[str] = Field("medium", description="Confidence level")
-    
+
     # Tool-specific fields
     models: List[dict] = Field(..., description="Models to consult for consensus")
     current_model_index: Optional[int] = Field(0, description="Current model index")
@@ -227,8 +235,8 @@ MODE_REQUEST_MAP = {
     ("codereview", "workflow"): ReviewWorkflowRequest,
     ("analyze", "simple"): AnalyzeSimpleRequest,
     ("analyze", "workflow"): AnalyzeSimpleRequest,  # Reuse simple for now
-    ("consensus", "simple"): ConsensusRequest,
-    ("consensus", "workflow"): ConsensusRequest,
+    ("consensus", "simple"): ConsensusSimpleRequest,  # Use simplified model
+    ("consensus", "workflow"): ConsensusWorkflowRequest,  # Use full workflow model
     ("chat", "simple"): ChatRequest,
     ("chat", "workflow"): ChatRequest,
     ("security", "simple"): SecurityWorkflowRequest,  # Add simple variant
@@ -522,7 +530,25 @@ class ModeExecutor(BaseTool):
                 validated = request_model(**arguments)
                 # Convert back to dict for the actual tool
                 arguments = validated.model_dump(exclude_none=True)
-            
+
+            # Special handling for consensus simple mode
+            if self.mode == "consensus" and self.complexity == "simple":
+                # Convert simple request to workflow format
+                if "prompt" in arguments and "models" in arguments:
+                    # This is a simple consensus request, convert to workflow
+                    arguments = {
+                        "step": arguments["prompt"],  # The question becomes the step
+                        "step_number": 1,
+                        "total_steps": len(arguments["models"]) + 1,  # One step per model + synthesis
+                        "next_step_required": True,
+                        "findings": "Starting consensus analysis",
+                        "models": arguments["models"],
+                        "relevant_files": arguments.get("relevant_files", []),
+                        "images": arguments.get("images", []),
+                        "current_model_index": 0,
+                        "model_responses": []
+                    }
+
             # Execute the actual tool
             result = await tool.execute(arguments)
             

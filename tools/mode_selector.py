@@ -178,6 +178,7 @@ class ModeSelectorTool(SimpleTool):
             # Build response with clear guidance for stage 2
             required_fields = self._get_required_fields(selected_mode, complexity)
             
+            # Build clearer response with actual field examples
             response_data = {
                 "status": "mode_selected",
                 "selected_mode": selected_mode,
@@ -186,19 +187,20 @@ class ModeSelectorTool(SimpleTool):
                 "confidence": self._calculate_confidence(mode_scores, selected_mode),
                 "next_step": {
                     "tool": "zen_execute",
-                    "instruction": f"Now use 'zen_execute' with mode='{selected_mode}' and the required fields below",
-                    "required_fields": required_fields,
-                    "example_usage": {
+                    "instruction": f"Use 'zen_execute' with mode='{selected_mode}' and complexity='{complexity}'",
+                    "exact_command": {
                         "tool": "zen_execute",
                         "arguments": {
                             "mode": selected_mode,
                             "complexity": complexity,
-                            "request": required_fields
+                            "request": required_fields  # This now contains actual field examples
                         }
-                    }
+                    },
+                    "field_guidance": self._get_field_guidance(selected_mode, complexity),
+                    "tips": self._get_mode_tips(selected_mode)
                 },
                 "alternatives": self._get_alternatives(mode_scores, selected_mode),
-                "token_savings": "This two-stage approach saves 95% tokens (43k → 200-800 total)"
+                "token_savings": "✨ Saves 95% tokens (43k → 800 total)"
             }
             
             logger.info(f"Mode selected: {selected_mode} (complexity: {complexity})")
@@ -293,31 +295,108 @@ class ModeSelectorTool(SimpleTool):
             return "low"
     
     def _get_required_fields(self, mode: str, complexity: str) -> dict:
-        """Get required fields for the selected mode and complexity"""
-        # This provides a preview of what will be needed in stage 2
-        field_map = {
-            ("debug", "simple"): ["problem", "files", "confidence"],
-            ("debug", "workflow"): ["step", "step_number", "findings", "next_step_required"],
-            ("codereview", "simple"): ["files", "review_type", "focus"],
-            ("codereview", "workflow"): ["step", "step_number", "findings", "relevant_files"],
-            ("analyze", "simple"): ["files", "analysis_type"],
-            ("analyze", "workflow"): ["step", "findings", "confidence"],
-            ("consensus", "simple"): ["question", "models"],
-            ("chat", "simple"): ["prompt", "model"],
-            ("security", "workflow"): ["step", "findings", "audit_focus"],
-            ("refactor", "simple"): ["files", "refactor_type"],
-            ("testgen", "simple"): ["files", "test_framework"],
-            ("planner", "workflow"): ["step", "step_number", "next_step_required"],
-            ("tracer", "simple"): ["target", "trace_mode"],
+        """Get required fields with concrete examples for the selected mode"""
+        # Return actual field examples instead of generic arrays
+
+        # Special handling for consensus to show clear examples
+        if mode == "consensus":
+            if complexity == "simple":
+                return {
+                    "prompt": "Your question/proposal to evaluate",
+                    "models": [{"model": "o3", "stance": "neutral"}],
+                }
+            else:  # workflow
+                return {
+                    "step": "The proposal to evaluate (e.g., 'Should we use GraphQL?')",
+                    "step_number": 1,
+                    "total_steps": 2,
+                    "next_step_required": True,
+                    "findings": "Your initial analysis here",
+                    "models": [{"model": "o3", "stance": "for"}, {"model": "flash", "stance": "against"}]
+                }
+
+        # Provide actual examples for other modes too
+        field_examples = {
+            ("debug", "simple"): {
+                "problem": "Description of the issue",
+                "files": ["/absolute/path/to/file.py"],
+                "confidence": "exploring"
+            },
+            ("debug", "workflow"): {
+                "step": "Initial investigation",
+                "step_number": 1,
+                "findings": "What you've found so far",
+                "next_step_required": True
+            },
+            ("codereview", "simple"): {
+                "files": ["/path/to/review.py"],
+                "review_type": "security"
+            },
+            ("analyze", "simple"): {
+                "files": ["/path/to/analyze"],
+                "analysis_type": "architecture"
+            },
+            ("chat", "simple"): {
+                "prompt": "Your question here"
+            },
         }
-        
-        fields = field_map.get((mode, complexity), ["context"])
-        
-        return {
-            "required": fields[:2],  # First 2 are required
-            "optional": fields[2:] if len(fields) > 2 else []
-        }
+
+        # Return the specific examples or a default
+        return field_examples.get((mode, complexity), {
+            "prompt": "Your request here"
+        })
     
+    def _get_field_guidance(self, mode: str, complexity: str) -> dict:
+        """Provide clear guidance on what fields mean"""
+        if mode == "consensus":
+            return {
+                "prompt": "The question you want multiple models to evaluate",
+                "models": "List of AI models with optional stances (for/against/neutral)",
+                "example": "Ask 'Should we use microservices?' with o3 arguing for and flash arguing against"
+            }
+        elif mode == "debug":
+            return {
+                "problem": "Description of what's broken or not working",
+                "files": "Absolute paths to relevant code files",
+                "confidence": "How well you understand the issue (exploring/medium/high)"
+            }
+        elif mode == "codereview":
+            return {
+                "files": "Code files to review (absolute paths)",
+                "review_type": "Focus area: security, performance, quality, or all"
+            }
+        else:
+            return {"general": "Provide your request based on the examples above"}
+
+    def _get_mode_tips(self, mode: str) -> list:
+        """Provide helpful tips for each mode"""
+        tips_map = {
+            "consensus": [
+                "You can use the same model with different stances",
+                "Models will refuse truly harmful proposals regardless of stance",
+                "Add 'stance_prompt' for custom instructions per model"
+            ],
+            "debug": [
+                "Start with 'exploring' confidence if unsure",
+                "Include error messages and logs in the problem description",
+                "List all relevant files, not just the one with the error"
+            ],
+            "codereview": [
+                "Use 'security' type for authentication/authorization code",
+                "Include test files for comprehensive review",
+                "Specify focus areas to get targeted feedback"
+            ],
+            "chat": [
+                "Use for quick questions and brainstorming",
+                "No files needed - just your question"
+            ],
+            "analyze": [
+                "Great for understanding unfamiliar codebases",
+                "Include the project root for architecture analysis"
+            ]
+        }
+        return tips_map.get(mode, ["Use the examples as a guide"])
+
     def _get_alternatives(self, scores: dict, selected: str) -> list:
         """Get alternative modes if multiple are viable"""
         if not scores:
