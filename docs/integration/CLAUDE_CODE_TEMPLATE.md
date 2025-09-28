@@ -372,7 +372,7 @@ from security review..."
 zen chat "question"
 
 # Debug with context  
-zen debug "problem" --files file1.py,file2.py
+zen debug "problem" -f file1.py -f file2.py
 
 # Code review
 zen codereview --files src/*.py --type quality

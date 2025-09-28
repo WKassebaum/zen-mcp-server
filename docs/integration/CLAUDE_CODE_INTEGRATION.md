@@ -32,7 +32,7 @@ zen consensus "Should we use microservices or monolith for this e-commerce platf
 
 **Complex Debugging** - When stuck on difficult bugs:
 ```bash
-zen debug "OAuth tokens not persisting across sessions" --files src/auth.py,src/session.py --confidence exploring
+zen debug "OAuth tokens not persisting across sessions" -f src/auth.py -f src/session.py --confidence exploring
 ```
 
 **Architecture Decisions** - For important architectural choices:
@@ -69,7 +69,7 @@ zen chat "Explain tradeoffs of JWT vs session cookies" --model gemini-pro
 ```bash
 # When facing complex bugs
 zen debug "Memory leak in production" --confidence exploring
-zen debug "Memory leak after 1000 requests" --files app.py,worker.py --confidence medium
+zen debug "Memory leak after 1000 requests" -f app.py -f worker.py --confidence medium
 ```
 
 **Pattern 3: Code Quality Assurance**

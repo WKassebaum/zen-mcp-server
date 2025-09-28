@@ -28,7 +28,7 @@ The **95% token optimization** in MCP server refers to the "price of entry" - th
 zen chat "Best approach for caching strategy?"
 
 # Debugging with files
-zen debug "API timeout issues" --files api_handler.py --confidence medium
+zen debug "API timeout issues" -f api_handler.py --confidence medium
 
 # Code review
 zen codereview --files src/*.py --type security

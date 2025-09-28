@@ -351,6 +351,20 @@ zen codereview --files auth_handler.py payment.py \
 
 ### Usage Patterns for Claude Code
 
+#### NEW! Direct Content Support (Avoids File Path Confusion)
+```bash
+# Pass content directly via stdin (natural for Claude!)
+echo "$file_content" | zen debug "Issue description" --stdin
+cat file.py | zen codereview --stdin --type security
+
+# Pass content as argument
+zen analyze --content "$CODE_VARIABLE" --analysis-type architecture
+zen chat "Explain this" --content "def foo(): pass"
+
+# Traditional file paths still work
+zen debug "Issue" -f file.py
+```
+
 #### Pattern 1: Quick Consultation
 When you need a second opinion:
 ```bash
@@ -359,6 +373,9 @@ zen chat "Is using Redis for session storage a good idea for our scale?"
 
 # With specific model
 zen chat "Explain the tradeoffs of JWT vs session cookies" --model gemini-pro
+
+# With direct content (NEW!)
+zen chat "What does this code do?" --content "$CODE_SNIPPET"
 ```
 
 #### Pattern 2: Systematic Debugging
@@ -367,10 +384,13 @@ When facing complex bugs:
 # Start exploration
 zen debug "Memory leak in production" --confidence exploring
 
-# Provide more context
+# Provide more context with files
 zen debug "Memory leak occurs after 1000 requests" \
-  --files app.py,worker.py \
+  -f app.py -f worker.py \
   --confidence medium
+
+# Or with direct content (NEW!)
+cat app.py | zen debug "Memory leak after 1000 requests" --stdin --confidence medium
 ```
 
 #### Pattern 3: Code Quality Checks

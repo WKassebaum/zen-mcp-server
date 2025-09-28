@@ -104,23 +104,15 @@ class ZenCLI:
     
     def __init__(self, config: Dict[str, Any]):
         """Initialize the CLI with configuration."""
-        print("[DEBUG] ZenCLI.__init__ starting")
         self.config = config
-        print("[DEBUG] Config set")
         self.registry = ModelProviderRegistry()
-        print("[DEBUG] Registry created")
-        
+
         # Initialize and register providers
-        print("[DEBUG] Calling _initialize_providers...")
         self._initialize_providers()
-        print("[DEBUG] Providers initialized")
-        
-        # Initialize all tools using lazy loading (tools don't take parameters in constructor)  
-        print("[DEBUG] Creating tools dictionary...")
+
+        # Initialize all tools using lazy loading (tools don't take parameters in constructor)
         tool_classes = _get_tool_classes()
         self.tools = {name: tool_class() for name, tool_class in tool_classes.items()}
-        print("[DEBUG] All tools created successfully!")
-        print("[DEBUG] ZenCLI.__init__ completed")
     
     def _initialize_providers(self, verbose=False):
         """Initialize and register all available providers based on API keys."""
@@ -176,8 +168,11 @@ class ZenCLI:
     
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute a tool with given arguments."""
-        print(f"[DEBUG] execute_tool called with tool_name={tool_name}, arguments={arguments}")
-        
+        console.print(f"[yellow]execute_tool: {tool_name}[/yellow]")
+        console.print(f"[yellow]arguments keys: {list(arguments.keys())}[/yellow]")
+        if 'files' in arguments:
+            console.print(f"[yellow]files value: {arguments['files']}[/yellow]")
+
         if tool_name not in self.tools:
             return {
                 'status': 'error',
@@ -197,33 +192,62 @@ class ZenCLI:
                         session_manager = get_session_manager()
                         auto_session_id = session_manager.get_or_create_auto_session()
                         arguments["continuation_id"] = auto_session_id
-                        print(f"[DEBUG] Auto-session: {auto_session_id}")
                     except Exception as e:
-                        print(f"[DEBUG] Auto-session creation failed, continuing without: {e}")
-            
+                        pass  # Auto-session creation failed, continuing without
+
             # AUTO MODEL RESOLUTION (copied from server.py logic)
             # Handle auto model resolution before tool execution
             model_name = arguments.get("model", "auto")
-            print(f"[DEBUG] Initial model_name: {model_name}")
-            
+
             if model_name.lower() == "auto":
-                print("[DEBUG] Auto model detected, resolving...")
                 # Get tool category to determine appropriate model
                 tool_category = tool.get_model_category()
-                print(f"[DEBUG] Tool category: {tool_category}")
-                
                 resolved_model = self.registry.get_preferred_fallback_model(tool_category)
-                print(f"[DEBUG] Resolved model: {resolved_model}")
-                
                 console.print(f"[dim]Auto mode: using {resolved_model} for {tool_name}[/dim]")
                 arguments["model"] = resolved_model
-                print(f"[DEBUG] Updated arguments: {arguments}")
             
-            print("[DEBUG] About to call tool.execute()")
+            # FILE CONTENT LOADING for workflow tools
+            # If the tool expects file contents but we have file paths, read them
+            if "files" in arguments and arguments["files"]:
+                from zen_cli.tools.workflow.base import WorkflowTool
+                from zen_cli.utils.file_utils import read_files
+                import os
+
+                # Check if this is a workflow tool that expects file contents
+                if isinstance(tool, WorkflowTool):
+                    file_input = arguments["files"]
+
+                    # Check if we already have content (from --stdin or --content)
+                    if isinstance(file_input, str) and (
+                        file_input.startswith("--- BEGIN CONTENT ---") or
+                        file_input.startswith("--- BEGIN STDIN ---")
+                    ):
+                        # Already formatted content from --stdin or --content, use as-is
+                        console.print(f"[dim]Using direct content input[/dim]")
+                        # arguments["files"] already has the content
+                    elif isinstance(file_input, list) and file_input:
+                        # We have file paths, need to read them
+                        console.print(f"[dim]Reading {len(file_input)} files for workflow tool[/dim]")
+                        file_paths = file_input
+                        # Convert relative paths to absolute paths
+                        absolute_paths = []
+                        for path in file_paths:
+                            if not os.path.isabs(path):
+                                # Convert relative to absolute based on current working directory
+                                abs_path = os.path.abspath(path)
+                                console.print(f"[dim]Converting {path} → {abs_path}[/dim]")
+                                absolute_paths.append(abs_path)
+                            else:
+                                absolute_paths.append(path)
+
+                        # These are file paths, read them
+                        file_contents = read_files(absolute_paths, include_line_numbers=True)
+                        arguments["files"] = file_contents
+                        console.print(f"[dim]Loaded {len(file_contents)} characters of file content[/dim]")
+
             # Tools have async execute method, we need to run it synchronously
             import asyncio
             result = asyncio.run(tool.execute(arguments))
-            print(f"[DEBUG] Tool execute completed with result type: {type(result)}")
             
             # Convert TextContent to string for display
             if result and hasattr(result[0], 'text'):
@@ -236,9 +260,6 @@ class ZenCLI:
                 'result': str(result)
             }
         except Exception as e:
-            print(f"[DEBUG] Exception in execute_tool: {e}")
-            import traceback
-            print(f"[DEBUG] Traceback: {traceback.format_exc()}")
             return {
                 'status': 'error',
                 'message': str(e)
@@ -280,22 +301,88 @@ def _get_zen_instance(ctx):
     return ctx.obj['zen']
 
 
+def _parse_files(files):
+    """Parse files from CLI, supporting both repeated -f flags and comma-separated values."""
+    if not files:
+        return []
+
+    expanded_files = []
+    for file_spec in files:
+        # Handle comma-separated files: -f file1.py,file2.py
+        expanded_files.extend(f.strip() for f in file_spec.split(','))
+
+    # Remove empty strings and return non-empty files
+    return [f for f in expanded_files if f.strip()]
+
+
+def _handle_content_input(files, stdin, content):
+    """
+    Handle content input from various sources for Claude-friendly usage.
+    Priority: 1) --content, 2) --stdin, 3) -f files
+
+    Returns:
+        str or list: File contents or file paths depending on source
+    """
+    import sys
+    from zen_cli.utils.file_utils import read_files
+    import os
+
+    # Priority 1: Direct content from --content flag
+    if content:
+        # Return content wrapped in MCP-style markers
+        return f"--- BEGIN CONTENT ---\n{content}\n--- END CONTENT ---\n"
+
+    # Priority 2: Content from stdin
+    if stdin:
+        if not sys.stdin.isatty():
+            stdin_content = sys.stdin.read()
+            return f"--- BEGIN STDIN ---\n{stdin_content}\n--- END STDIN ---\n"
+        else:
+            console.print("[red]Error: --stdin specified but no data on stdin[/red]")
+            return None
+
+    # Priority 3: File paths (existing behavior)
+    if files:
+        return _parse_files(files)
+
+    # No input provided
+    return []
+
 
 @cli.command()
 @click.argument('problem')
 @click.option('--files', '-f', multiple=True, help='Files to include in debugging')
+@click.option('--stdin', is_flag=True, help='Read code from stdin')
+@click.option('--content', help='Pass code content directly')
 @click.option('--confidence', type=click.Choice(['exploring', 'low', 'medium', 'high', 'certain']),
               default='exploring', help='Confidence in problem understanding')
 @click.option('--model', default='auto', help='Model to use')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def debug(ctx, problem, files, confidence, model, output_json):
+def debug(ctx, problem, files, stdin, content, confidence, model, output_json):
     """Systematic debugging and root cause analysis."""
-    zen = ctx.obj['zen']
-    
+    zen = _get_zen_instance(ctx)
+
+    # Handle content from various sources
+    file_input = _handle_content_input(files, stdin, content)
+    if file_input is None:
+        return  # Error already printed
+
+    # If we got content directly (string), use it as-is
+    # If we got file paths (list), parse them
+    if isinstance(file_input, str):
+        parsed_files = file_input  # Already formatted content
+    else:
+        parsed_files = file_input  # List of file paths
+
+    # Properly structure workflow request arguments
     arguments = {
-        'request': problem,
-        'files': list(files) if files else [],
+        'step': problem,
+        'step_number': 1,
+        'total_steps': 3,  # Initial estimate
+        'next_step_required': True,  # Always start with investigation
+        'findings': f"Initial issue report: {problem}",
+        'files': parsed_files,
         'confidence': confidence,
         'model': model
     }
@@ -321,17 +408,37 @@ def debug(ctx, problem, files, confidence, model, output_json):
 
 @cli.command()
 @click.option('--files', '-f', multiple=True, help='Files to review')
+@click.option('--stdin', is_flag=True, help='Read code from stdin')
+@click.option('--content', help='Pass code content directly')
 @click.option('--type', 'review_type', type=click.Choice(['quality', 'security', 'performance', 'all']),
               default='quality', help='Type of review')
 @click.option('--model', default='auto', help='Model to use')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def codereview(ctx, files, review_type, model, output_json):
+def codereview(ctx, files, stdin, content, review_type, model, output_json):
     """Professional code review with actionable feedback."""
-    zen = ctx.obj['zen']
-    
+    zen = _get_zen_instance(ctx)
+
+    # Handle content from various sources
+    file_input = _handle_content_input(files, stdin, content)
+    if file_input is None:
+        return  # Error already printed
+
+    # If we got content directly (string), use it as-is
+    # If we got file paths (list), parse them
+    if isinstance(file_input, str):
+        parsed_files = file_input  # Already formatted content
+    else:
+        parsed_files = file_input  # List of file paths
+
+    # Properly structure workflow request arguments
     arguments = {
-        'files': list(files) if files else [],
+        'step': f"Perform {review_type} code review" + (f" on {len(parsed_files)} files" if parsed_files else " - need to find relevant files"),
+        'step_number': 1,
+        'total_steps': 2,  # Initial estimate
+        'next_step_required': True,  # Always start with investigation for empty files
+        'findings': f"Initial request: {review_type} code review",
+        'files': parsed_files,
         'review_type': review_type,
         'model': model
     }
@@ -359,16 +466,36 @@ def codereview(ctx, files, review_type, model, output_json):
 @click.argument('question')
 @click.option('--models', '-m', multiple=True, help='Models to consult')
 @click.option('--context-files', '-f', multiple=True, help='Context files')
+@click.option('--stdin', is_flag=True, help='Read context from stdin')
+@click.option('--content', help='Pass context content directly')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def consensus(ctx, question, models, context_files, output_json):
+def consensus(ctx, question, models, context_files, stdin, content, output_json):
     """Build consensus from multiple AI models."""
-    zen = ctx.obj['zen']
-    
+    zen = _get_zen_instance(ctx)
+
+    # Handle content from various sources
+    file_input = _handle_content_input(context_files, stdin, content)
+    if file_input is None:
+        return  # Error already printed
+
+    # If we got content directly (string), use it as-is
+    # If we got file paths (list), parse them
+    if isinstance(file_input, str):
+        parsed_files = file_input  # Already formatted content
+    else:
+        parsed_files = file_input  # List of file paths
+
+    # ConsensusTool is actually a WorkflowTool, needs workflow arguments
     arguments = {
-        'request': question,
+        'step': question,
+        'step_number': 1,
+        'total_steps': 2,  # Initial estimate
+        'next_step_required': True,  # Start with investigation
+        'findings': f"Initial question: {question}",
+        'files': parsed_files,
         'models': list(models) if models else None,
-        'context_files': list(context_files) if context_files else None
+        'request': question
     }
     
     with Progress(
@@ -392,17 +519,37 @@ def consensus(ctx, question, models, context_files, output_json):
 
 @cli.command()
 @click.option('--files', '-f', multiple=True, help='Files to analyze')
+@click.option('--stdin', is_flag=True, help='Read code from stdin')
+@click.option('--content', help='Pass code content directly')
 @click.option('--analysis-type', type=click.Choice(['architecture', 'dependencies', 'patterns', 'all']),
               default='all', help='Type of analysis')
 @click.option('--model', default='auto', help='Model to use')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def analyze(ctx, files, analysis_type, model, output_json):
+def analyze(ctx, files, stdin, content, analysis_type, model, output_json):
     """Comprehensive code and architecture analysis."""
-    zen = ctx.obj['zen']
-    
+    zen = _get_zen_instance(ctx)
+
+    # Handle content from various sources
+    file_input = _handle_content_input(files, stdin, content)
+    if file_input is None:
+        return  # Error already printed
+
+    # If we got content directly (string), use it as-is
+    # If we got file paths (list), parse them
+    if isinstance(file_input, str):
+        parsed_files = file_input  # Already formatted content
+    else:
+        parsed_files = file_input  # List of file paths
+
+    # Properly structure workflow request arguments
     arguments = {
-        'files': list(files) if files else [],
+        'step': f"Perform {analysis_type} analysis" + (f" on {len(parsed_files)} files" if parsed_files else " - need to explore codebase"),
+        'step_number': 1,
+        'total_steps': 2,  # Initial estimate
+        'next_step_required': True,  # Start with investigation
+        'findings': f"Initial request: {analysis_type} analysis",
+        'files': parsed_files,
         'analysis_type': analysis_type,
         'model': model
     }
@@ -429,16 +576,36 @@ def analyze(ctx, files, analysis_type, model, output_json):
 @cli.command()
 @click.argument('goal')
 @click.option('--context-files', '-f', multiple=True, help='Context files')
+@click.option('--stdin', is_flag=True, help='Read context from stdin')
+@click.option('--content', help='Pass context content directly')
 @click.option('--model', default='auto', help='Model to use')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def planner(ctx, goal, context_files, model, output_json):
+def planner(ctx, goal, context_files, stdin, content, model, output_json):
     """Break down complex projects into actionable plans."""
-    zen = ctx.obj['zen']
-    
+    zen = _get_zen_instance(ctx)
+
+    # Handle content from various sources
+    file_input = _handle_content_input(context_files, stdin, content)
+    if file_input is None:
+        return  # Error already printed
+
+    # If we got content directly (string), use it as-is
+    # If we got file paths (list), parse them
+    if isinstance(file_input, str):
+        parsed_files = file_input  # Already formatted content
+    else:
+        parsed_files = file_input  # List of file paths
+
+    # PlannerTool is a WorkflowTool, needs workflow arguments
     arguments = {
+        'step': goal,
+        'step_number': 1,
+        'total_steps': 3,  # Initial estimate
+        'next_step_required': True,  # Start with investigation
+        'findings': f"Initial goal: {goal}",
+        'files': parsed_files,
         'request': goal,
-        'context_files': list(context_files) if context_files else None,
         'model': model
     }
     
@@ -470,9 +637,16 @@ def planner(ctx, goal, context_files, model, output_json):
 @click.pass_context
 def thinkdeep(ctx, topic, thinking_mode, model, output_json):
     """Extended reasoning and deep analysis."""
-    zen = ctx.obj['zen']
-    
+    zen = _get_zen_instance(ctx)
+
+    # ThinkDeepTool is a WorkflowTool, needs workflow arguments
     arguments = {
+        'step': topic,
+        'step_number': 1,
+        'total_steps': 2,  # Initial estimate
+        'next_step_required': True,  # Start with investigation
+        'findings': f"Initial topic: {topic}",
+        'files': [],  # ThinkDeep usually doesn't need files
         'request': topic,
         'thinking_mode': thinking_mode,
         'model': model
@@ -539,17 +713,31 @@ def version(ctx):
 @click.argument('message')
 @click.option('--model', default='auto', help='Model to use (auto, gpt-5, gemini-2.5-flash, etc.)')
 @click.option('--files', '-f', multiple=True, help='Files to include in the conversation')
+@click.option('--stdin', is_flag=True, help='Read context from stdin')
+@click.option('--content', help='Pass context content directly')
 @click.option('--session', help='Specific session ID to use (overrides auto-session)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def chat(ctx, message, model, files, session, output_json):
+def chat(ctx, message, model, files, stdin, content, session, output_json):
     """Chat with AI assistant."""
     zen = _get_zen_instance(ctx)
-    
+
+    # Handle content from various sources
+    file_input = _handle_content_input(files, stdin, content)
+    if file_input is None:
+        return  # Error already printed
+
+    # If we got content directly (string), use it as-is
+    # If we got file paths (list), parse them
+    if isinstance(file_input, str):
+        parsed_files = file_input  # Already formatted content
+    else:
+        parsed_files = file_input  # List of file paths
+
     tool_args = {
         'prompt': message,  # ChatTool expects 'prompt' not 'query'
         'model': model,
-        'files': list(files) if files else []
+        'files': parsed_files
     }
     
     if session:
@@ -604,7 +792,7 @@ def sessions(ctx):
             # Mark current auto-session
             is_current = "✓ " if session_id == current_auto_session else "  "
             
-            console.print(f"{is_current}[cyan]{session_id}[/cyan]")
+            console.print(f"{is_current}{session_id}")
             console.print(f"   Created:  {created_time}")
             console.print(f"   Expires:  {expires_time}")
             console.print()
@@ -986,6 +1174,35 @@ Just type your message and press Enter to chat!
     
     except Exception as e:
         console.print(f"[red]Failed to start interactive mode: {e}[/red]")
+
+
+@cli.command()
+def quickhelp():
+    """Show quick usage examples for Claude integration."""
+    from rich.table import Table
+
+    console.print("\n[bold]Zen CLI Quick Reference[/bold]\n")
+
+    examples = [
+        ("Direct content input", "echo 'code' | zen debug 'issue' --stdin"),
+        ("Pass content directly", "zen analyze --content 'class MyClass: pass'"),
+        ("File-based", "zen codereview -f file1.py,file2.py"),
+        ("Quick consultation", "zen chat 'Is Redis good for our scale?'"),
+        ("Get consensus", "zen consensus 'GraphQL vs REST?'"),
+        ("Debug systematically", "zen debug 'OAuth broken' -f auth.py"),
+        ("Interactive session", "zen interactive --model gemini-pro"),
+    ]
+
+    table = Table(show_header=True, header_style="bold cyan")
+    table.add_column("Use Case", style="yellow")
+    table.add_column("Command Example", style="green")
+
+    for use_case, command in examples:
+        table.add_row(use_case, command)
+
+    console.print(table)
+    console.print("\n[dim]Tip: Set ZEN_DEFAULT_MODEL env var to avoid specifying --model[/dim]")
+    console.print("[dim]Tip: Use --json flag for structured output in scripts[/dim]\n")
 
 
 @cli.command()

@@ -123,7 +123,7 @@ You can also use Zen CLI directly:
 zen chat "Is Redis appropriate for session storage at our scale?"
 
 # Debug with context
-zen debug "OAuth tokens not persisting" --files auth.py,session.py
+zen debug "OAuth tokens not persisting" -f auth.py -f session.py
 
 # Multi-model consensus
 zen consensus "GraphQL vs REST for our API?" --models gemini-pro,o3

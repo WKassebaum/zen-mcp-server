@@ -63,6 +63,33 @@ pip install -e .
 
 ## Quick Start
 
+### 🎯 Claude-Friendly Features (NEW!)
+
+Zen CLI now supports direct content input for better integration with Claude and other AI assistants:
+
+```bash
+# Pass content directly via stdin (perfect for Claude!)
+echo "def buggy_function(): pass" | zen debug "Function not working" --stdin
+cat problematic.py | zen codereview --stdin --type security
+git diff | zen codereview --stdin --type quality
+
+# Pass content directly as argument
+zen analyze --content "class MyClass: pass" --analysis-type architecture
+zen chat "Explain this code" --content "$CODE_VARIABLE"
+zen debug "OAuth issue" --content "$(cat auth.py)"
+
+# Traditional file-based approach still works
+zen debug "Issue" -f file.py
+zen debug "Issue" -f file1.py,file2.py  # Comma-separated
+zen debug "Issue" -f file1.py -f file2.py  # Multiple flags
+```
+
+**Why This Matters for Claude:**
+- No need to save content to files first
+- Direct piping from other commands
+- Avoids double-read inefficiency
+- Natural streaming workflow
+
 ### 1. Initial Configuration (Interactive Setup)
 ```bash
 # Run the configuration wizard
@@ -99,7 +126,7 @@ zen chat "Hello, explain REST APIs"
 zen interactive
 
 # Debug with files
-zen debug "Authentication not working" --files auth.py
+zen debug "Authentication not working" -f auth.py
 
 # Get multiple AI opinions
 zen consensus "Should we use microservices architecture?"
@@ -175,7 +202,7 @@ ZEN_CACHE_TTL=3600  # 1 hour in seconds
 #### AI-Powered Development
 ```bash
 # Code debugging with context
-zen debug "OAuth tokens not persisting" --files auth.py session.py
+zen debug "OAuth tokens not persisting" -f auth.py -f session.py
 
 # Code review and analysis  
 zen codereview --files src/*.py --focus security

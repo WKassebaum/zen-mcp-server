@@ -112,7 +112,7 @@ zen debug "Function returns None instead of value"
 # Expected: Debugging suggestions
 
 # Debug with files
-zen debug "process_data not working" --files test_code.py
+zen debug "process_data not working" -f test_code.py
 # Expected: Analysis of the TODO function
 
 # Debug workflow (if working)
