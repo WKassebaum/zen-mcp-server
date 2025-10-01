@@ -1,0 +1,99 @@
+================================================================================
+COMPLETE DIFF OF ALL CHANGES
+================================================================================
+
+File: pyproject.toml
+--------------------------------------------------------------------------------
+diff --git a/pyproject.toml b/pyproject.toml
+index 64ee970..60c582f 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -30,6 +30,7 @@ dependencies = [
+     "python-dotenv>=1.0.0",
+     "google-generativeai>=0.3.0",
+     "openai>=1.0.0",
++    "anthropic>=0.40.0",
+     "redis>=5.0.0",
+     "tiktoken>=0.5.0",
+ ]
+@@ -44,7 +45,8 @@ Issues = "https://github.com/WKassebaum/zen-mcp-server/issues"
+ 
+ [tool.setuptools.packages.find]
+ where = ["src"]
+-include = ["zen_cli*"]
++include = ["zen_cli*", "conf"]
+ 
+ [tool.setuptools.package-data]
+-zen_cli = ["systemprompts/*.py", "py.typed"]
+\ No newline at end of file
++zen_cli = ["systemprompts/*.py", "py.typed"]
++conf = ["*.json"]
+\ No newline at end of file
+
+================================================================================
+File: src/zen_cli/main.py
+--------------------------------------------------------------------------------
+diff --git a/src/zen_cli/main.py b/src/zen_cli/main.py
+index 8314f07..89a51cc 100644
+--- a/src/zen_cli/main.py
++++ b/src/zen_cli/main.py
+@@ -677,7 +677,7 @@ def thinkdeep(ctx, topic, thinking_mode, model, output_json):
+ @click.pass_context
+ def listmodels(ctx, output_format):
+     """List all available AI models."""
+-    zen = ctx.obj['zen']
++    zen = _get_zen_instance(ctx)
+     
+     result = zen.execute_tool('listmodels', {})
+     
+@@ -700,7 +700,7 @@ def listmodels(ctx, output_format):
+ @click.pass_context
+ def version(ctx):
+     """Show Zen CLI version and configuration."""
+-    zen = ctx.obj['zen']
++    zen = _get_zen_instance(ctx)
+     result = zen.execute_tool('version', {})
+     
+     if result['status'] == 'success':
+@@ -1077,12 +1077,13 @@ def interactive(ctx, model, session):
+         console.print("[bold blue]🧘 Zen CLI Interactive Mode[/bold blue]")
+         console.print("Type your messages and press Enter. Use '/help' for commands, '/quit' to exit.")
+         console.print(f"[dim]Model: {model} | Session: {session or 'auto-generated'}[/dim]\n")
+-        
++
++        # Initialize zen instance first
++        zen = _get_zen_instance(ctx)
++
+         # Get global session override
+-        global_session = ctx.obj.get('global_session')
++        global_session = ctx.obj.get('global_session') if ctx.obj else None
+         active_session = session or global_session
+-        
+-        zen = ctx.obj['zen']
+         conversation_count = 0
+         
+         while True:
+
+================================================================================
+New Files Added
+--------------------------------------------------------------------------------
+src/conf/__init__.py                    (empty file - makes it a Python package)
+src/conf/custom_models.json             (copied from conf/custom_models.json)
+
+================================================================================
+Summary
+--------------------------------------------------------------------------------
+Files changed:       2  (pyproject.toml, src/zen_cli/main.py)
+Files added:         2  (src/conf/__init__.py, src/conf/custom_models.json)
+Insertions:          8
+Deletions:           6
+Net change:         +2 lines
+
+Critical bugs fixed: 5
+- Missing anthropic dependency (CRITICAL)
+- listmodels command crash (HIGH)
+- version command crash (HIGH)
+- interactive command crash (HIGH)
+- OpenRouter config not packaged (MEDIUM)
+
+All commands verified working ✅

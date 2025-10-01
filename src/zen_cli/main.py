@@ -677,7 +677,7 @@ def thinkdeep(ctx, topic, thinking_mode, model, output_json):
 @click.pass_context
 def listmodels(ctx, output_format):
     """List all available AI models."""
-    zen = ctx.obj['zen']
+    zen = _get_zen_instance(ctx)
     
     result = zen.execute_tool('listmodels', {})
     
@@ -700,7 +700,7 @@ def listmodels(ctx, output_format):
 @click.pass_context
 def version(ctx):
     """Show Zen CLI version and configuration."""
-    zen = ctx.obj['zen']
+    zen = _get_zen_instance(ctx)
     result = zen.execute_tool('version', {})
     
     if result['status'] == 'success':
@@ -1077,12 +1077,13 @@ def interactive(ctx, model, session):
         console.print("[bold blue]🧘 Zen CLI Interactive Mode[/bold blue]")
         console.print("Type your messages and press Enter. Use '/help' for commands, '/quit' to exit.")
         console.print(f"[dim]Model: {model} | Session: {session or 'auto-generated'}[/dim]\n")
-        
+
+        # Initialize zen instance first
+        zen = _get_zen_instance(ctx)
+
         # Get global session override
-        global_session = ctx.obj.get('global_session')
+        global_session = ctx.obj.get('global_session') if ctx.obj else None
         active_session = session or global_session
-        
-        zen = ctx.obj['zen']
         conversation_count = 0
         
         while True:

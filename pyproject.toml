@@ -30,6 +30,7 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "google-generativeai>=0.3.0",
     "openai>=1.0.0",
+    "anthropic>=0.40.0",
     "redis>=5.0.0",
     "tiktoken>=0.5.0",
 ]
@@ -44,7 +45,8 @@ Issues = "https://github.com/WKassebaum/zen-mcp-server/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["zen_cli*"]
+include = ["zen_cli*", "conf"]
 
 [tool.setuptools.package-data]
 zen_cli = ["systemprompts/*.py", "py.typed"]
+conf = ["*.json"]
