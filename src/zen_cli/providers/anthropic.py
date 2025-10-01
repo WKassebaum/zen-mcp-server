@@ -42,6 +42,24 @@ class AnthropicProvider(ModelProvider):
             description="Claude Opus 4.1 - Most capable Claude model with frontier intelligence",
             aliases=["opus-4.1", "claude-opus", "opus", "claude-opus-4.1", "claude-opus-4-1"],
         ),
+        "claude-sonnet-4-5-20250929": ModelCapabilities(
+            provider=ProviderType.ANTHROPIC,
+            model_name="claude-sonnet-4-5-20250929",
+            friendly_name="Anthropic (Claude Sonnet 4.5)",
+            context_window=200_000,  # 200K tokens, 1M extended option available
+            max_output_tokens=64_000,  # 64K max output - significantly increased!
+            supports_extended_thinking=True,
+            supports_system_prompts=True,
+            supports_streaming=True,
+            supports_function_calling=True,
+            supports_json_mode=True,
+            supports_images=True,
+            max_image_size_mb=20.0,
+            supports_temperature=True,
+            temperature_constraint=RangeTemperatureConstraint(0.0, 1.0, 0.7),
+            description="Claude Sonnet 4.5 - Most advanced model for autonomous agents and extended coding (released Sept 29, 2025)",
+            aliases=["sonnet-4.5", "claude-sonnet-4.5", "claude-sonnet-4-5", "sonnet", "sonnet45"],
+        ),
         "claude-sonnet-4-20250514": ModelCapabilities(
             provider=ProviderType.ANTHROPIC,
             model_name="claude-sonnet-4-20250514",
@@ -106,18 +124,24 @@ class AnthropicProvider(ModelProvider):
         "opus": "claude-opus-4-1-20250805",
         "claude-opus-4.1": "claude-opus-4-1-20250805",
         "claude-opus-4-1": "claude-opus-4-1-20250805",
-        
+
+        # Sonnet 4.5 aliases (newest - default "sonnet" alias)
+        "sonnet-4.5": "claude-sonnet-4-5-20250929",
+        "claude-sonnet-4.5": "claude-sonnet-4-5-20250929",
+        "claude-sonnet-4-5": "claude-sonnet-4-5-20250929",
+        "sonnet45": "claude-sonnet-4-5-20250929",
+        "sonnet": "claude-sonnet-4-5-20250929",  # Points to newest Sonnet
+
         # Sonnet 4 aliases
         "sonnet-4": "claude-sonnet-4-20250514",
         "claude-sonnet-4": "claude-sonnet-4-20250514",
         "sonnet4": "claude-sonnet-4-20250514",
-        "sonnet": "claude-sonnet-4-20250514",
-        
+
         # Sonnet 3.7 aliases
         "sonnet-3.7": "claude-3-7-sonnet-20250219",
         "claude-3-7-sonnet": "claude-3-7-sonnet-20250219",
         "claude-3-7-sonnet-latest": "claude-3-7-sonnet-20250219",
-        
+
         # Haiku 3.5 aliases
         "haiku-3.5": "claude-3-5-haiku-20241022",
         "claude-haiku": "claude-3-5-haiku-20241022",
