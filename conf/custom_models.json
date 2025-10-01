@@ -63,8 +63,20 @@
       "description": "Claude Opus 4.1 - Our most capable and intelligent model yet"
     },
     {
+      "model_name": "anthropic/claude-sonnet-4.5",
+      "aliases": ["sonnet", "claude-sonnet", "claude-sonnet-4.5", "claude-4.5-sonnet", "claude"],
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": false,
+      "supports_function_calling": false,
+      "supports_images": true,
+      "max_image_size_mb": 5.0,
+      "description": "Claude Sonnet 4.5 - Latest high-performance model with enhanced reasoning and efficiency"
+    },
+    {
       "model_name": "anthropic/claude-sonnet-4.1",
-      "aliases": ["sonnet", "claude-sonnet", "claude-sonnet-4.1", "claude-4.1-sonnet", "claude"],
+      "aliases": ["sonnet-4.1", "claude-sonnet-4.1", "claude-4.1-sonnet"],
       "context_window": 200000,
       "max_output_tokens": 64000,
       "supports_extended_thinking": false,
