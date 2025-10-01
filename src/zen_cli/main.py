@@ -678,22 +678,69 @@ def thinkdeep(ctx, topic, thinking_mode, model, output_json):
 def listmodels(ctx, output_format):
     """List all available AI models."""
     zen = _get_zen_instance(ctx)
-    
-    result = zen.execute_tool('listmodels', {})
-    
+
     if output_format == 'json':
+        # Get full result for JSON output
+        result = zen.execute_tool('listmodels', {})
         console.print_json(json.dumps(result))
     elif output_format == 'simple':
-        if result['status'] == 'success':
-            console.print(result['result'])
-        else:
-            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+        # Simple list format
+        console.print("\n[bold]Available AI Models[/bold]\n")
+
+        for provider_type in zen.registry.get_available_providers():
+            provider = zen.registry.get_provider(provider_type)
+            if not provider:
+                continue
+
+            models = zen.registry.get_available_model_names(provider_type)
+            if models:
+                provider_name = provider_type.value if hasattr(provider_type, 'value') else str(provider_type)
+                console.print(f"[cyan]{provider_name}[/cyan]: {len(models)} models")
+                for model in sorted(models[:5]):  # Show first 5
+                    console.print(f"  • {model}")
+                if len(models) > 5:
+                    console.print(f"  ... and {len(models) - 5} more")
+                console.print()
     else:  # table format
-        if result['status'] == 'success':
-            # Parse the result and create a table
-            console.print(Markdown(result['result']))
-        else:
-            console.print(f"[bold red]Error: {result['message']}[/bold red]")
+        from rich.table import Table
+
+        table = Table(title="Available AI Models", show_header=True, header_style="bold magenta")
+        table.add_column("Provider", style="cyan", no_wrap=True)
+        table.add_column("Status", style="green", no_wrap=True)
+        table.add_column("Models", style="yellow")
+        table.add_column("Count", justify="right", style="blue")
+
+        total_models = 0
+        for provider_type in zen.registry.get_available_providers():
+            provider = zen.registry.get_provider(provider_type)
+            provider_name = provider_type.value if hasattr(provider_type, 'value') else str(provider_type)
+
+            if provider:
+                models = zen.registry.get_available_model_names(provider_type)
+                model_count = len(models)
+                total_models += model_count
+
+                if model_count > 0:
+                    status = "✅ Configured"
+                    # Show first few models as sample
+                    sample_models = sorted(models)[:3]
+                    model_display = ", ".join(sample_models)
+                    if len(models) > 3:
+                        model_display += f", +{len(models) - 3} more"
+                else:
+                    status = "✅ Registered"
+                    model_display = "No models available"
+            else:
+                status = "❌ Not configured"
+                model_display = "-"
+                model_count = 0
+
+            table.add_row(provider_name, status, model_display, str(model_count))
+
+        console.print()
+        console.print(table)
+        console.print(f"\n[bold]Total Models: {total_models}[/bold]")
+        console.print()
 
 
 @cli.command()
