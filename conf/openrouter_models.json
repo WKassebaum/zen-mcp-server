@@ -27,18 +27,19 @@
     {
       "model_name": "anthropic/claude-sonnet-4.5",
       "aliases": [
-        "sonnet",
+        "claude-sonnet-4.5",
         "sonnet4.5"
       ],
       "context_window": 200000,
       "max_output_tokens": 64000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": false,
-      "supports_function_calling": false,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
       "supports_images": true,
-      "max_image_size_mb": 5.0,
-      "description": "Claude Sonnet 4.5 - High-performance model with exceptional reasoning and efficiency",
-      "intelligence_score": 12
+      "max_image_size_mb": 20.0,
+      "description": "Claude Sonnet 4.5 - World's best coding model (via OpenRouter)",
+      "intelligence_score": 18,
+      "allow_code_generation": true
     },
     {
       "model_name": "anthropic/claude-opus-4.1",

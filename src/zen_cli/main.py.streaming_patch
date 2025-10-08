@@ -1,0 +1,92 @@
+"""
+Streaming Support Patch for Zen CLI
+Restores the MCP-style content streaming that was lost in CLI translation
+"""
+
+import sys
+import click
+
+def add_streaming_options(command_func):
+    """Decorator to add streaming support to CLI commands"""
+
+    # Add --stdin flag to read from stdin
+    command_func = click.option(
+        '--stdin', is_flag=True,
+        help='Read file content from stdin instead of files'
+    )(command_func)
+
+    # Add --content flag for direct content
+    command_func = click.option(
+        '--content', type=str,
+        help='Pass content directly instead of reading files'
+    )(command_func)
+
+    return command_func
+
+
+def handle_content_input(files, stdin, content, parse_files_func):
+    """
+    Unified handler for content input from various sources.
+    Restores MCP-style content streaming to CLI.
+
+    Priority:
+    1. --content flag (direct content)
+    2. --stdin flag (piped content)
+    3. -f files (file paths - backward compat)
+
+    Returns:
+        str: File contents formatted like MCP server would send
+    """
+    from zen_cli.utils.file_utils import read_files
+    import os
+
+    # Priority 1: Direct content flag
+    if content:
+        # Wrap in MCP-style markers
+        return f"--- BEGIN DIRECT CONTENT ---\n{content}\n--- END DIRECT CONTENT ---\n"
+
+    # Priority 2: stdin streaming (restore MCP-style streaming!)
+    if stdin:
+        if not sys.stdin.isatty():
+            stdin_content = sys.stdin.read()
+            # Format like MCP would send it
+            return f"--- BEGIN STDIN ---\n{stdin_content}\n--- END STDIN ---\n"
+        else:
+            raise click.ClickException("No data available on stdin")
+
+    # Priority 3: File paths (backward compatibility)
+    if files:
+        parsed_files = parse_files_func(files)
+        # Convert to absolute paths
+        absolute_paths = []
+        for path in parsed_files:
+            if not os.path.isabs(path):
+                absolute_paths.append(os.path.abspath(path))
+            else:
+                absolute_paths.append(path)
+        # Read and return contents (this is what MCP server would have sent)
+        return read_files(absolute_paths, include_line_numbers=True)
+
+    # No input provided
+    return None
+
+
+# Example of how to modify existing commands:
+"""
+@cli.command()
+@click.argument('problem')
+@click.option('--files', '-f', multiple=True, help='Files to include in debugging')
+@click.option('--stdin', is_flag=True, help='Read file content from stdin')
+@click.option('--content', help='Pass content directly')
+def debug(ctx, problem, files, stdin, content, confidence, model, output_json):
+    zen = _get_zen_instance(ctx)
+
+    # Handle all content input methods (restore MCP-style streaming)
+    file_contents = handle_content_input(files, stdin, content, _parse_files)
+
+    arguments = {
+        'step': problem,
+        'files': file_contents,  # Now it's contents like MCP, not paths!
+        # ... rest of arguments
+    }
+"""

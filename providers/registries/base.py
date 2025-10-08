@@ -34,7 +34,7 @@ class CustomModelRegistryBase:
         self._default_filename = default_filename
         self._use_resources = False
         self._resource_package = "conf"
-        self._default_path = Path(__file__).resolve().parents[3] / "conf" / default_filename
+        self._default_path = Path(__file__).resolve().parents[2] / "conf" / default_filename
 
         if config_path:
             self.config_path = Path(config_path)
@@ -43,15 +43,10 @@ class CustomModelRegistryBase:
             if env_path:
                 self.config_path = Path(env_path)
             else:
-                try:
-                    resource = importlib.resources.files(self._resource_package).joinpath(default_filename)
-                    if hasattr(resource, "read_text"):
-                        self._use_resources = True
-                        self.config_path = None
-                    else:
-                        raise AttributeError("resource accessor not available")
-                except Exception:
-                    self.config_path = Path(__file__).resolve().parents[3] / "conf" / default_filename
+                # Always use file paths instead of importlib.resources
+                # Resources don't work reliably with editable installs
+                self.config_path = Path(__file__).resolve().parents[2] / "conf" / default_filename
+                self._use_resources = False
 
         self.alias_map: dict[str, str] = {}
         self.model_map: dict[str, ModelCapabilities] = {}
