@@ -10,17 +10,16 @@
       "context_window": "Total number of tokens the model can process (input + output combined)",
       "max_output_tokens": "Maximum number of tokens the model can generate in a single response",
       "max_thinking_tokens": "Maximum reasoning/thinking tokens the model will allocate when extended thinking is requested",
-      "supports_extended_thinking": "Whether the model supports extended reasoning tokens (currently none do via OpenRouter or custom APIs)",
+      "supports_extended_thinking": "Whether the model supports extended reasoning tokens",
       "supports_json_mode": "Whether the model can guarantee valid JSON output",
       "supports_function_calling": "Whether the model supports function/tool calling",
       "supports_images": "Whether the model can process images/visual input",
-      "max_image_size_mb": "Maximum total size in MB for all images combined (capped at 40MB max for custom models)",
-      "supports_temperature": "Whether the model accepts temperature parameter in API calls (set to false for O3/O4 reasoning models)",
+      "max_image_size_mb": "Maximum total size in MB for all images combined",
+      "supports_temperature": "Whether the model accepts temperature parameter in API calls",
       "temperature_constraint": "Type of temperature constraint: 'fixed' (fixed value), 'range' (continuous range), 'discrete' (specific values), or omit for default range",
-      "use_openai_response_api": "Set to true when the model must use the /responses endpoint (reasoning models like GPT-5 Pro). Leave false/omit for standard chat completions.",
-      "default_reasoning_effort": "Default reasoning effort level for models that support it (e.g., 'low', 'medium', 'high'). Omit if not applicable.",
       "description": "Human-readable description of the model",
-      "intelligence_score": "1-20 human rating used as the primary signal for auto-mode model ordering"
+      "intelligence_score": "1-20 human rating used as the primary signal for auto-mode model ordering",
+      "allow_code_generation": "Whether this model can generate and suggest fully working code"
     }
   },
   "models": [
@@ -30,10 +29,10 @@
       "aliases": [
         "grok",
         "grok4",
-        "grok-4"
+        "grok-4-0709"
       ],
-      "intelligence_score": 16,
-      "description": "GROK-4 (256K context) - Frontier multimodal reasoning model with advanced capabilities",
+      "intelligence_score": 17,
+      "description": "Grok 4 - Flagship model with 256K context, advanced reasoning and structured outputs",
       "context_window": 256000,
       "max_output_tokens": 256000,
       "supports_extended_thinking": true,
@@ -43,7 +42,69 @@
       "supports_json_mode": true,
       "supports_images": true,
       "supports_temperature": true,
+      "allow_code_generation": true,
       "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-4-fast-reasoning",
+      "friendly_name": "X.AI (Grok 4 Fast Reasoning)",
+      "aliases": [
+        "grok4-fast-reasoning",
+        "grok-4-reasoning"
+      ],
+      "intelligence_score": 16,
+      "description": "Grok 4 Fast Reasoning - Cost-efficient with extended reasoning for complex problem-solving",
+      "context_window": 256000,
+      "max_output_tokens": 256000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-4-fast-non-reasoning",
+      "friendly_name": "X.AI (Grok 4 Fast)",
+      "aliases": [
+        "grok4-fast",
+        "grok-4-fast"
+      ],
+      "intelligence_score": 15,
+      "description": "Grok 4 Fast - Lightweight, fast responses, outperforms Grok 3 Mini at lower cost",
+      "context_window": 256000,
+      "max_output_tokens": 256000,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-code-fast-1",
+      "friendly_name": "X.AI (Grok Code Fast 1)",
+      "aliases": [
+        "grok-code",
+        "grokcode",
+        "grok-code-fast"
+      ],
+      "intelligence_score": 16,
+      "description": "Grok Code Fast 1 - Purpose-built coding assistant with low latency, function calling, and reasoning traces",
+      "context_window": 256000,
+      "max_output_tokens": 256000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
     },
     {
       "model_name": "grok-3",
@@ -52,16 +113,36 @@
         "grok3"
       ],
       "intelligence_score": 13,
-      "description": "GROK-3 (131K context) - Advanced reasoning model from X.AI, excellent for complex analysis",
+      "description": "Grok 3 (131K context) - Advanced reasoning model, excellent for complex analysis",
       "context_window": 131072,
       "max_output_tokens": 131072,
       "supports_extended_thinking": false,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
-      "supports_json_mode": false,
+      "supports_json_mode": true,
       "supports_images": false,
-      "supports_temperature": true
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-3-latest",
+      "friendly_name": "X.AI (Grok 3 Latest)",
+      "aliases": [
+        "grok3-latest"
+      ],
+      "intelligence_score": 13,
+      "description": "Grok 3 Latest - Always points to the newest Grok 3 version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
     },
     {
       "model_name": "grok-3-fast",
@@ -72,16 +153,270 @@
         "grok3-fast"
       ],
       "intelligence_score": 12,
-      "description": "GROK-3 Fast (131K context) - Higher performance variant, faster processing but more expensive",
+      "description": "Grok 3 Fast (131K context) - Speed-optimized variant, faster processing",
       "context_window": 131072,
       "max_output_tokens": 131072,
       "supports_extended_thinking": false,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
-      "supports_json_mode": false,
+      "supports_json_mode": true,
       "supports_images": false,
-      "supports_temperature": true
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-3-fast-latest",
+      "friendly_name": "X.AI (Grok 3 Fast Latest)",
+      "aliases": [
+        "grok3-fast-latest"
+      ],
+      "intelligence_score": 12,
+      "description": "Grok 3 Fast Latest - Always points to the newest Grok 3 Fast version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-3-mini",
+      "friendly_name": "X.AI (Grok 3 Mini)",
+      "aliases": [
+        "grok3-mini",
+        "grok-mini"
+      ],
+      "intelligence_score": 10,
+      "description": "Grok 3 Mini (131K context) - Cost-efficient for fast completions",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": false
+    },
+    {
+      "model_name": "grok-3-mini-latest",
+      "friendly_name": "X.AI (Grok 3 Mini Latest)",
+      "aliases": [
+        "grok3-mini-latest"
+      ],
+      "intelligence_score": 10,
+      "description": "Grok 3 Mini Latest - Always points to the newest Grok 3 Mini version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": false
+    },
+    {
+      "model_name": "grok-3-mini-fast",
+      "friendly_name": "X.AI (Grok 3 Mini Fast)",
+      "aliases": [
+        "grok3-mini-fast"
+      ],
+      "intelligence_score": 10,
+      "description": "Grok 3 Mini Fast - Combined speed and cost optimization",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": false
+    },
+    {
+      "model_name": "grok-3-mini-fast-latest",
+      "friendly_name": "X.AI (Grok 3 Mini Fast Latest)",
+      "aliases": [
+        "grok3-mini-fast-latest"
+      ],
+      "intelligence_score": 10,
+      "description": "Grok 3 Mini Fast Latest - Always points to the newest Grok 3 Mini Fast version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": false
+    },
+    {
+      "model_name": "grok-2",
+      "friendly_name": "X.AI (Grok 2)",
+      "aliases": [
+        "grok2"
+      ],
+      "intelligence_score": 11,
+      "description": "Grok 2 - Legacy flagship model with solid general capabilities",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-2-latest",
+      "friendly_name": "X.AI (Grok 2 Latest)",
+      "aliases": [
+        "grok2-latest"
+      ],
+      "intelligence_score": 11,
+      "description": "Grok 2 Latest - Always points to the newest Grok 2 version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-2-1212",
+      "friendly_name": "X.AI (Grok 2 Dec 2024)",
+      "aliases": [
+        "grok2-1212"
+      ],
+      "intelligence_score": 11,
+      "description": "Grok 2 December 2024 snapshot - Stable version from Dec 12, 2024",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "grok-2-vision",
+      "friendly_name": "X.AI (Grok 2 Vision)",
+      "aliases": [
+        "grok2-vision",
+        "grok-vision"
+      ],
+      "intelligence_score": 12,
+      "description": "Grok 2 Vision - Multimodal model supporting both text and image inputs",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-2-vision-latest",
+      "friendly_name": "X.AI (Grok 2 Vision Latest)",
+      "aliases": [
+        "grok2-vision-latest"
+      ],
+      "intelligence_score": 12,
+      "description": "Grok 2 Vision Latest - Always points to the newest Grok 2 Vision version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-2-vision-1212",
+      "friendly_name": "X.AI (Grok 2 Vision Dec 2024)",
+      "aliases": [
+        "grok2-vision-1212"
+      ],
+      "intelligence_score": 12,
+      "description": "Grok 2 Vision December 2024 snapshot - Stable multimodal version from Dec 12, 2024",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-beta",
+      "friendly_name": "X.AI (Grok Beta)",
+      "aliases": [
+        "grok-experimental"
+      ],
+      "intelligence_score": 10,
+      "description": "Grok Beta - Early access experimental version for testing new features",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true,
+      "allow_code_generation": false
+    },
+    {
+      "model_name": "grok-vision-beta",
+      "friendly_name": "X.AI (Grok Vision Beta)",
+      "aliases": [
+        "grok-vision-experimental"
+      ],
+      "intelligence_score": 11,
+      "description": "Grok Vision Beta - Early access multimodal experimental version",
+      "context_window": 131072,
+      "max_output_tokens": 131072,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": false,
+      "max_image_size_mb": 20.0
     }
   ]
 }
