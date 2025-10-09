@@ -186,6 +186,7 @@ def chat(ctx, message, model, files, output_json):
     arguments = {
         "prompt": message,
         "model": model,
+        "working_directory": os.getcwd(),
     }
 
     # Add files if provided
@@ -232,6 +233,7 @@ def debug(ctx, problem, files, confidence, model, output_json):
         "problem_description": problem,
         "confidence": confidence,
         "model": model,
+        "working_directory": os.getcwd(),
     }
 
     if files:
@@ -278,6 +280,7 @@ def codereview(ctx, files, review_type, model, output_json):
         "files": list(files),
         "review_type": review_type,
         "model": model,
+        "working_directory": os.getcwd(),
     }
 
     try:
