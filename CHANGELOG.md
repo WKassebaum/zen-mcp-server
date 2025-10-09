@@ -2,6 +2,51 @@
 
 <!-- version list -->
 
+## v9.0.0 (2025-10-08)
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`23c9b35`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/23c9b35d5226b07b59a4c4b3d7833ba81b019ea8))
+
+### Features
+
+- Claude Code as a CLI agent now supported. Mix and match: spawn claude code from within claude
+  code, or claude code from within codex.
+  ([`4cfaa0b`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/4cfaa0b6060769adfbd785a072526a5368421a73))
+
+
+## v8.0.2 (2025-10-08)
+
+### Bug Fixes
+
+- Restore run-server quote trimming regex
+  ([`1de4542`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/1de454224c105891137134e2a25c2ee4f00dba45))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`728fb43`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/728fb439b929c9dc37646b24537ae043208fda7d))
+
+
+## v8.0.1 (2025-10-08)
+
+### Bug Fixes
+
+- Resolve executable path for cross-platform compatibility in CLI agent
+  ([`f98046c`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/f98046c2fccaa7f9a24665a0d705a98006461da5))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`52245b9`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/52245b91eaa5d720f8c3b21ead55248dd8e8bd57))
+
+### Testing
+
+- Fix clink agent tests to mock shutil.which() for executable resolution
+  ([`4370be3`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/4370be33b4b69a40456527213bcd62321a925a57))
+
+
 ## v8.0.0 (2025-10-07)
 
 ### Chores

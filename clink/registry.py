@@ -149,6 +149,8 @@ class ClinkRegistry:
                 f"CLI '{raw.name}' must define a parser either in configuration or internal defaults"
             )
 
+        runner_name = internal_defaults.runner if internal_defaults else None
+
         env = self._merge_env(raw, internal_defaults)
         working_dir = self._resolve_optional_path(raw.working_dir, source_path.parent)
         roles = self._resolve_roles(raw, internal_defaults, source_path)
@@ -163,6 +165,7 @@ class ClinkRegistry:
             env=env,
             timeout_seconds=int(timeout_seconds),
             parser=parser_name,
+            runner=runner_name,
             roles=roles,
             output_to_file=output_to_file,
             working_dir=working_dir,

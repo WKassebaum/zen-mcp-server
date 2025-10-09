@@ -188,15 +188,29 @@ class CLinkTool(SimpleTool):
 
         self._model_context = arguments.get("_model_context")
 
+        system_prompt_text = role_config.prompt_path.read_text(encoding="utf-8")
+        include_system_prompt = not self._use_external_system_prompt(client_config)
+
         try:
-            prompt_text = await self._prepare_prompt_for_role(request, role_config)
+            prompt_text = await self._prepare_prompt_for_role(
+                request,
+                role_config,
+                system_prompt=system_prompt_text,
+                include_system_prompt=include_system_prompt,
+            )
         except Exception as exc:
             logger.exception("Failed to prepare clink prompt")
             return [self._error_response(f"Failed to prepare prompt: {exc}")]
 
         agent = create_agent(client_config)
         try:
-            result = await agent.run(role=role_config, prompt=prompt_text, files=files, images=images)
+            result = await agent.run(
+                role=role_config,
+                prompt=prompt_text,
+                system_prompt=system_prompt_text if system_prompt_text.strip() else None,
+                files=files,
+                images=images,
+            )
         except CLIAgentError as exc:
             metadata = self._build_error_metadata(client_config, exc)
             error_output = ToolOutput(
@@ -249,11 +263,25 @@ class CLinkTool(SimpleTool):
     async def prepare_prompt(self, request) -> str:
         client_config = self._registry.get_client(request.cli_name)
         role_config = client_config.get_role(request.role)
-        return await self._prepare_prompt_for_role(request, role_config)
+        system_prompt_text = role_config.prompt_path.read_text(encoding="utf-8")
+        include_system_prompt = not self._use_external_system_prompt(client_config)
+        return await self._prepare_prompt_for_role(
+            request,
+            role_config,
+            system_prompt=system_prompt_text,
+            include_system_prompt=include_system_prompt,
+        )
 
-    async def _prepare_prompt_for_role(self, request: CLinkRequest, role: ResolvedCLIRole) -> str:
+    async def _prepare_prompt_for_role(
+        self,
+        request: CLinkRequest,
+        role: ResolvedCLIRole,
+        *,
+        system_prompt: str,
+        include_system_prompt: bool,
+    ) -> str:
         """Load the role prompt and assemble the final user message."""
-        self._active_system_prompt = role.prompt_path.read_text(encoding="utf-8")
+        self._active_system_prompt = system_prompt
         try:
             user_content = self.handle_prompt_file_with_fallback(request).strip()
             guidance = self._agent_capabilities_guidance()
@@ -261,7 +289,7 @@ class CLinkTool(SimpleTool):
 
             sections: list[str] = []
             active_prompt = self.get_system_prompt().strip()
-            if active_prompt:
+            if include_system_prompt and active_prompt:
                 sections.append(active_prompt)
             sections.append(guidance)
             sections.append("=== USER REQUEST ===\n" + user_content)
@@ -271,6 +299,10 @@ class CLinkTool(SimpleTool):
             return "\n\n".join(sections)
         finally:
             self._active_system_prompt = ""
+
+    def _use_external_system_prompt(self, client: ResolvedCLIClient) -> bool:
+        runner_name = (client.runner or client.name).lower()
+        return runner_name == "claude"
 
     def _build_success_metadata(
         self,

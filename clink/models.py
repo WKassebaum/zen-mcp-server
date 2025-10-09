@@ -84,6 +84,7 @@ class ResolvedCLIClient(BaseModel):
     env: dict[str, str] = Field(default_factory=dict)
     timeout_seconds: int
     parser: str
+    runner: str | None = None
     roles: dict[str, ResolvedCLIRole]
     output_to_file: OutputCaptureConfig | None = None
 

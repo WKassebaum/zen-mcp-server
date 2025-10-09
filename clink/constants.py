@@ -39,4 +39,10 @@ INTERNAL_DEFAULTS: dict[str, CLIInternalDefaults] = {
         default_role_prompt="systemprompts/clink/default.txt",
         runner="codex",
     ),
+    "claude": CLIInternalDefaults(
+        parser="claude_json",
+        additional_args=["--print", "--output-format", "json"],
+        default_role_prompt="systemprompts/clink/default.txt",
+        runner="claude",
+    ),
 }
