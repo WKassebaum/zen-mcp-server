@@ -13,8 +13,15 @@ dependencies = [
     # CLI-specific dependencies
     "click>=8.1.0",
     "rich>=13.0.0",
-    "redis>=5.0.0",  # Optional for storage backends
 ]
+
+[project.optional-dependencies]
+# Redis storage backend for distributed/team environments
+# Default file-based storage requires no additional dependencies
+redis = ["redis>=5.0.0"]
+
+# Full CLI with all storage backends
+cli = ["click>=8.1.0", "rich>=13.0.0", "redis>=5.0.0"]
 
 [tool.setuptools.packages.find]
 include = ["tools*", "providers*", "systemprompts*", "utils*", "conf*", "clink*", "zen_cli*"]
