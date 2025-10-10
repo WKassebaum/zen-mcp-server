@@ -438,7 +438,528 @@ def listmodels_cmd(ctx, output_format):
 def version(ctx):
     """Show version information"""
     console.print(f"Zen CLI v{__version__}")
-    console.print(f"Based on Zen MCP Server v8.0.0")
+    console.print(f"Based on Zen MCP Server v9.0.0")
+
+
+# ============================================================================
+# CRITICAL TOOLS
+# ============================================================================
+
+@cli.command()
+@click.argument('goal')
+@click.option('--context-files', '-f', multiple=True, help='Context files to include')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def planner(ctx, goal, context_files, model, output_json):
+    """Generate sequential task plan for complex goals
+
+    Examples:
+        zen planner "Implement OAuth2 authentication"
+        zen planner "Refactor auth module" -f auth.py -f config.py
+        zen planner "Add dark mode" --model gemini-pro
+    """
+    arguments = {
+        "prompt": goal,
+        "context_files": list(context_files) if context_files else [],
+        "working_directory": os.getcwd(),
+    }
+
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.planner import PlannerTool
+        result = asyncio.run(PlannerTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, help='Files to analyze')
+@click.option('--analysis-type', type=click.Choice(['architecture', 'patterns', 'complexity', 'all']),
+              default='all', help='Type of analysis to perform')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def analyze(ctx, files, analysis_type, model, output_json):
+    """Comprehensive code analysis and architecture assessment
+
+    Examples:
+        zen analyze --files src/*.py
+        zen analyze --files app.js --analysis-type architecture
+        zen analyze --files *.go --model gemini-pro
+    """
+    arguments = {
+        "files": list(files) if files else [],
+        "analysis_type": analysis_type,
+        "working_directory": os.getcwd(),
+    }
+
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.analyze import AnalyzeTool
+        result = asyncio.run(AnalyzeTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('question')
+@click.option('--thinking-budget', type=int, help='Thinking token budget (128-32768)')
+@click.option('--model', '-m', help='AI model to use (must support extended thinking)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def thinkdeep(ctx, question, thinking_budget, model, output_json):
+    """Extended reasoning mode for complex problems
+
+    Requires models that support extended thinking (e.g., Gemini 2.5 Pro, o3)
+
+    Examples:
+        zen thinkdeep "How should we architect this microservice?"
+        zen thinkdeep "Debug this race condition" --thinking-budget 16384
+        zen thinkdeep "Optimize database queries" --model gemini-pro
+    """
+    arguments = {
+        "prompt": question,
+        "working_directory": os.getcwd(),
+    }
+
+    if thinking_budget:
+        arguments["thinking_budget"] = thinking_budget
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.thinkdeep import ThinkDeepTool
+        result = asyncio.run(ThinkDeepTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('prompt_text', required=False)
+@click.option('--cli-name', help='CLI client to invoke (gemini, codex, claude)')
+@click.option('--role', help='Role preset for the CLI (default, planner, codereviewer)')
+@click.option('--files', '-f', multiple=True, help='Files to pass to the CLI')
+@click.option('--images', '-i', multiple=True, help='Images to pass to the CLI')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
+    """CLI-to-CLI bridge - spawn external AI CLIs as subagents
+
+    NEW in v9.0.0: Recursive AI agents! Claude Code can spawn Codex,
+    Codex can spawn Gemini CLI, etc. Offload tasks to fresh contexts.
+
+    Examples:
+        zen clink "Review auth module" --cli-name codex --role codereviewer
+        zen clink "Implement dark mode" --cli-name claude
+        zen clink "Search for best practices" --cli-name gemini
+    """
+    prompt = prompt_text or click.prompt("Enter your prompt for the CLI")
+
+    arguments = {
+        "prompt": prompt,
+        "files": list(files) if files else [],
+        "images": list(images) if images else [],
+        "working_directory": os.getcwd(),
+    }
+
+    if cli_name:
+        arguments["cli_name"] = cli_name
+    if role:
+        arguments["role"] = role
+
+    try:
+        from tools.clink import CLinkTool
+        result = asyncio.run(CLinkTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, help='Files to validate before commit')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def precommit(ctx, files, model, output_json):
+    """Pre-commit validation and quality checks
+
+    Examples:
+        zen precommit --files src/*.py
+        zen precommit --files *.js --model gemini-pro
+    """
+    arguments = {
+        "files": list(files) if files else [],
+        "working_directory": os.getcwd(),
+    }
+
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.precommit import PrecommitTool
+        result = asyncio.run(PrecommitTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+# ============================================================================
+# QUALITY TOOLS
+# ============================================================================
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, required=True, help='Files to generate tests for')
+@click.option('--framework', help='Test framework (pytest, jest, etc.)')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def testgen(ctx, files, framework, model, output_json):
+    """Generate comprehensive test suites
+
+    Examples:
+        zen testgen --files auth.py
+        zen testgen --files api.js --framework jest
+        zen testgen --files service.go --model gemini-pro
+    """
+    arguments = {
+        "files": list(files),
+        "working_directory": os.getcwd(),
+    }
+
+    if framework:
+        arguments["framework"] = framework
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.testgen import TestGenTool
+        result = asyncio.run(TestGenTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, required=True, help='Files to audit')
+@click.option('--focus', type=click.Choice(['auth', 'crypto', 'injection', 'all']),
+              default='all', help='Security focus area')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def secaudit(ctx, files, focus, model, output_json):
+    """Security audit and vulnerability assessment
+
+    Examples:
+        zen secaudit --files auth.py
+        zen secaudit --files api/*.js --focus auth
+        zen secaudit --files *.go --model o3
+    """
+    arguments = {
+        "files": list(files),
+        "focus": focus,
+        "working_directory": os.getcwd(),
+    }
+
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.secaudit import SecauditTool
+        result = asyncio.run(SecauditTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, required=True, help='Files to refactor')
+@click.option('--goal', help='Refactoring goal (e.g., "improve readability")')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def refactor(ctx, files, goal, model, output_json):
+    """Code refactoring suggestions and improvements
+
+    Examples:
+        zen refactor --files legacy.py
+        zen refactor --files utils.js --goal "improve readability"
+        zen refactor --files handler.go --model gemini-pro
+    """
+    arguments = {
+        "files": list(files),
+        "working_directory": os.getcwd(),
+    }
+
+    if goal:
+        arguments["goal"] = goal
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.refactor import RefactorTool
+        result = asyncio.run(RefactorTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+# ============================================================================
+# UTILITY TOOLS
+# ============================================================================
+
+@cli.command()
+@click.option('--files', '-f', multiple=True, required=True, help='Files to document')
+@click.option('--style', type=click.Choice(['docstring', 'markdown', 'jsdoc', 'godoc']),
+              default='docstring', help='Documentation style')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def docgen(ctx, files, style, model, output_json):
+    """Generate comprehensive documentation
+
+    Examples:
+        zen docgen --files api.py
+        zen docgen --files utils.js --style jsdoc
+        zen docgen --files service.go --style godoc
+    """
+    arguments = {
+        "files": list(files),
+        "style": style,
+        "working_directory": os.getcwd(),
+    }
+
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.docgen import DocgenTool
+        result = asyncio.run(DocgenTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('function_or_file')
+@click.option('--depth', type=int, default=3, help='Trace depth (default: 3)')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def tracer(ctx, function_or_file, depth, model, output_json):
+    """Trace code execution flow and dependencies
+
+    Examples:
+        zen tracer handleRequest
+        zen tracer auth.py --depth 5
+        zen tracer processPayment --model gemini-pro
+    """
+    arguments = {
+        "target": function_or_file,
+        "depth": depth,
+        "working_directory": os.getcwd(),
+    }
+
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.tracer import TracerTool
+        result = asyncio.run(TracerTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('assumption')
+@click.option('--context', help='Additional context for the challenge')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def challenge(ctx, assumption, context, model, output_json):
+    """Challenge assumptions and explore alternatives
+
+    Examples:
+        zen challenge "We need a microservice architecture"
+        zen challenge "Redis is the best choice" --context "For session storage"
+        zen challenge "We should use GraphQL" --model gemini-pro
+    """
+    arguments = {
+        "assumption": assumption,
+        "working_directory": os.getcwd(),
+    }
+
+    if context:
+        arguments["context"] = context
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.challenge import ChallengeTool
+        result = asyncio.run(ChallengeTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
+
+
+@cli.command()
+@click.argument('api_or_library')
+@click.option('--version', help='Specific version to lookup')
+@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.pass_context
+def apilookup(ctx, api_or_library, version, model, output_json):
+    """Look up API documentation and usage examples
+
+    Examples:
+        zen apilookup express
+        zen apilookup flask --version 3.0
+        zen apilookup react --model gemini-pro
+    """
+    arguments = {
+        "query": api_or_library,
+        "working_directory": os.getcwd(),
+    }
+
+    if version:
+        arguments["version"] = version
+    if model:
+        arguments["model"] = model
+
+    try:
+        from tools.apilookup import LookupTool
+        result = asyncio.run(LookupTool().execute(arguments))
+
+        if output_json:
+            console.print_json(data=result)
+        else:
+            if isinstance(result, list) and len(result) > 0:
+                content = json.loads(result[0].text)
+                console.print(Markdown(content.get('content', str(content))))
+            else:
+                console.print(result)
+
+    except Exception as e:
+        console.print(f"[red]Error:[/red] {str(e)}")
+        sys.exit(1)
 
 
 if __name__ == '__main__':
