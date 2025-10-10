@@ -32,6 +32,9 @@ class CodexAgent(BaseCLIAgent):
         # Note: prompt is appended in run() method as positional argument
         return command
 
+    # Use default environment handling from base class
+    # OPENAI_API_KEY is needed for API key authentication
+
     async def run(
         self,
         *,

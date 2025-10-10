@@ -2,7 +2,6 @@
   "name": "codex",
   "command": "codex",
   "additional_args": [
-    "exec",
     "--json",
     "--dangerously-bypass-approvals-and-sandbox"
   ],
