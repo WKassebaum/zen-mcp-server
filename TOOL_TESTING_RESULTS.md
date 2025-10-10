@@ -108,7 +108,7 @@ Claude Code parses these instructions and automatically:
 ### Storage Backend
 
 Sessions persist in the configured storage backend:
-- **File Storage**: `~/.zen-cli/conversations/workflow_session:{session_id}`
+- **File Storage**: `~/.zen/conversations/workflow_session:{session_id}`
 - **Redis Storage**: `workflow_session:{session_id}` with TTL
 - **Memory Storage**: Process-local (testing only)
 

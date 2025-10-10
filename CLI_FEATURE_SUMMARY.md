@@ -21,14 +21,14 @@ We have successfully completed both recommendations:
 
 **After:**
 - File-based storage by default
-- Conversations in `~/.zen-cli/conversations/`
+- Conversations in `~/.zen/conversations/`
 - Zero external dependencies
 - Works offline
 - Faster performance (no network calls)
 
 ### Configuration
 
-**~/.zen-cli/.env:**
+**~/.zen/.env:**
 ```bash
 # Storage Backend Configuration
 ZEN_STORAGE_TYPE=file  # ← Changed from 'redis'
@@ -48,11 +48,11 @@ docker ps -a | grep zen-redis
 
 ### File Storage Features
 
-- **Location:** `~/.zen-cli/conversations/*.json`
+- **Location:** `~/.zen/conversations/*.json`
 - **Thread-Safe:** Proper locking mechanisms
 - **Auto-Cleanup:** Expires conversations after 3 hours (configurable)
 - **TTL Support:** Time-to-live for each conversation
-- **Simple Backup:** Just copy `~/.zen-cli/` directory
+- **Simple Backup:** Just copy `~/.zen/` directory
 - **Graceful Fallback:** Redis → File → Memory (automatic)
 
 ### Optional Redis Support
@@ -286,7 +286,7 @@ zen chat "Hello" --model flash 2>&1 | grep storage
 # File-based storage initialized in /Users/wrk/.zen-cli/conversations
 
 # Check conversation files exist
-ls ~/.zen-cli/conversations/
+ls ~/.zen/conversations/
 ```
 
 ### Test All New Commands
@@ -396,7 +396,7 @@ zen --version
 Modified:
   src/zen_cli/main.py              (+550 lines - all 13 new tools)
   utils/storage_backend.py         (multi-backend support)
-  ~/.zen-cli/.env                   (file storage config)
+  ~/.zen/.env                   (file storage config)
 
 Created:
   utils/file_storage.py             (file-based storage)

@@ -2,11 +2,11 @@
 File-based storage backend for conversation threads
 
 This module provides a file-based persistent storage alternative to in-memory storage
-for conversation contexts. It stores conversations in ~/.zen-cli/ for persistence
+for conversation contexts. It stores conversations in ~/.zen/ for persistence
 across CLI invocations.
 
 Key Features:
-- File-based persistence in ~/.zen-cli/conversations/
+- File-based persistence in ~/.zen/conversations/
 - TTL support with expiration metadata in files
 - Thread-safe file operations with locks
 - Automatic directory creation
@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 class FileBasedStorage(StorageBackend):
     """File-based storage for conversation threads with persistence"""
 
-    def __init__(self, storage_dir: str = "~/.zen-cli"):
+    def __init__(self, storage_dir: str = "~/.zen"):
         self.storage_dir = Path(storage_dir).expanduser()
         self.conversations_dir = self.storage_dir / "conversations"
         self._lock = threading.Lock()

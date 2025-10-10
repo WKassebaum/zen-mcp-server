@@ -13,7 +13,7 @@
 ### 1. Eliminated Docker Dependency
 - **Before:** Redis listed as required dependency
 - **After:** Redis moved to optional-dependencies
-- **Default:** File-based storage in `~/.zen-cli/` (zero external deps)
+- **Default:** File-based storage in `~/.zen/` (zero external deps)
 - **Impact:** Aligns with maintainer's move away from Docker
 
 ### 2. Made Storage Backends Optional
@@ -36,7 +36,7 @@ pip install zen-mcp-server[redis]
 ```
 
 ### 3. Zero-Dependency File Storage
-- **Location:** `~/.zen-cli/conversations/*.json`
+- **Location:** `~/.zen/conversations/*.json`
 - **Features:** Thread-safe, TTL support, auto-cleanup
 - **Dependencies:** None (pure Python stdlib)
 - **Backup:** Just copy the directory
@@ -154,7 +154,7 @@ MCP Server:
 - Dependencies: mcp, google-genai, openai, anthropic
 
 CLI Mode:
-- Configured in: ~/.zen-cli/.env
+- Configured in: ~/.zen/.env
 - Communication: Terminal commands
 - Storage: File-based (default) or Redis (optional)
 - Dependencies: Same + click, rich (redis optional)
@@ -190,8 +190,8 @@ pip install zen-mcp-server
 # Use CLI (file storage automatic)
 zen chat "Hello world"
 
-# Conversations persist in ~/.zen-cli/
-ls ~/.zen-cli/conversations/
+# Conversations persist in ~/.zen/
+ls ~/.zen/conversations/
 session_abc123.json
 session_def456.json
 ```

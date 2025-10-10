@@ -2,7 +2,7 @@
 Multi-backend storage system for conversation threads
 
 This module provides a unified interface for conversation storage with support for:
-1. File-based storage (default) - Persistent storage in ~/.zen-cli/conversations/
+1. File-based storage (default) - Persistent storage in ~/.zen/conversations/
 2. Redis storage - Distributed storage for team environments
 3. In-memory storage - Ephemeral storage for testing/development
 

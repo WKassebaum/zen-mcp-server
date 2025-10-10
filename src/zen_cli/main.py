@@ -25,8 +25,8 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
 
-# Load environment variables from ~/.zen-cli/.env
-zen_config_dir = Path.home() / ".zen-cli"
+# Load environment variables from ~/.zen/.env
+zen_config_dir = Path.home() / ".zen"
 env_file = zen_config_dir / ".env"
 
 # CRITICAL: Load CLI env vars BEFORE any imports that use get_env()
@@ -541,7 +541,7 @@ def planner(ctx, goal, session, continue_findings, context_files, model, output_
     \b
     SESSION MANAGEMENT:
       • Sessions automatically generated with format: planner_<timestamp>_<random>
-      • Session state persists in ~/.zen-cli/conversations/
+      • Session state persists in ~/.zen/conversations/
       • Sessions expire after 3 hours of inactivity
       • Completed workflows automatically clean up their sessions
     """

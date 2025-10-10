@@ -15,7 +15,7 @@ Zen CLI supports three storage backends for conversation persistence:
 - ✅ **Zero external dependencies** - Works out of the box
 - ✅ **No Docker/services required** - Just filesystem access
 - ✅ **Portable** - Works on any platform (Linux, macOS, Windows)
-- ✅ **Simple backup** - Just copy `~/.zen-cli/` directory
+- ✅ **Simple backup** - Just copy `~/.zen/` directory
 - ✅ **No network overhead** - Direct file I/O
 - ✅ **Thread-safe** - Proper locking mechanisms
 - ✅ **Auto-cleanup** - Expires old conversations automatically
@@ -23,7 +23,7 @@ Zen CLI supports three storage backends for conversation persistence:
 ### Storage Location
 
 ```bash
-~/.zen-cli/
+~/.zen/
 ├── .env                           # API keys and configuration
 └── conversations/
     ├── session_abc123.json        # Active conversation
@@ -81,7 +81,7 @@ File storage includes automatic cleanup:
 
 - **Auto-expiration**: Old conversations removed after TTL (default 3 hours)
 - **Background cleanup**: Runs every ~30 minutes (disabled in CLI mode to prevent hanging)
-- **Manual cleanup**: Delete `~/.zen-cli/conversations/*.json` files
+- **Manual cleanup**: Delete `~/.zen/conversations/*.json` files
 
 ### Thread Safety
 
@@ -168,7 +168,7 @@ docker run -d -p 6379:6379 redis:7-alpine
 Enable Redis storage via environment variables:
 
 ```bash
-# ~/.zen-cli/.env
+# ~/.zen/.env
 ZEN_STORAGE_TYPE=redis
 REDIS_HOST=localhost
 REDIS_PORT=6379
@@ -232,7 +232,7 @@ export ZEN_STORAGE_TYPE=memory
 zen chat "Important conversation" --session-id my-session
 
 # 2. Export conversation
-cat ~/.zen-cli/conversations/my-session.json > backup.json
+cat ~/.zen/conversations/my-session.json > backup.json
 
 # 3. Switch to Redis
 export ZEN_STORAGE_TYPE=redis
@@ -251,7 +251,7 @@ redis-cli GET "zen:session:my-session" > backup.json
 export ZEN_STORAGE_TYPE=file
 
 # 3. Import to file storage
-# Place backup.json in ~/.zen-cli/conversations/
+# Place backup.json in ~/.zen/conversations/
 ```
 
 ---
@@ -290,17 +290,17 @@ export ZEN_STORAGE_TYPE=file
 
 ### File Storage Issues
 
-**Problem:** Permission denied writing to `~/.zen-cli/`
+**Problem:** Permission denied writing to `~/.zen/`
 ```bash
 # Solution: Check directory permissions
-ls -ld ~/.zen-cli
-chmod 755 ~/.zen-cli
+ls -ld ~/.zen
+chmod 755 ~/.zen
 ```
 
 **Problem:** Disk full errors
 ```bash
 # Solution: Clean up old conversations
-rm -f ~/.zen-cli/conversations/*.json
+rm -f ~/.zen/conversations/*.json
 ```
 
 ### Redis Issues
