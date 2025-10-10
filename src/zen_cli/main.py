@@ -483,6 +483,248 @@ def version(ctx):
     console.print(f"Based on Zen MCP Server v9.0.0")
 
 
+@cli.command()
+@click.pass_context
+def setup(ctx):
+    """Interactive setup wizard for Zen CLI configuration
+
+    Guides you through configuring API keys and storage settings.
+    Creates or updates ~/.zen/.env file with your preferences.
+    """
+    from rich.panel import Panel
+    from rich.prompt import Prompt, Confirm
+    import re
+
+    console.print()
+    console.print(Panel.fit(
+        "[bold cyan]Zen CLI Setup Wizard[/bold cyan]\n\n"
+        "This wizard will help you configure Zen CLI.\n"
+        "Press Enter to keep existing values, or type new values to update.",
+        border_style="cyan"
+    ))
+    console.print()
+
+    # Ensure config directory exists
+    zen_config_dir.mkdir(exist_ok=True)
+
+    # Load existing .env file if it exists
+    existing_config = {}
+    if env_file.exists():
+        console.print("[dim]Found existing configuration at ~/.zen/.env[/dim]")
+        with open(env_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    # Remove quotes if present
+                    value = value.strip().strip('"').strip("'")
+                    existing_config[key] = value
+        console.print()
+    else:
+        console.print("[yellow]No existing configuration found. Creating new ~/.zen/.env[/yellow]")
+        console.print()
+
+    def mask_api_key(key: str) -> str:
+        """Mask API key showing first 6 and last 6 characters"""
+        if not key or len(key) < 20:
+            return "****"
+        return f"{key[:6]}...{key[-6:]}"
+
+    def prompt_for_value(key: str, description: str, current_value: str = "", required: bool = False, is_secret: bool = False) -> str:
+        """Prompt user for a configuration value"""
+        if current_value:
+            if is_secret:
+                display_value = mask_api_key(current_value)
+                prompt_text = f"{description} [dim](current: {display_value})[/dim]"
+            else:
+                prompt_text = f"{description} [dim](current: {current_value})[/dim]"
+        else:
+            prompt_text = description
+            if required:
+                prompt_text += " [red](required)[/red]"
+
+        value = Prompt.ask(prompt_text, default=current_value if current_value else "")
+        return value.strip()
+
+    # Configuration items to prompt for
+    config = {}
+
+    # API Keys Section
+    console.print("[bold cyan]═══ API Keys ═══[/bold cyan]")
+    console.print("[dim]Configure API keys for different AI providers[/dim]\n")
+
+    config['GEMINI_API_KEY'] = prompt_for_value(
+        'GEMINI_API_KEY',
+        'Google Gemini API Key',
+        existing_config.get('GEMINI_API_KEY', ''),
+        required=True,
+        is_secret=True
+    )
+
+    config['OPENAI_API_KEY'] = prompt_for_value(
+        'OPENAI_API_KEY',
+        'OpenAI API Key',
+        existing_config.get('OPENAI_API_KEY', ''),
+        required=False,
+        is_secret=True
+    )
+
+    if Confirm.ask("\nConfigure optional API keys? (Anthropic, XAI, OpenRouter)", default=False):
+        console.print()
+        config['ANTHROPIC_API_KEY'] = prompt_for_value(
+            'ANTHROPIC_API_KEY',
+            'Anthropic API Key',
+            existing_config.get('ANTHROPIC_API_KEY', ''),
+            is_secret=True
+        )
+
+        config['XAI_API_KEY'] = prompt_for_value(
+            'XAI_API_KEY',
+            'XAI (Grok) API Key',
+            existing_config.get('XAI_API_KEY', ''),
+            is_secret=True
+        )
+
+        config['OPENROUTER_API_KEY'] = prompt_for_value(
+            'OPENROUTER_API_KEY',
+            'OpenRouter API Key',
+            existing_config.get('OPENROUTER_API_KEY', ''),
+            is_secret=True
+        )
+
+    # Storage Configuration Section
+    console.print("\n[bold cyan]═══ Storage Configuration ═══[/bold cyan]")
+    console.print("[dim]Choose where to store conversation history[/dim]\n")
+
+    storage_type = existing_config.get('ZEN_STORAGE_TYPE', 'file')
+    storage_choices = ['file', 'redis', 'memory']
+    console.print("Storage backends:")
+    console.print("  [green]file[/green]   - Local file storage (recommended, zero dependencies)")
+    console.print("  [yellow]redis[/yellow]  - Redis storage (for distributed/team environments)")
+    console.print("  [red]memory[/red]  - In-memory storage (ephemeral, testing only)\n")
+
+    config['ZEN_STORAGE_TYPE'] = Prompt.ask(
+        "Storage backend",
+        choices=storage_choices,
+        default=storage_type
+    )
+
+    # Redis configuration if redis selected
+    if config['ZEN_STORAGE_TYPE'] == 'redis':
+        console.print("\n[bold yellow]Redis Configuration[/bold yellow]\n")
+        config['REDIS_HOST'] = prompt_for_value(
+            'REDIS_HOST',
+            'Redis host',
+            existing_config.get('REDIS_HOST', 'localhost')
+        )
+
+        config['REDIS_PORT'] = prompt_for_value(
+            'REDIS_PORT',
+            'Redis port',
+            existing_config.get('REDIS_PORT', '6379')
+        )
+
+        config['REDIS_DB'] = prompt_for_value(
+            'REDIS_DB',
+            'Redis database number',
+            existing_config.get('REDIS_DB', '0')
+        )
+
+        redis_password = existing_config.get('REDIS_PASSWORD', '')
+        if redis_password or Confirm.ask("Set Redis password?", default=False):
+            config['REDIS_PASSWORD'] = prompt_for_value(
+                'REDIS_PASSWORD',
+                'Redis password',
+                redis_password,
+                is_secret=True
+            )
+
+        config['REDIS_KEY_PREFIX'] = prompt_for_value(
+            'REDIS_KEY_PREFIX',
+            'Redis key prefix',
+            existing_config.get('REDIS_KEY_PREFIX', 'zen:')
+        )
+
+    # Save configuration
+    console.print()
+    if Confirm.ask("[bold]Save configuration?[/bold]", default=True):
+        try:
+            # Preserve any existing keys not configured here
+            final_config = existing_config.copy()
+            final_config.update({k: v for k, v in config.items() if v})  # Only save non-empty values
+
+            # Write .env file
+            with open(env_file, 'w') as f:
+                f.write("# Zen CLI Configuration\n")
+                f.write(f"# Generated by zen setup on {Path.home()}\n")
+                f.write("# Edit this file manually or run 'zen setup' again to update\n\n")
+
+                # API Keys section
+                if any(k.endswith('_API_KEY') for k in final_config.keys()):
+                    f.write("# ═══ API Keys ═══\n")
+                    for key in sorted(final_config.keys()):
+                        if key.endswith('_API_KEY') and final_config[key]:
+                            f.write(f'{key}="{final_config[key]}"\n')
+                    f.write("\n")
+
+                # Storage configuration
+                if 'ZEN_STORAGE_TYPE' in final_config:
+                    f.write("# ═══ Storage Configuration ═══\n")
+                    f.write(f'ZEN_STORAGE_TYPE="{final_config["ZEN_STORAGE_TYPE"]}"\n')
+
+                    if final_config['ZEN_STORAGE_TYPE'] == 'redis':
+                        for key in ['REDIS_HOST', 'REDIS_PORT', 'REDIS_DB', 'REDIS_PASSWORD', 'REDIS_KEY_PREFIX']:
+                            if key in final_config and final_config[key]:
+                                f.write(f'{key}="{final_config[key]}"\n')
+                    f.write("\n")
+
+                # Other configuration
+                other_keys = [k for k in final_config.keys()
+                             if not k.endswith('_API_KEY')
+                             and not k.startswith('REDIS_')
+                             and k != 'ZEN_STORAGE_TYPE']
+                if other_keys:
+                    f.write("# ═══ Other Configuration ═══\n")
+                    for key in sorted(other_keys):
+                        if final_config[key]:
+                            f.write(f'{key}="{final_config[key]}"\n')
+
+            # Set secure permissions on .env file
+            env_file.chmod(0o600)
+
+            console.print()
+            console.print(Panel.fit(
+                f"[bold green]✓ Configuration saved successfully![/bold green]\n\n"
+                f"Location: [cyan]{env_file}[/cyan]\n"
+                f"Permissions: [dim]600 (owner read/write only)[/dim]\n\n"
+                f"Test your setup with: [yellow]zen listmodels[/yellow]",
+                border_style="green"
+            ))
+
+            # Show summary of configured providers
+            console.print("\n[bold]Configured Providers:[/bold]")
+            if final_config.get('GEMINI_API_KEY'):
+                console.print("  [green]✓[/green] Google Gemini")
+            if final_config.get('OPENAI_API_KEY'):
+                console.print("  [green]✓[/green] OpenAI")
+            if final_config.get('ANTHROPIC_API_KEY'):
+                console.print("  [green]✓[/green] Anthropic")
+            if final_config.get('XAI_API_KEY'):
+                console.print("  [green]✓[/green] XAI (Grok)")
+            if final_config.get('OPENROUTER_API_KEY'):
+                console.print("  [green]✓[/green] OpenRouter")
+
+            console.print(f"\n[bold]Storage:[/bold] [cyan]{final_config.get('ZEN_STORAGE_TYPE', 'file')}[/cyan]")
+            console.print()
+
+        except Exception as e:
+            console.print(f"\n[red]Error saving configuration:[/red] {str(e)}")
+            sys.exit(1)
+    else:
+        console.print("\n[yellow]Configuration not saved.[/yellow]")
+        sys.exit(0)
+
+
 # ============================================================================
 # CRITICAL TOOLS
 # ============================================================================
