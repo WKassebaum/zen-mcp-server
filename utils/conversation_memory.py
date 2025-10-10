@@ -262,7 +262,8 @@ def create_thread(tool_name: str, initial_request: dict[str, Any], parent_thread
     # Store in memory with configurable TTL to prevent indefinite accumulation
     storage = get_storage()
     key = f"thread:{thread_id}"
-    storage.setex(key, CONVERSATION_TIMEOUT_SECONDS, context.model_dump_json())
+    # Use standardized set() method (works with File, Redis, and Memory backends)
+    storage.set(key, context.model_dump(), ttl=CONVERSATION_TIMEOUT_SECONDS)
 
     logger.debug(f"[THREAD] Created new thread {thread_id} with parent {parent_thread_id}")
 
@@ -381,7 +382,8 @@ def add_turn(
     try:
         storage = get_storage()
         key = f"thread:{thread_id}"
-        storage.setex(key, CONVERSATION_TIMEOUT_SECONDS, context.model_dump_json())  # Refresh TTL to configured timeout
+        # Use standardized set() method (works with File, Redis, and Memory backends)
+        storage.set(key, context.model_dump(), ttl=CONVERSATION_TIMEOUT_SECONDS)  # Refresh TTL to configured timeout
         return True
     except Exception as e:
         logger.debug(f"[FLOW] Failed to save turn to storage: {type(e).__name__}")

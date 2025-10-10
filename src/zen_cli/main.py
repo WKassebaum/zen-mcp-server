@@ -13,6 +13,7 @@ Architecture:
 
 import asyncio
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -66,6 +67,7 @@ from providers.custom import CustomProvider
 from utils.env import get_env
 
 console = Console()
+logger = logging.getLogger(__name__)
 
 
 class ZenCLI:
@@ -133,6 +135,46 @@ class ZenCLI:
                 console.print("[yellow]⚠ No providers configured. Set API keys for at least one provider.[/yellow]")
 
         return registered
+
+
+def _present_workflow_step(result: dict, session_id: str, tool_name: str):
+    """
+    Present workflow step results with clear continuation guidance.
+
+    Args:
+        result: Enhanced workflow result with continuation instructions
+        session_id: Session identifier
+        tool_name: Name of the workflow tool
+    """
+    # Header with session info
+    console.print(f"\n[bold cyan]{'='*70}[/bold cyan]")
+    console.print(f"[bold]Workflow Session:[/bold] [yellow]{session_id}[/yellow]")
+    console.print(f"[bold]Tool:[/bold] {tool_name}")
+    console.print(f"[bold]Step:[/bold] {result.get('step_number', '?')}/{result.get('total_steps', '?')}")
+    console.print(f"[bold cyan]{'='*70}[/bold cyan]\n")
+
+    # Main content
+    if "content" in result and result["content"]:
+        console.print(Markdown(result["content"]))
+    elif "step" in result:
+        console.print(Markdown(result["step"]))
+
+    # Workflow status and continuation
+    if result.get("workflow_status") == "in_progress":
+        console.print(f"\n[bold yellow]⚠️  Workflow Continuation Required[/bold yellow]\n")
+
+        # Show continuation command
+        if "continuation_command" in result:
+            console.print("[dim]To continue this workflow, run:[/dim]")
+            console.print(f"[green]{result['continuation_command']}[/green]\n")
+
+        # Show manual user instructions
+        if "workflow_instructions" in result and "for_manual_users" in result["workflow_instructions"]:
+            console.print("[dim]" + result["workflow_instructions"]["for_manual_users"] + "[/dim]")
+
+    elif result.get("workflow_status") == "complete":
+        console.print(f"\n[bold green]✓ Workflow Complete![/bold green]")
+        console.print("[dim]Session has been automatically cleaned up.[/dim]")
 
 
 # Global context object for Click
@@ -446,129 +488,360 @@ def version(ctx):
 # ============================================================================
 
 @cli.command()
-@click.argument('goal')
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID for multi-step workflows (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue existing session with your findings/work results')
 @click.option('--context-files', '-f', multiple=True, help='Context files to include')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def planner(ctx, goal, context_files, model, output_json):
+def planner(ctx, goal, session, continue_findings, context_files, model, output_json):
     """Generate sequential task plan for complex goals
 
-    Examples:
-        zen planner "Implement OAuth2 authentication"
-        zen planner "Refactor auth module" -f auth.py -f config.py
-        zen planner "Add dark mode" --model gemini-pro
-    """
-    arguments = {
-        "prompt": goal,
-        "context_files": list(context_files) if context_files else [],
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow with automatic session management for workflow continuity.
+    Sessions allow pausing and resuming workflows across multiple CLI invocations.
 
-    if model:
-        arguments["model"] = model
+    \b
+    WORKFLOW MODES:
+      • Start new workflow: zen planner "goal"
+      • Continue workflow:  zen planner --session <id> --continue "findings"
+
+    \b
+    HOW IT WORKS:
+      1. Tool analyzes your goal and provides investigation steps
+      2. You (or Claude Code) perform the requested investigation
+      3. Continue the workflow with your findings
+      4. Repeat until workflow is complete
+      5. Sessions auto-expire after 3 hours
+
+    \b
+    FOR CLAUDE CODE USERS:
+      The tool returns 'continuation_command' with embedded instructions.
+      Claude Code will automatically continue the workflow by calling the
+      command with investigation results until workflow completes.
+
+    \b
+    EXAMPLES:
+
+      # Start a new planning workflow (session ID auto-generated)
+      zen planner "Implement OAuth2 authentication"
+
+      # Start with context files
+      zen planner "Refactor auth module" -f auth.py -f config.py
+
+      # Continue an existing workflow session
+      zen planner --session planner_1234_abcd --continue "Found UserAuth class using JWT tokens..."
+
+      # Use specific model
+      zen planner "Add dark mode" --model gemini-pro
+
+      # Get JSON output for programmatic use
+      zen planner "Build API" --json
+
+    \b
+    SESSION MANAGEMENT:
+      • Sessions automatically generated with format: planner_<timestamp>_<random>
+      • Session state persists in ~/.zen-cli/conversations/
+      • Sessions expire after 3 hours of inactivity
+      • Completed workflows automatically clean up their sessions
+    """
+    from utils.workflow_session import (
+        generate_session_id,
+        load_session_state,
+        save_session_state,
+        enhance_with_continuation_instructions,
+        build_continuation_arguments
+    )
 
     try:
         from tools.planner import PlannerTool
-        result = asyncio.run(PlannerTool().execute(arguments))
 
-        if output_json:
-            console.print_json(data=result)
+        tool_name = "planner"
+
+        # Determine if this is continuation or new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # CONTINUATION: Load existing session
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired")
+                console.print("[yellow]Tip:[/yellow] Sessions expire after 3 hours. Start a new workflow:")
+                console.print(f"  zen planner \"{goal or 'your goal'}\"")
+                sys.exit(1)
+
+            # Build continuation arguments from session state
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
+            console.print(f"[dim]Continuing session {session_id} (step {arguments['step_number']})...[/dim]\n")
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # NEW WORKFLOW: Initialize with auto-generated or provided session ID
+            if not goal:
+                console.print("[red]Error:[/red] Goal is required for new workflows")
+                console.print("[yellow]Usage:[/yellow] zen planner \"your goal here\"")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,  # Initial estimate
+                "next_step_required": True,
+                "findings": "",
+                "files_checked": [],
+                "relevant_files": list(context_files) if context_files else [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "working_directory": os.getcwd(),
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(PlannerTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Planner workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
 @cli.command()
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
 @click.option('--files', '-f', multiple=True, help='Files to analyze')
 @click.option('--analysis-type', type=click.Choice(['architecture', 'patterns', 'complexity', 'all']),
               default='all', help='Type of analysis to perform')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def analyze(ctx, files, analysis_type, model, output_json):
+def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, output_json):
     """Comprehensive code analysis and architecture assessment
 
-    Examples:
-        zen analyze --files src/*.py
-        zen analyze --files app.js --analysis-type architecture
-        zen analyze --files *.go --model gemini-pro
-    """
-    arguments = {
-        "files": list(files) if files else [],
-        "analysis_type": analysis_type,
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow with automatic session management for deep analysis.
 
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen analyze "Goal" --files *.py
+      • Continue workflow:  zen analyze --session <id> --continue "findings"
+
+    Examples:
+        # Start new analysis
+        zen analyze "Understand authentication flow" --files src/*.py
+        zen analyze "Find performance issues" --analysis-type complexity
+
+        # Continue analysis
+        zen analyze --session analyze_xxx --continue "Found JWT implementation in auth.py"
+    """
+    tool_name = "analyze"
 
     try:
         from tools.analyze import AnalyzeTool
-        result = asyncio.run(AnalyzeTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not goal:
+                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen analyze \"Understand architecture\" --files src/*.py")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "files": list(files) if files else [],
+                "findings": f"Initializing {tool_name} workflow",
+                "files_checked": [],
+                "relevant_files": list(files) if files else [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "analysis_type": analysis_type,
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(AnalyzeTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Analyze workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
 @cli.command()
-@click.argument('question')
+@click.argument('question', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
 @click.option('--thinking-budget', type=int, help='Thinking token budget (128-32768)')
 @click.option('--model', '-m', help='AI model to use (must support extended thinking)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def thinkdeep(ctx, question, thinking_budget, model, output_json):
+def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model, output_json):
     """Extended reasoning mode for complex problems
 
+    Multi-step workflow with deep reasoning for complex architectural and design decisions.
     Requires models that support extended thinking (e.g., Gemini 2.5 Pro, o3)
 
+    WORKFLOW MODES:
+      • Start new workflow: zen thinkdeep "Complex question"
+      • Continue workflow:  zen thinkdeep --session <id> --continue "findings"
+
     Examples:
+        # Start deep reasoning
         zen thinkdeep "How should we architect this microservice?"
         zen thinkdeep "Debug this race condition" --thinking-budget 16384
-        zen thinkdeep "Optimize database queries" --model gemini-pro
-    """
-    arguments = {
-        "prompt": question,
-        "working_directory": os.getcwd(),
-    }
 
-    if thinking_budget:
-        arguments["thinking_budget"] = thinking_budget
-    if model:
-        arguments["model"] = model
+        # Continue reasoning
+        zen thinkdeep --session thinkdeep_xxx --continue "Investigated and found..."
+    """
+    tool_name = "thinkdeep"
 
     try:
         from tools.thinkdeep import ThinkDeepTool
-        result = asyncio.run(ThinkDeepTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not question:
+                console.print("[red]Error:[/red] Question required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen thinkdeep \"How should we architect this?\"")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": question,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "findings": f"Initializing {tool_name} workflow",
+                "files_checked": [],
+                "relevant_files": [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "reasoning_depth": "extended",
+            }
+
+            if thinking_budget:
+                arguments["thinking_budget"] = thinking_budget
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(ThinkDeepTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"ThinkDeep workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
@@ -593,17 +866,15 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
     """
     prompt = prompt_text or click.prompt("Enter your prompt for the CLI")
 
+    # Build arguments matching ClinkRequest schema
     arguments = {
         "prompt": prompt,
+        "cli_name": cli_name or "default",  # Required field
+        "role": role or "assistant",         # Optional with default
         "files": list(files) if files else [],
         "images": list(images) if images else [],
-        "working_directory": os.getcwd(),
     }
-
-    if cli_name:
-        arguments["cli_name"] = cli_name
-    if role:
-        arguments["role"] = role
+    # Note: working_directory removed - not in ClinkRequest schema
 
     try:
         from tools.clink import CLinkTool
@@ -624,40 +895,107 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
 
 
 @cli.command()
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
 @click.option('--files', '-f', multiple=True, help='Files to validate before commit')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def precommit(ctx, files, model, output_json):
+def precommit(ctx, goal, session, continue_findings, files, model, output_json):
     """Pre-commit validation and quality checks
 
-    Examples:
-        zen precommit --files src/*.py
-        zen precommit --files *.js --model gemini-pro
-    """
-    arguments = {
-        "files": list(files) if files else [],
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow for comprehensive pre-commit validation.
 
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen precommit "Validate changes" --files *.py
+      • Continue workflow:  zen precommit --session <id> --continue "findings"
+
+    Examples:
+        # Start validation
+        zen precommit "Check code quality" --files src/*.py
+        zen precommit "Validate commit" --files *.js --model gemini-pro
+
+        # Continue validation
+        zen precommit --session precommit_xxx --continue "Fixed linting issues"
+    """
+    tool_name = "precommit"
 
     try:
         from tools.precommit import PrecommitTool
-        result = asyncio.run(PrecommitTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not goal:
+                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen precommit \"Validate changes\" --files src/*.py")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "files": list(files) if files else [],
+                "findings": f"Initializing {tool_name} workflow",
+                "files_checked": [],
+                "relevant_files": list(files) if files else [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "validation_type": "all",
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(PrecommitTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Precommit workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
@@ -666,128 +1004,328 @@ def precommit(ctx, files, model, output_json):
 # ============================================================================
 
 @cli.command()
-@click.option('--files', '-f', multiple=True, required=True, help='Files to generate tests for')
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
+@click.option('--files', '-f', multiple=True, help='Files to generate tests for')
 @click.option('--framework', help='Test framework (pytest, jest, etc.)')
+@click.option('--test-type', type=click.Choice(['unit', 'integration', 'e2e', 'all']),
+              default='unit', help='Type of tests to generate')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def testgen(ctx, files, framework, model, output_json):
+def testgen(ctx, goal, session, continue_findings, files, framework, test_type, model, output_json):
     """Generate comprehensive test suites
 
-    Examples:
-        zen testgen --files auth.py
-        zen testgen --files api.js --framework jest
-        zen testgen --files service.go --model gemini-pro
-    """
-    arguments = {
-        "files": list(files),
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow for systematic test generation.
 
-    if framework:
-        arguments["framework"] = framework
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen testgen "Generate tests" --files *.py
+      • Continue workflow:  zen testgen --session <id> --continue "findings"
+
+    Examples:
+        # Start test generation
+        zen testgen "Create unit tests" --files auth.py
+        zen testgen "Generate API tests" --files api.js --framework jest
+
+        # Continue test generation
+        zen testgen --session testgen_xxx --continue "Analyzed auth.py structure"
+    """
+    tool_name = "testgen"
 
     try:
         from tools.testgen import TestGenTool
-        result = asyncio.run(TestGenTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not goal:
+                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen testgen \"Generate unit tests\" --files auth.py")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "files": list(files) if files else [],
+                "findings": f"Initializing {tool_name} workflow",
+                "files_checked": [],
+                "relevant_files": list(files) if files else [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "framework": framework or "pytest",
+                "test_type": test_type,
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(TestGenTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"TestGen workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
 @cli.command()
-@click.option('--files', '-f', multiple=True, required=True, help='Files to audit')
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
+@click.option('--files', '-f', multiple=True, help='Files to audit')
 @click.option('--focus', type=click.Choice(['auth', 'crypto', 'injection', 'all']),
               default='all', help='Security focus area')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def secaudit(ctx, files, focus, model, output_json):
+def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_json):
     """Security audit and vulnerability assessment
 
-    Examples:
-        zen secaudit --files auth.py
-        zen secaudit --files api/*.js --focus auth
-        zen secaudit --files *.go --model o3
-    """
-    arguments = {
-        "files": list(files),
-        "focus": focus,
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow for comprehensive security analysis.
 
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen secaudit "Audit security" --files *.py
+      • Continue workflow:  zen secaudit --session <id> --continue "findings"
+
+    Examples:
+        # Start security audit
+        zen secaudit "Check for vulnerabilities" --files auth.py
+        zen secaudit "Audit authentication" --files api/*.js --focus auth
+
+        # Continue audit
+        zen secaudit --session secaudit_xxx --continue "Found SQL injection risk"
+    """
+    tool_name = "secaudit"
 
     try:
         from tools.secaudit import SecauditTool
-        result = asyncio.run(SecauditTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not goal:
+                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen secaudit \"Check for vulnerabilities\" --files auth.py")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "files": list(files) if files else [],
+                "findings": f"Initializing {tool_name} workflow",
+                "files_checked": [],
+                "relevant_files": list(files) if files else [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "focus": focus,
+                "issues_found": [],
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(SecauditTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Secaudit workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
 @cli.command()
-@click.option('--files', '-f', multiple=True, required=True, help='Files to refactor')
-@click.option('--goal', help='Refactoring goal (e.g., "improve readability")')
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
+@click.option('--files', '-f', multiple=True, help='Files to refactor')
+@click.option('--refactor-type', type=click.Choice(['readability', 'performance', 'maintainability', 'codesmells', 'all']),
+              default='codesmells', help='Type of refactoring to perform')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def refactor(ctx, files, goal, model, output_json):
+def refactor(ctx, goal, session, continue_findings, files, refactor_type, model, output_json):
     """Code refactoring suggestions and improvements
 
-    Examples:
-        zen refactor --files legacy.py
-        zen refactor --files utils.js --goal "improve readability"
-        zen refactor --files handler.go --model gemini-pro
-    """
-    arguments = {
-        "files": list(files),
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow for systematic refactoring analysis.
 
-    if goal:
-        arguments["goal"] = goal
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen refactor "Improve code" --files *.py
+      • Continue workflow:  zen refactor --session <id> --continue "findings"
+
+    Examples:
+        # Start refactoring
+        zen refactor "Improve readability" --files legacy.py
+        zen refactor "Optimize performance" --files utils.js --refactor-type performance
+
+        # Continue refactoring
+        zen refactor --session refactor_xxx --continue "Identified code smells"
+    """
+    tool_name = "refactor"
 
     try:
         from tools.refactor import RefactorTool
-        result = asyncio.run(RefactorTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not goal:
+                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen refactor \"Improve readability\" --files legacy.py")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "files": list(files) if files else [],
+                "findings": f"Initializing {tool_name} workflow",
+                "files_checked": [],
+                "relevant_files": list(files) if files else [],
+                "relevant_context": [],
+                "confidence": "exploring",
+                "refactor_type": refactor_type,
+                "focus_areas": [],
+                "issues_found": [],
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(RefactorTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Refactor workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
@@ -796,111 +1334,245 @@ def refactor(ctx, files, goal, model, output_json):
 # ============================================================================
 
 @cli.command()
-@click.option('--files', '-f', multiple=True, required=True, help='Files to document')
+@click.argument('goal', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
+@click.option('--files', '-f', multiple=True, help='Files to document')
 @click.option('--style', type=click.Choice(['docstring', 'markdown', 'jsdoc', 'godoc']),
               default='docstring', help='Documentation style')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def docgen(ctx, files, style, model, output_json):
+def docgen(ctx, goal, session, continue_findings, files, style, model, output_json):
     """Generate comprehensive documentation
 
-    Examples:
-        zen docgen --files api.py
-        zen docgen --files utils.js --style jsdoc
-        zen docgen --files service.go --style godoc
-    """
-    arguments = {
-        "files": list(files),
-        "style": style,
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow for systematic documentation generation.
 
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen docgen "Document code" --files *.py
+      • Continue workflow:  zen docgen --session <id> --continue "findings"
+
+    Examples:
+        # Start documentation
+        zen docgen "Generate API docs" --files api.py
+        zen docgen "Document utilities" --files utils.js --style jsdoc
+
+        # Continue documentation
+        zen docgen --session docgen_xxx --continue "Analyzed module structure"
+    """
+    tool_name = "docgen"
 
     try:
         from tools.docgen import DocgenTool
-        result = asyncio.run(DocgenTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not goal:
+                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen docgen \"Generate API documentation\" --files api.py")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": goal,
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "findings": "Discovery phase - identifying files needing documentation",
+                "relevant_files": list(files) if files else [],
+                "relevant_context": [],
+                "num_files_documented": 0,
+                "total_files_to_document": 0,
+                "document_complexity": True,
+                "document_flow": True,
+                "update_existing": True,
+                "comments_on_complex_logic": True,
+                "style": style,
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(DocgenTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Docgen workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
 @cli.command()
-@click.argument('function_or_file')
+@click.argument('target', required=False)
+@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
+@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
 @click.option('--depth', type=int, default=3, help='Trace depth (default: 3)')
+@click.option('--trace-mode', type=click.Choice(['forward', 'backward', 'both', 'ask']),
+              default='ask', help='Trace direction')
 @click.option('--model', '-m', help='AI model to use (default: auto)')
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def tracer(ctx, function_or_file, depth, model, output_json):
+def tracer(ctx, target, session, continue_findings, depth, trace_mode, model, output_json):
     """Trace code execution flow and dependencies
 
-    Examples:
-        zen tracer handleRequest
-        zen tracer auth.py --depth 5
-        zen tracer processPayment --model gemini-pro
-    """
-    arguments = {
-        "target": function_or_file,
-        "depth": depth,
-        "working_directory": os.getcwd(),
-    }
+    Multi-step workflow for systematic code flow tracing.
 
-    if model:
-        arguments["model"] = model
+    WORKFLOW MODES:
+      • Start new workflow: zen tracer "handleRequest"
+      • Continue workflow:  zen tracer --session <id> --continue "findings"
+
+    Examples:
+        # Start tracing
+        zen tracer "handleRequest function"
+        zen tracer "auth.py authentication flow" --depth 5
+
+        # Continue tracing
+        zen tracer --session tracer_xxx --continue "Traced to middleware.py"
+    """
+    tool_name = "tracer"
 
     try:
         from tools.tracer import TracerTool
-        result = asyncio.run(TracerTool().execute(arguments))
+        from utils.workflow_session import (
+            generate_session_id, load_session_state, save_session_state,
+            enhance_with_continuation_instructions, build_continuation_arguments
+        )
 
-        if output_json:
-            console.print_json(data=result)
+        # Determine continuation vs new workflow
+        is_continuation = bool(continue_findings and session)
+
+        if is_continuation:
+            # Load session and build continuation arguments
+            session_id = session
+            session_state = load_session_state(session_id)
+
+            if not session_state:
+                console.print(f"[red]Error:[/red] Session '{session_id}' not found or expired (TTL: 3 hours)")
+                sys.exit(1)
+
+            console.print(f"[dim]Continuing session {session_id} (step {session_state['step_number'] + 1})...[/dim]\n")
+            arguments = build_continuation_arguments(session_state, continue_findings, model)
+
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
-            else:
-                console.print(result)
+            # Start new workflow
+            if not target:
+                console.print("[red]Error:[/red] Target required for new workflow. Use --session and --continue for continuation.")
+                console.print("Example: zen tracer \"handleRequest function\"")
+                sys.exit(1)
+
+            session_id = session or generate_session_id(tool_name)
+
+            arguments = {
+                "step": f"Beginning trace analysis of: {target}",
+                "step_number": 1,
+                "total_steps": 5,
+                "next_step_required": True,
+                "working_directory": os.getcwd(),
+                "findings": f"Beginning trace analysis of: {target}",
+                "files_checked": [],
+                "relevant_files": [],
+                "relevant_context": [],
+                "trace_mode": trace_mode,
+                "target_description": target,
+                "depth": depth,
+            }
+
+            if model:
+                arguments["model"] = model
+
+            console.print(f"[dim]Starting new workflow session: {session_id}[/dim]\n")
+
+        # Execute workflow step
+        result = asyncio.run(TracerTool().execute(arguments))
+        result_data = json.loads(result[0].text)
+
+        # Save session state for next step (if needed)
+        if result_data.get("next_step_required", False):
+            save_session_state(session_id, tool_name, result_data, arguments)
+
+        # Enhance response with continuation instructions
+        enhanced_result = enhance_with_continuation_instructions(
+            result_data,
+            session_id,
+            tool_name
+        )
+
+        # Present results
+        if output_json:
+            console.print_json(data=enhanced_result)
+        else:
+            _present_workflow_step(enhanced_result, session_id, tool_name)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
+        logger.error(f"Tracer workflow failed: {e}", exc_info=True)
         sys.exit(1)
 
 
 @cli.command()
-@click.argument('assumption')
-@click.option('--context', help='Additional context for the challenge')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.argument('statement', nargs=-1, required=True)
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def challenge(ctx, assumption, context, model, output_json):
+def challenge(ctx, statement, output_json):
     """Challenge assumptions and explore alternatives
+
+    Wraps statements in critical thinking instructions to encourage
+    thoughtful analysis rather than reflexive agreement.
 
     Examples:
         zen challenge "We need a microservice architecture"
-        zen challenge "Redis is the best choice" --context "For session storage"
-        zen challenge "We should use GraphQL" --model gemini-pro
+        zen challenge "Redis is the best choice for session storage"
+        zen challenge "We should use GraphQL instead of REST"
     """
-    arguments = {
-        "assumption": assumption,
-        "working_directory": os.getcwd(),
-    }
+    # Join all statement words into single prompt
+    full_statement = ' '.join(statement)
 
-    if context:
-        arguments["context"] = context
-    if model:
-        arguments["model"] = model
+    # Build arguments matching ChallengeRequest schema
+    arguments = {
+        "prompt": full_statement,  # Only field in ChallengeRequest
+    }
+    # Note: context, model, working_directory removed - not in schema
 
     try:
         from tools.challenge import ChallengeTool
@@ -921,28 +1593,28 @@ def challenge(ctx, assumption, context, model, output_json):
 
 
 @cli.command()
-@click.argument('api_or_library')
-@click.option('--version', help='Specific version to lookup')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
+@click.argument('query', nargs=-1, required=True)
 @click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
 @click.pass_context
-def apilookup(ctx, api_or_library, version, model, output_json):
+def apilookup(ctx, query, output_json):
     """Look up API documentation and usage examples
+
+    Provides instructions for web search to find latest API/SDK documentation,
+    version info, breaking changes, and migration guides.
 
     Examples:
         zen apilookup express
-        zen apilookup flask --version 3.0
-        zen apilookup react --model gemini-pro
+        zen apilookup "flask 3.0 latest features"
+        zen apilookup "react hooks API 2025"
     """
-    arguments = {
-        "query": api_or_library,
-        "working_directory": os.getcwd(),
-    }
+    # Join all query words into single prompt
+    full_query = ' '.join(query)
 
-    if version:
-        arguments["version"] = version
-    if model:
-        arguments["model"] = model
+    # Build arguments matching LookupRequest schema
+    arguments = {
+        "prompt": full_query,  # Only field in LookupRequest
+    }
+    # Note: version, model, working_directory removed - not in schema
 
     try:
         from tools.apilookup import LookupTool

@@ -1,0 +1,157 @@
+# Zen CLI Template for CLAUDE.md
+
+**Add this section to your project's CLAUDE.md to enable Claude Code to use Zen CLI WorkflowTools**
+
+---
+
+## 🧠 Zen CLI Workflow Tools (Copy this section to your CLAUDE.md)
+
+### Available Tools
+
+Zen CLI provides 9 powerful WorkflowTools with session-based continuation:
+
+- **zen planner** - Break down complex projects into systematic plans
+- **zen analyze** - Analyze code architecture and patterns
+- **zen thinkdeep** - Deep reasoning for complex decisions
+- **zen testgen** - Generate comprehensive test suites
+- **zen secaudit** - Security vulnerability assessment
+- **zen refactor** - Code quality and refactoring suggestions
+- **zen docgen** - Generate comprehensive documentation
+- **zen precommit** - Pre-commit validation and quality checks
+- **zen tracer** - Trace code execution flow and dependencies
+
+### How to Use (Auto-Trigger Pattern)
+
+**When you encounter complex tasks that require systematic investigation**, use WorkflowTools:
+
+**Example 1: Planning**
+```
+User: "I need to add user authentication"
+You: zen planner "Add user authentication to web app" --model flash
+  → Receives step 1 with continuation_command
+  → Perform investigation (read files, analyze)
+  → zen planner --session <id> --continue "Found User model with email/password fields"
+  → Repeat until planning complete
+```
+
+**Example 2: Security Audit**
+```
+User: "Check this for security issues"
+You: zen secaudit "Audit for vulnerabilities" --files auth.py payment.py
+  → Receives security investigation step
+  → Perform security analysis
+  → zen secaudit --session <id> --continue "Found SQL injection risk in line 42"
+  → Repeat until audit complete
+```
+
+### Mandatory Workflow Continuation
+
+**CRITICAL**: When tool response has `workflow_status: "in_progress"`:
+1. ✅ Perform the investigation described in `content`
+2. ✅ Call the exact `continuation_command` from response
+3. ✅ Replace `<your findings here>` with investigation results
+4. ❌ Do NOT skip steps or abandon workflow
+
+### Usage Syntax
+
+**Start Workflow:**
+```bash
+zen <tool> "Goal/Question" [--files *.py] [--model flash]
+```
+
+**Continue Workflow:**
+```bash
+zen <tool> --session <session_id> --continue "Investigation results"
+```
+
+**Get Help:**
+```bash
+zen <tool> --help
+```
+
+### Session Details
+
+- **Auto-Generated IDs**: `{tool}_{timestamp}_{random}` (e.g., `planner_1760065815_42s8544v`)
+- **TTL**: 3 hours from last activity
+- **Auto-Cleanup**: Sessions deleted on completion or expiration
+- **State Preservation**: Findings, files_checked, confidence tracked across steps
+
+### Model Selection
+
+- `--model flash` - Fast responses (default for most tasks)
+- `--model gemini-pro` - Deep analysis and complex reasoning
+- `--model o3` - Strong logical reasoning
+- `--model auto` - Let Zen choose optimal model
+
+### Response Format
+
+WorkflowTools return structured responses:
+```json
+{
+  "session_id": "planner_1760065815_42s8544v",
+  "step_number": 2,
+  "total_steps": 5,
+  "workflow_status": "in_progress",
+  "next_step_required": true,
+  "continuation_command": "zen planner --session <id> --continue '<findings>'",
+  "content": "Step 2: Investigate existing authentication..."
+}
+```
+
+### When to Use WorkflowTools
+
+**Use for:**
+- ✅ Multi-step investigations (3+ steps)
+- ✅ Code architecture analysis
+- ✅ Security audits and reviews
+- ✅ Test generation
+- ✅ Refactoring planning
+- ✅ Documentation generation
+
+**Don't use for:**
+- ❌ Simple one-off questions
+- ❌ Single file operations
+- ❌ Quick code generation
+
+---
+
+**Full Documentation**: See [CLAUDE_CODE_INTEGRATION.md](CLAUDE_CODE_INTEGRATION.md)
+
+---
+
+## Example: Complete Workflow
+
+**User Request**: "Add OAuth support to our API"
+
+**Your Workflow**:
+```bash
+# 1. Plan the implementation
+zen planner "Add OAuth integration to API" --model flash
+# → Investigation: Check existing auth system
+zen planner --session planner_xxx --continue "Found JWT auth in auth.py, 3 endpoints"
+# → Investigation: Review OAuth requirements
+zen planner --session planner_xxx --continue "OAuth 2.0, need authorization_code flow"
+# Workflow completes with full plan
+
+# 2. Analyze existing code
+zen analyze "Understand current authentication" --files src/auth/*.py
+# → Continue with findings until analysis complete
+
+# 3. Generate tests
+zen testgen "Create OAuth tests" --files src/oauth.py --framework pytest
+# → Continue with test generation
+
+# 4. Security audit
+zen secaudit "Audit OAuth implementation" --files src/oauth.py --focus auth
+# → Continue with security review
+
+# 5. Pre-commit validation
+zen precommit "Validate OAuth changes" --files src/oauth.py src/auth/*.py
+# Workflow complete - ready to commit
+```
+
+---
+
+**Installation**: Ensure Zen CLI is installed and available in PATH
+**Configuration**: Set required API keys (GEMINI_API_KEY, OPENAI_API_KEY)
+**Help**: Run `zen --help` or `zen <tool> --help` for detailed usage

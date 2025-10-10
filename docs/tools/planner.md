@@ -2,18 +2,33 @@
 
 **Break down complex projects into manageable, structured plans through step-by-step thinking**
 
-The `planner` tool helps you break down complex ideas, problems, or projects into multiple manageable steps. Perfect for system design, migration strategies, 
-architectural planning, and feature development with branching and revision capabilities.
+The `planner` tool helps you break down complex ideas, problems, or projects into multiple manageable steps. Perfect for system design, migration strategies,
+architectural planning, and feature development with session-based workflow continuation.
 
-## How It Works
+## 🆕 Session-Based Workflow (CLI)
 
-The planner tool enables step-by-step thinking with incremental plan building:
+The planner now supports **session-based workflow continuation** in CLI mode, enabling multi-step planning across multiple invocations:
 
-1. **Start with step 1**: Describe the task or problem to plan
-2. **Continue building**: Add subsequent steps, building the plan piece by piece  
-3. **Revise when needed**: Update earlier decisions as new insights emerge
-4. **Branch alternatives**: Explore different approaches when multiple options exist
-5. **Continue across sessions**: Resume planning later with full context
+**Start New Plan:**
+```bash
+zen planner "Add user authentication to web app" --model flash
+```
+
+**Continue Plan:**
+```bash
+zen planner --session planner_1760065815_42s8544v --continue "Found existing user model with email/password fields"
+```
+
+### How It Works
+
+The planner tool enables step-by-step thinking with session continuity:
+
+1. **Start Planning**: Describe the task or problem to plan
+2. **Session Created**: Auto-generated session ID with 3-hour TTL
+3. **Investigation Steps**: Tool provides systematic investigation steps
+4. **Continue Planning**: Provide findings and continue to next step
+5. **Plan Completion**: Workflow completes when all steps finished
+6. **Auto-Cleanup**: Session deleted on completion or expiration
 
 ## Example Prompts
 
@@ -76,8 +91,100 @@ Develop a plan using zen for implementing CI/CD pipelines across our development
 Like all other tools in Zen, you can `continue` with a new plan using the output from a previous plan by simply saying
 
 ```
-Continue with zen's consensus tool and find out what o3:for and flash:against think of the plan 
+Continue with zen's consensus tool and find out what o3:for and flash:against think of the plan
 ```
 
-You can mix and match and take one output and feed it into another, continuing from where you left off using a different 
+You can mix and match and take one output and feed it into another, continuing from where you left off using a different
 tool / model combination.
+
+## CLI Usage Reference
+
+### Command Syntax
+
+**Start new planning workflow:**
+```bash
+zen planner "Goal description" [OPTIONS]
+```
+
+**Continue existing workflow:**
+```bash
+zen planner --session <session_id> --continue "Your investigation findings" [OPTIONS]
+```
+
+### Options
+
+- `--session, -s`: Session ID for continuing workflow (auto-generated if not provided)
+- `--continue`: Investigation findings/results to continue workflow
+- `--model, -m`: AI model to use (flash, gemini-pro, o3, auto)
+- `--context-files, -f`: Additional context files to include
+- `--json`: Output as JSON instead of formatted text
+
+### Examples
+
+**Simple Planning:**
+```bash
+zen planner "Add OAuth integration to API" --model flash
+```
+
+**With Context Files:**
+```bash
+zen planner "Refactor authentication system" --context-files auth.py session.py
+```
+
+**Continue Planning:**
+```bash
+zen planner --session planner_xxx --continue "Analyzed auth.py - found JWT implementation with 3 endpoints"
+```
+
+### Claude Code Integration
+
+When Claude Code uses the planner tool, it automatically:
+
+1. Starts workflow with initial goal
+2. Receives investigation step with continuation command
+3. Performs investigation (reads files, analyzes code)
+4. Calls continuation command with findings
+5. Repeats until planning complete
+
+**Response Format:**
+```json
+{
+  "session_id": "planner_1760065815_42s8544v",
+  "step_number": 2,
+  "total_steps": 5,
+  "workflow_status": "in_progress",
+  "continuation_command": "zen planner --session <id> --continue '<findings>'",
+  "workflow_instructions": {
+    "for_claude_code": "MANDATORY: Perform investigation then continue...",
+    "for_manual_users": "To continue: Run continuation command..."
+  }
+}
+```
+
+### Session Management
+
+- **TTL**: 3 hours from last activity
+- **Auto-Cleanup**: Sessions deleted on completion
+- **Storage**: Persisted in configured storage backend (File/Redis/Memory)
+- **State Tracking**: Findings, files_checked, confidence carried forward
+
+### Troubleshooting
+
+**Session Expired:**
+```
+Error: Session 'planner_xxx' not found or expired (TTL: 3 hours)
+```
+Solution: Start new planning workflow
+
+**Missing Goal:**
+```
+Error: Goal required for new workflow
+```
+Solution: Provide goal description for new workflow, or use --session/--continue for continuation
+
+---
+
+**See Also:**
+- [Session-Based Workflows](../advanced-usage.md#session-based-workflows)
+- [Claude Code Integration](../../CLAUDE_CODE_INTEGRATION.md)
+- [All WorkflowTools](../index.md#workflow-tools)
