@@ -18,9 +18,22 @@ class ClaudeJSONParser(BaseParser):
             raise ParserError("Claude CLI returned empty stdout while JSON output was expected")
 
         try:
-            payload: dict[str, Any] = json.loads(stdout)
+            parsed_data = json.loads(stdout)
         except json.JSONDecodeError as exc:  # pragma: no cover - defensive logging
             raise ParserError(f"Failed to decode Claude CLI JSON output: {exc}") from exc
+
+        # Claude CLI returns an array of JSON objects, find the result object
+        payload: dict[str, Any]
+        if isinstance(parsed_data, list):
+            # Find the result object (type == "result")
+            result_obj = next((obj for obj in parsed_data if isinstance(obj, dict) and obj.get("type") == "result"), None)
+            if result_obj:
+                payload = result_obj
+            else:
+                # Fallback to last object if no explicit result
+                payload = parsed_data[-1] if parsed_data else {}
+        else:
+            payload = parsed_data
 
         metadata = self._build_metadata(payload, stderr)
 

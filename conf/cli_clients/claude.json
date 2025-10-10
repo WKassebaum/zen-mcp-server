@@ -2,6 +2,9 @@
   "name": "claude",
   "command": "claude",
   "additional_args": [
+    "--print",
+    "--output-format",
+    "json",
     "--permission-mode",
     "acceptEdits",
     "--model",
