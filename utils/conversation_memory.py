@@ -299,7 +299,8 @@ def get_thread(thread_id: str) -> Optional[ThreadContext]:
         data = storage.get(key)
 
         if data:
-            return ThreadContext.model_validate_json(data)
+            # Storage backend returns dict, not JSON string
+            return ThreadContext.model_validate(data)
         return None
     except Exception:
         # Silently handle errors to avoid exposing storage details
