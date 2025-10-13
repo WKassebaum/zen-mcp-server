@@ -155,3 +155,139 @@ zen precommit "Validate OAuth changes" --files src/oauth.py src/auth/*.py
 **Installation**: Ensure Zen CLI is installed and available in PATH
 **Configuration**: Set required API keys (GEMINI_API_KEY, OPENAI_API_KEY)
 **Help**: Run `zen --help` or `zen <tool> --help` for detailed usage
+
+---
+
+## 🎯 Extended Zen CLI Usage Guide
+
+### All Available Tools
+
+**Quick Operations** (Single-step):
+- **zen chat** - Quick consultation and second opinions
+- **zen debug** - Systematic debugging with multi-step investigation
+- **zen codereview** - Professional code review (quality, security, performance)
+- **zen consensus** - Multi-model consensus for critical decisions
+
+**WorkflowTools** (Multi-step with sessions):
+- **zen planner** - Break down complex projects
+- **zen analyze** - Code architecture analysis
+- **zen thinkdeep** - Deep reasoning for complex problems
+- **zen testgen** - Generate comprehensive test suites
+- **zen secaudit** - Security vulnerability assessment
+- **zen refactor** - Code quality and refactoring suggestions
+- **zen docgen** - Generate comprehensive documentation
+- **zen precommit** - Pre-commit validation and quality checks
+- **zen tracer** - Trace code execution flow and dependencies
+
+### 🎯 Direct Content Support (NEW)
+
+Zen CLI supports **direct content input** - no file saving needed:
+
+```bash
+# Pass content via stdin
+echo "$content" | zen debug "Issue description" --stdin
+cat file.py | zen codereview --stdin --type security
+git diff | zen analyze --stdin --analysis-type patterns
+
+# Pass content as argument
+zen chat "Explain this code" --content "$CODE_VARIABLE"
+zen debug "OAuth issue" --content "$(cat auth.py)"
+
+# Traditional file paths still work
+zen debug "Issue" -f file.py -f other.py
+```
+
+### Usage Decision Matrix
+
+| Situation | Zen Command | When to Use |
+|-----------|-------------|-------------|
+| Stuck debugging | `zen debug` | After 5+ minutes without progress |
+| Need validation | `zen chat` | When confidence < 80% on decisions |
+| Code quality check | `zen codereview` | Before committing significant changes |
+| Big architectural decision | `zen consensus` | For choices affecting multiple systems |
+| Complex analysis needed | `zen analyze` | Understanding large/unfamiliar codebases |
+| Project planning | `zen planner` | Breaking down complex features |
+
+### Integration Patterns
+
+**Pattern 1: Quick Consultation**
+```bash
+zen chat "Is using Redis for session storage appropriate for our scale?"
+zen chat "Explain tradeoffs of JWT vs session cookies" --model gemini-pro
+```
+
+**Pattern 2: Systematic Debugging**
+```bash
+zen debug "Memory leak in production" --confidence exploring
+zen debug "Memory leak after 1000 requests" -f app.py -f worker.py --confidence medium
+```
+
+**Pattern 3: Code Quality Assurance**
+```bash
+zen codereview --files src/*.py --type all
+zen codereview --files auth/*.py --type security --model o3
+zen codereview --files api/*.py --type performance
+```
+
+**Pattern 4: Multi-Model Consensus**
+```bash
+zen consensus "Should we migrate from REST to GraphQL?" --models gemini-pro,o3,gpt-5
+zen consensus "PostgreSQL vs MongoDB for our use case?" --models gemini-pro,o3
+```
+
+### Model Selection
+
+- `flash` or `gemini-2.5-flash`: Fast responses for simple queries
+- `gemini-pro` or `gemini-2.5-pro`: Deep analysis and complex reasoning
+- `o3`: Strong logical reasoning and precision
+- `auto`: Let Zen choose optimal model for task
+
+### File Context
+
+- Use `--files` or `-f` to provide relevant context
+- Glob patterns supported: `--files "src/**/*.py"`
+- Keep file count reasonable for token limits
+
+### Session Management (WorkflowTools)
+
+**Project Context:**
+```bash
+zen project create client_work "Client development"
+zen --project client_work debug "Client-specific issue"
+zen project switch personal  # Switch contexts
+```
+
+**Conversation Continuity:**
+```bash
+zen debug "Initial OAuth investigation" --session auth_debug
+zen continue-chat --session auth_debug  # Resume later
+```
+
+### Quick Reference
+
+```bash
+# Essential commands
+zen chat "question"                                    # Quick consultation
+zen debug "problem" -f file1.py -f file2.py        # Debug with context
+zen codereview -f src/*.py --type quality        # Code review
+zen consensus "decision?" --models model1,model2      # Multi-model consensus
+zen analyze -f src/ --analysis-type architecture # Architecture analysis
+zen planner "goal" --context-files requirements.md    # Project planning
+```
+
+### Automatic Trigger Rules
+
+**Always use Zen CLI when:**
+- Debugging issues that have taken >5 minutes without progress
+- Making architectural decisions affecting >2 components
+- Reviewing code for security implications
+- Need consensus on technology choices
+- Analyzing unfamiliar codebases >50 files
+- Planning complex features with >3 major components
+
+**Consider Zen CLI when:**
+- Confidence < 80% on technical recommendations
+- User explicitly asks for "second opinion" or "validation"
+- Working with critical systems (auth, payment, security)
+- Need to explain complex technical tradeoffs
+- Refactoring significant portions of codebase
