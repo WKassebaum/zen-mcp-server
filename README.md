@@ -195,6 +195,29 @@ cd zen-mcp-server
 👉 **[Cursor & VS Code Setup](docs/getting-started.md#ide-clients)** for IDE integration instructions
 📺 **[Watch tools in action](#-watch-tools-in-action)** to see real-world examples
 
+**4. Integrate with Your CLAUDE.md (Optional but Recommended)**
+
+For optimal AI assistant integration, add Zen patterns to your CLAUDE.md files:
+
+```bash
+# Quick start (copy essential patterns)
+cat templates/CLAUDE_MD_QUICKSTART.md >> CLAUDE.md
+
+# Or comprehensive setup (all tools and patterns)
+cat templates/CLAUDE_MD_USER_TEMPLATE.md >> CLAUDE.md
+
+# Global configuration (for all projects)
+cat templates/CLAUDE_MD_GLOBAL_TEMPLATE.md >> ~/.claude/CLAUDE.md
+```
+
+**Available Templates:**
+- **[Quick Start](templates/CLAUDE_MD_QUICKSTART.md)** - Essential tools and auto-trigger patterns (5 min setup)
+- **[Full User Template](templates/CLAUDE_MD_USER_TEMPLATE.md)** - Comprehensive project-specific reference
+- **[Global Template](templates/CLAUDE_MD_GLOBAL_TEMPLATE.md)** - System-wide configuration for all projects
+- **[Template Guide](templates/README.md)** - Help choosing the right template
+
+These templates enable your AI assistant to automatically use Zen for debugging, code reviews, architecture decisions, and more.
+
 ## Provider Configuration
 
 Zen activates any provider that has credentials in your `.env`. See `.env.example` for deeper customization.

@@ -479,6 +479,36 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 
 ## What's Next?
 
+### Add Zen to Your CLAUDE.md
+
+For best integration with Claude Code and other AI assistants, add Zen MCP integration to your CLAUDE.md files:
+
+**Quick Start (5 minutes):**
+```bash
+# Copy quick start template to project CLAUDE.md
+cat templates/CLAUDE_MD_QUICKSTART.md >> CLAUDE.md
+```
+
+**Comprehensive Setup:**
+```bash
+# For project-specific documentation
+cat templates/CLAUDE_MD_USER_TEMPLATE.md >> /path/to/project/CLAUDE.md
+
+# For global configuration
+cat templates/CLAUDE_MD_GLOBAL_TEMPLATE.md >> ~/.claude/CLAUDE.md
+```
+
+**Templates Available:**
+- **Quick Start** (`templates/CLAUDE_MD_QUICKSTART.md`) - Essential tools and patterns
+- **Full User Template** (`templates/CLAUDE_MD_USER_TEMPLATE.md`) - Comprehensive reference
+- **Global Template** (`templates/CLAUDE_MD_GLOBAL_TEMPLATE.md`) - System-wide configuration
+
+👉 **[Template Guide](../templates/README.md)** for choosing the right template
+
+---
+
+### Continue Learning
+
 🎯 **Try the example workflows in the main README**
 
 📚 **Explore the [Tools Reference](tools/)** to understand what each tool can do

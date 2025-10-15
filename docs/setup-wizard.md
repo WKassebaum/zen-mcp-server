@@ -307,9 +307,27 @@ ZEN_STORAGE_TYPE="memory"
 - [Storage Backends](storage-backends.md)
 - [API Keys Setup](../README.md#api-keys)
 
+## Next Steps: CLAUDE.md Integration
+
+After completing setup, integrate Zen MCP with your AI assistant by adding configuration to your CLAUDE.md files:
+
+**Quick Start:**
+```bash
+# Add quick start template to project CLAUDE.md
+cat templates/CLAUDE_MD_QUICKSTART.md >> CLAUDE.md
+```
+
+**Available Templates:**
+- `templates/CLAUDE_MD_QUICKSTART.md` - Essential tools and auto-trigger patterns
+- `templates/CLAUDE_MD_USER_TEMPLATE.md` - Comprehensive project-specific reference
+- `templates/CLAUDE_MD_GLOBAL_TEMPLATE.md` - System-wide global configuration
+
+👉 **[Template Selection Guide](../templates/README.md)** for choosing the right template for your needs
+
 ---
 
 **Quick Links:**
 - Run setup: `zen setup`
 - Test configuration: `zen listmodels`
 - Get help: `zen setup --help`
+- Integration templates: `templates/`
