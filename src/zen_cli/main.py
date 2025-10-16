@@ -356,28 +356,57 @@ def consensus(ctx, question, models, output_json):
     """
     zen = _get_zen_instance(ctx)
 
-    arguments = {
-        "prompt": question,
-    }
-
     # Parse models if provided
+    model_list = []
     if models:
-        model_list = []
         for model_str in models:
             # Handle comma-separated models in single argument
             model_list.extend(m.strip() for m in model_str.split(',') if m.strip())
 
-        arguments["models"] = [{"model": m} for m in model_list]
+    # If no models specified, use default set
+    if not model_list:
+        model_list = ["gemini-2.5-flash", "gpt-4o-mini"]
+
+    # Build workflow arguments matching ConsensusRequest schema
+    arguments = {
+        "step": question,  # The proposal/question for models to evaluate
+        "step_number": 1,
+        "total_steps": len(model_list),  # One step per model
+        "next_step_required": True,
+        "findings": "Initializing consensus workflow",
+        "models": [{"model": m, "stance": "neutral"} for m in model_list],
+        "relevant_files": [],
+        "current_model_index": 0,
+        "model_responses": [],
+    }
 
     try:
         from tools.consensus import ConsensusTool
         result = asyncio.run(ConsensusTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            # Result is a list of TextContent objects
+            if isinstance(result, list) and len(result) > 0:
+                result_data = json.loads(result[0].text)
+                console.print_json(data=result_data)
+            else:
+                console.print_json(data=result)
         else:
-            if isinstance(result, dict) and 'content' in result:
-                console.print(Markdown(result['content']))
+            # Extract and display content
+            if isinstance(result, list) and len(result) > 0:
+                result_data = json.loads(result[0].text)
+
+                # Display model consultations
+                if "model_response" in result_data:
+                    model_resp = result_data["model_response"]
+                    console.print(f"\n[bold cyan]Model:[/bold cyan] {model_resp.get('model', 'unknown')}")
+                    console.print(f"[bold cyan]Stance:[/bold cyan] {model_resp.get('stance', 'neutral')}\n")
+                    console.print(Markdown(model_resp.get('verdict', '')))
+
+                # Display synthesis if complete
+                if result_data.get("consensus_complete"):
+                    console.print("\n[bold green]Consensus Complete![/bold green]")
+                    console.print("\n" + result_data.get("next_steps", ""))
             else:
                 console.print(result)
 
