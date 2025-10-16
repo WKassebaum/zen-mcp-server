@@ -1,0 +1,16 @@
+# Include model registry JSON files
+recursive-include conf *.json
+
+# Include system prompts
+recursive-include systemprompts *.txt
+
+# Include root Python modules
+include server.py
+include config.py
+
+# Include documentation
+include README.md
+include LICENSE
+
+# Include CLI source
+recursive-include src/zen_cli *.py

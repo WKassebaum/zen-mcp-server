@@ -24,9 +24,11 @@ redis = ["redis>=5.0.0"]
 cli = ["click>=8.1.0", "rich>=13.0.0", "redis>=5.0.0"]
 
 [tool.setuptools.packages.find]
-include = ["tools*", "providers*", "systemprompts*", "utils*", "conf*", "clink*", "zen_cli*"]
+where = ["."]
+include = ["tools*", "providers*", "systemprompts*", "utils*", "conf", "conf.*", "clink*", "zen_cli*"]
 
 [tool.setuptools]
+include-package-data = true
 py-modules = ["server", "config"]
 
 [tool.setuptools.package-dir]
@@ -34,19 +36,9 @@ py-modules = ["server", "config"]
 zen_cli = "src/zen_cli"
 
 [tool.setuptools.package-data]
-"*" = ["conf/*.json"]
-
-[tool.setuptools.data-files]
-"conf" = [
-    "conf/custom_models.json",
-    "conf/openrouter_models.json",
-    "conf/azure_models.json",
-    "conf/openai_models.json",
-    "conf/anthropic_models.json",
-    "conf/gemini_models.json",
-    "conf/xai_models.json",
-    "conf/dial_models.json",
-]
+conf = ["*.json", "cli_clients/*.json"]
+systemprompts = ["*.txt", "**/*.txt"]
+clink = ["**/*.json"]
 
 [project.scripts]
 zen-mcp-server = "server:run"  # MCP server mode (for Claude Desktop, Cursor, etc.)
