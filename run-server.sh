@@ -1237,38 +1237,101 @@ parse_env_variables() {
 check_claude_cli_integration() {
     local python_cmd="$1"
     local server_path="$2"
+    local claude_cmd=""
 
-    if ! command -v claude &> /dev/null; then
+    # Try multiple common locations for Claude CLI
+    if command -v claude &> /dev/null; then
+        # Found in PATH
+        claude_cmd="claude"
+    elif [[ -x "$HOME/.claude/local/claude" ]]; then
+        # Found in standard Claude CLI location (wrapper script)
+        claude_cmd="$HOME/.claude/local/claude"
+    elif [[ -x "$HOME/.claude/local/node_modules/.bin/claude" ]]; then
+        # Found in npm modules location (actual binary)
+        claude_cmd="$HOME/.claude/local/node_modules/.bin/claude"
+    elif [[ -x "/usr/local/bin/claude" ]]; then
+        # Found in global installation
+        claude_cmd="/usr/local/bin/claude"
+    fi
+
+    if [[ -z "$claude_cmd" ]]; then
         echo ""
-        print_warning "Claude CLI not found"
+        print_warning "Claude CLI not detected"
         echo ""
-        read -p "Would you like to add Zen to Claude Code? (Y/n): " -n 1 -r
+        echo "Note: Claude CLI is a command-line tool separate from Claude Code desktop app."
         echo ""
-        if [[ $REPLY =~ ^[Nn]$ ]]; then
-            print_info "Skipping Claude Code integration"
+        echo "Common installation locations checked:"
+        echo "  • System PATH"
+        echo "  • ~/.claude/local/claude"
+        echo "  • ~/.claude/local/node_modules/.bin/claude"
+        echo "  • /usr/local/bin/claude"
+        echo ""
+        read -p "Skip Claude CLI integration and show manual config? (Y/n): " -n 1 -r
+        echo ""
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            print_info "Skipping Claude CLI integration"
+            echo ""
+            echo "For manual Claude Code desktop configuration, add to ~/.claude.json:"
+            local env_vars=$(parse_env_variables)
+            local env_json=""
+
+            if [[ -n "$env_vars" ]]; then
+                env_json=",\n      \"env\": {"
+                local first=true
+                while IFS= read -r line; do
+                    if [[ -n "$line" && "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                        if [[ "$first" == true ]]; then
+                            first=false
+                        else
+                            env_json+=","
+                        fi
+                        env_json+="\n        \"${BASH_REMATCH[1]}\": \"${BASH_REMATCH[2]}\""
+                    fi
+                done <<< "$env_vars"
+                env_json+="\n      }"
+            fi
+
+            echo ""
+            echo "  {"
+            echo "    \"mcpServers\": {"
+            echo "      \"zen\": {"
+            echo "        \"command\": \"$python_cmd\","
+            echo "        \"args\": [\"$server_path\"]$(echo -e "$env_json")"
+            echo "      }"
+            echo "    }"
+            echo "  }"
+            echo ""
             return 0
         fi
 
         echo ""
-        echo "Please install Claude Code first:"
-        echo "  Visit: https://docs.anthropic.com/en/docs/claude-code/cli-usage"
+        echo "To install Claude CLI, visit:"
+        echo "  https://docs.anthropic.com/en/docs/claude-code/cli-usage"
         echo ""
-        echo "Then run this script again to register MCP."
+        echo "Then run this script again to register Zen MCP Server."
         return 1
     fi
 
+    # Verify the command actually works
+    if ! $claude_cmd --version &> /dev/null; then
+        print_warning "Found Claude CLI at $claude_cmd but it doesn't execute correctly"
+        return 1
+    fi
+
+    print_success "Found Claude CLI at: $claude_cmd"
+
     # Check if zen is registered
-    local mcp_list=$(claude mcp list 2>/dev/null)
+    local mcp_list=$($claude_cmd mcp list 2>/dev/null)
     if echo "$mcp_list" | grep -q "zen"; then
         # Check if it's using the old Docker command
         if echo "$mcp_list" | grep -E "zen.*docker|zen.*compose" &>/dev/null; then
             print_warning "Found old Docker-based Zen registration, updating..."
-            claude mcp remove zen -s user 2>/dev/null || true
+            $claude_cmd mcp remove zen -s user 2>/dev/null || true
 
             # Re-add with correct Python command and environment variables
             local env_vars=$(parse_env_variables)
             local env_args=""
-            
+
             # Convert environment variables to -e arguments
             if [[ -n "$env_vars" ]]; then
                 while IFS= read -r line; do
@@ -1277,16 +1340,16 @@ check_claude_cli_integration() {
                     fi
                 done <<< "$env_vars"
             fi
-            
-            local claude_cmd="claude mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
-            if eval "$claude_cmd" 2>/dev/null; then
+
+            local mcp_add_cmd="$claude_cmd mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
+            if eval "$mcp_add_cmd" 2>/dev/null; then
                 print_success "Updated Zen to become a standalone script with environment variables"
                 return 0
             else
                 echo ""
                 echo "Failed to update MCP registration. Please run manually:"
-                echo "  claude mcp remove zen -s user"
-                echo "  $claude_cmd"
+                echo "  $claude_cmd mcp remove zen -s user"
+                echo "  $mcp_add_cmd"
                 return 1
             fi
         else
@@ -1296,12 +1359,12 @@ check_claude_cli_integration() {
                 return 0
             else
                 print_warning "Zen registered with different path, updating..."
-                claude mcp remove zen -s user 2>/dev/null || true
+                $claude_cmd mcp remove zen -s user 2>/dev/null || true
 
                 # Re-add with current path and environment variables
                 local env_vars=$(parse_env_variables)
                 local env_args=""
-                
+
                 # Convert environment variables to -e arguments
                 if [[ -n "$env_vars" ]]; then
                     while IFS= read -r line; do
@@ -1310,16 +1373,16 @@ check_claude_cli_integration() {
                         fi
                     done <<< "$env_vars"
                 fi
-                
-                local claude_cmd="claude mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
-                if eval "$claude_cmd" 2>/dev/null; then
+
+                local mcp_add_cmd="$claude_cmd mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
+                if eval "$mcp_add_cmd" 2>/dev/null; then
                     print_success "Updated Zen with current path and environment variables"
                     return 0
                 else
                     echo ""
                     echo "Failed to update MCP registration. Please run manually:"
-                    echo "  claude mcp remove zen -s user"
-                    echo "  $claude_cmd"
+                    echo "  $claude_cmd mcp remove zen -s user"
+                    echo "  $mcp_add_cmd"
                     return 1
                 fi
             fi
@@ -1332,7 +1395,7 @@ check_claude_cli_integration() {
         if [[ $REPLY =~ ^[Nn]$ ]]; then
             local env_vars=$(parse_env_variables)
             local env_args=""
-            
+
             # Convert environment variables to -e arguments for manual command
             if [[ -n "$env_vars" ]]; then
                 while IFS= read -r line; do
@@ -1341,18 +1404,18 @@ check_claude_cli_integration() {
                     fi
                 done <<< "$env_vars"
             fi
-            
+
             print_info "To add manually later, run:"
-            echo "  claude mcp add zen -s user$env_args -- $python_cmd $server_path"
+            echo "  $claude_cmd mcp add zen -s user$env_args -- $python_cmd $server_path"
             return 0
         fi
 
         print_info "Registering Zen with Claude Code..."
-        
+
         # Add with environment variables
         local env_vars=$(parse_env_variables)
         local env_args=""
-        
+
         # Convert environment variables to -e arguments
         if [[ -n "$env_vars" ]]; then
             while IFS= read -r line; do
@@ -1361,15 +1424,15 @@ check_claude_cli_integration() {
                 fi
             done <<< "$env_vars"
         fi
-        
-        local claude_cmd="claude mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
-        if eval "$claude_cmd" 2>/dev/null; then
+
+        local mcp_add_cmd="$claude_cmd mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
+        if eval "$mcp_add_cmd" 2>/dev/null; then
             print_success "Successfully added Zen to Claude Code with environment variables"
             return 0
         else
             echo ""
             echo "Failed to add automatically. To add manually, run:"
-            echo "  $claude_cmd"
+            echo "  $mcp_add_cmd"
             return 1
         fi
     fi
