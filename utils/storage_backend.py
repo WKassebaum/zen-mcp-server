@@ -9,7 +9,7 @@ This module provides a unified interface for conversation storage with support f
 Storage Backend Selection:
 Set ZEN_STORAGE_TYPE environment variable to choose backend:
 - "file" (default): File-based persistence
-- "redis": Redis-based distributed storage  
+- "redis": Redis-based distributed storage
 - "memory": In-memory storage (ephemeral)
 
 Redis Configuration (when ZEN_STORAGE_TYPE=redis):
@@ -32,7 +32,7 @@ import os
 import threading
 from typing import Optional
 
-from .storage_base import StorageBackend, InMemoryStorage
+from .storage_base import InMemoryStorage, StorageBackend
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +51,12 @@ def get_storage_backend() -> StorageBackend:
                 # Check storage preference - default to file-based for CLI
                 storage_type = os.getenv("ZEN_STORAGE_TYPE", "file").lower()
                 logger.info(f"Storage type selected: {storage_type}")
-                
+
                 if storage_type == "redis":
                     # Redis storage for distributed/team environments
                     try:
                         from .redis_storage import RedisStorage
+
                         _storage_instance = RedisStorage()
                         logger.info("Initialized Redis conversation storage")
                     except ImportError as e:
@@ -64,6 +65,7 @@ def get_storage_backend() -> StorageBackend:
                         logger.info("Falling back to file-based storage")
                         try:
                             from .file_storage import FileBasedStorage
+
                             _storage_instance = FileBasedStorage()
                             logger.info("Initialized file-based conversation storage (Redis fallback)")
                         except ImportError:
@@ -73,31 +75,33 @@ def get_storage_backend() -> StorageBackend:
                         logger.warning(f"Redis connection failed ({e}), falling back to file storage")
                         try:
                             from .file_storage import FileBasedStorage
+
                             _storage_instance = FileBasedStorage()
                             logger.info("Initialized file-based conversation storage (Redis fallback)")
                         except ImportError:
                             _storage_instance = InMemoryStorage()
                             logger.info("Initialized in-memory conversation storage (final fallback)")
-                            
+
                 elif storage_type == "file":
                     # File-based storage for CLI persistence
                     try:
                         from .file_storage import FileBasedStorage
+
                         _storage_instance = FileBasedStorage()
                         logger.info("Initialized file-based conversation storage")
                     except ImportError as e:
                         logger.warning(f"File storage unavailable ({e}), falling back to in-memory")
                         _storage_instance = InMemoryStorage()
                         logger.info("Initialized in-memory conversation storage (file fallback)")
-                        
+
                 elif storage_type == "memory":
                     # In-memory storage (ephemeral)
                     _storage_instance = InMemoryStorage()
                     logger.info("Initialized in-memory conversation storage")
-                    
+
                 else:
                     logger.warning(f"Unknown storage type '{storage_type}', using in-memory storage")
                     _storage_instance = InMemoryStorage()
                     logger.info("Initialized in-memory conversation storage (default)")
-                    
+
     return _storage_instance

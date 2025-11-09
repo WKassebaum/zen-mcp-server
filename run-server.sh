@@ -2136,6 +2136,75 @@ PYUPDATE
     fi
 }
 
+# Install Zen CLI skill for Claude Code
+install_zen_skill() {
+    local script_dir="$1"
+    local skill_source="$script_dir/skills/zen-skill"
+    local skill_target="$HOME/.claude/skills/zen-skill"
+
+    # Skip if skill directory doesn't exist in repo
+    if [ ! -d "$skill_source" ]; then
+        return 0
+    fi
+
+    # Skip if SKILL.md doesn't exist
+    if [ ! -f "$skill_source/SKILL.md" ]; then
+        return 0
+    fi
+
+    # Check if skill is already installed
+    if [ -d "$skill_target" ] && [ -f "$skill_target/SKILL.md" ]; then
+        # Check if update is needed (compare file modification times)
+        if [ "$skill_source/SKILL.md" -nt "$skill_target/SKILL.md" ]; then
+            echo ""
+            read -p "Update zen-skill with latest version? (Y/n): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Nn]$ ]]; then
+                return 0
+            fi
+            print_info "Updating zen-skill..."
+        else
+            # Skill is up to date
+            return 0
+        fi
+    else
+        # New installation
+        echo ""
+        read -p "Install zen-skill for Claude Code? (Y/n): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            print_info "Skipping skill installation"
+            echo "  To install later, run: ./scripts/install-skill.sh"
+            return 0
+        fi
+        print_info "Installing zen-skill..."
+    fi
+
+    # Create skills directory if it doesn't exist
+    mkdir -p "$HOME/.claude/skills"
+
+    # Create backup if updating
+    if [ -d "$skill_target" ]; then
+        local backup_dir="$HOME/.claude/skills/.backups"
+        local timestamp=$(date +%Y%m%d_%H%M%S)
+        mkdir -p "$backup_dir"
+        cp -r "$skill_target" "$backup_dir/zen-skill_$timestamp"
+    fi
+
+    # Copy skill files
+    mkdir -p "$skill_target"
+    cp -r "$skill_source/"* "$skill_target/"
+
+    if [ $? -eq 0 ]; then
+        print_success "Zen skill installed successfully"
+        echo "  Location: $skill_target"
+        echo "  Usage: Type '/skill zen-skill' in Claude Code"
+        echo "  Docs: Comprehensive guide for all 15 Zen MCP tools"
+    else
+        print_error "Failed to install zen skill"
+    fi
+}
+
 # Display configuration instructions
 display_config_instructions() {
     local python_cmd="$1"
@@ -2538,6 +2607,9 @@ main() {
 
     # Step 12: Check Qwen CLI integration
     check_qwen_cli_integration "$python_cmd" "$server_path"
+
+    # Step 12.5: Install Zen CLI skill for Claude Code
+    install_zen_skill "$script_dir"
 
     # Step 13: Display log information
     echo ""

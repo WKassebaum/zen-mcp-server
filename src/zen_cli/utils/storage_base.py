@@ -4,35 +4,35 @@ This module defines the storage interface and provides the in-memory implementat
 to avoid circular imports between storage modules.
 """
 
+import logging
 import os
 import threading
 import time
-from typing import Any, Dict, List, Optional
-import logging
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
 
 class StorageBackend:
     """Abstract base class for storage backends."""
-    
-    def get(self, key: str) -> Optional[Dict[str, Any]]:
+
+    def get(self, key: str) -> Optional[dict[str, Any]]:
         """Retrieve a value from storage."""
         raise NotImplementedError
-    
-    def set(self, key: str, value: Dict[str, Any], ttl: Optional[int] = None) -> None:
+
+    def set(self, key: str, value: dict[str, Any], ttl: Optional[int] = None) -> None:
         """Store a value with optional TTL."""
         raise NotImplementedError
-    
+
     def delete(self, key: str) -> None:
         """Delete a value from storage."""
         raise NotImplementedError
-    
+
     def exists(self, key: str) -> bool:
         """Check if a key exists."""
         raise NotImplementedError
-    
-    def list_keys(self, pattern: str = "*") -> List[str]:
+
+    def list_keys(self, pattern: str = "*") -> list[str]:
         """List all keys matching pattern."""
         raise NotImplementedError
 
@@ -77,7 +77,7 @@ class InMemoryStorage(StorageBackend):
         if expired_keys:
             logger.debug(f"Cleaned up {len(expired_keys)} expired entries")
 
-    def get(self, key: str) -> Optional[Dict[str, Any]]:
+    def get(self, key: str) -> Optional[dict[str, Any]]:
         """Retrieve a conversation thread from storage."""
         with self._lock:
             data = self._storage.get(key)
@@ -89,14 +89,11 @@ class InMemoryStorage(StorageBackend):
                 return data.get("value")
             return None
 
-    def set(self, key: str, value: Dict[str, Any], ttl: Optional[int] = None) -> None:
+    def set(self, key: str, value: dict[str, Any], ttl: Optional[int] = None) -> None:
         """Store a conversation thread with expiration."""
         with self._lock:
             expires_at = time.time() + (ttl or self._ttl)
-            self._storage[key] = {
-                "value": value,
-                "expires_at": expires_at
-            }
+            self._storage[key] = {"value": value, "expires_at": expires_at}
 
     def delete(self, key: str) -> None:
         """Delete a conversation thread."""
@@ -109,38 +106,38 @@ class InMemoryStorage(StorageBackend):
         with self._lock:
             if key not in self._storage:
                 return False
-            
+
             # Check expiration
             data = self._storage[key]
             if "expires_at" in data and time.time() >= data["expires_at"]:
                 del self._storage[key]
                 return False
-            
+
             return True
 
-    def list_keys(self, pattern: str = "*") -> List[str]:
+    def list_keys(self, pattern: str = "*") -> list[str]:
         """List all conversation thread IDs."""
         with self._lock:
             # Clean up expired first
             self._cleanup_expired()
-            
+
             if pattern == "*":
                 return list(self._storage.keys())
-            
+
             # Simple pattern matching (only supports * at end)
             if pattern.endswith("*"):
                 prefix = pattern[:-1]
                 return [k for k in self._storage.keys() if k.startswith(prefix)]
-            
+
             return [k for k in self._storage.keys() if k == pattern]
 
     def clear(self):
         """Clear all storage (for testing)."""
         with self._lock:
             self._storage.clear()
-            
+
     def shutdown(self):
         """Shutdown cleanup thread."""
         self._shutdown = True
-        if hasattr(self, '_cleanup_thread') and self._cleanup_thread and self._cleanup_thread.is_alive():
+        if hasattr(self, "_cleanup_thread") and self._cleanup_thread and self._cleanup_thread.is_alive():
             self._cleanup_thread.join(timeout=1)

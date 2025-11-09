@@ -218,6 +218,51 @@ cat templates/CLAUDE_MD_GLOBAL_TEMPLATE.md >> ~/.claude/CLAUDE.md
 
 These templates enable your AI assistant to automatically use Zen for debugging, code reviews, architecture decisions, and more.
 
+## 📚 Zen Skill for Claude Code
+
+For Claude Code users, Zen includes a comprehensive **skill** that provides on-demand documentation with **80-90% token savings** through progressive disclosure.
+
+### What's Included
+
+The **zen-skill** provides:
+- Complete documentation for all 15 Zen MCP tools with parameters and examples
+- Auto-trigger scenarios and best practices
+- Workflow patterns (debugging, consensus, code review, etc.)
+- Troubleshooting guides and common patterns
+- Progressive disclosure: loads only when needed (0 tokens normally, ~6.5K when invoked vs. 2.8K always loaded)
+
+### Installation
+
+The zen-skill is **automatically installed** when you run `./run-server.sh`. You can also install or update it manually:
+
+```bash
+# Install the skill
+./scripts/install-skill.sh
+
+# Update existing installation
+./scripts/update-skill.sh
+```
+
+### Usage in Claude Code
+
+Load the comprehensive Zen documentation when needed:
+
+```bash
+# Option 1: Use the Skill tool
+Skill(skill="zen-skill")
+
+# Option 2: Use the /skill command
+/skill zen-skill
+```
+
+The skill will load comprehensive documentation for all Zen tools, providing detailed guidance without consuming tokens until you need it.
+
+**Benefits:**
+- **Token Efficient**: 80-90% reduction vs. always-loaded CLAUDE.md documentation
+- **Up-to-Date**: Maintained alongside tool implementations
+- **Comprehensive**: All 15 tools documented with examples and patterns
+- **Progressive**: Loads only when you need Zen-specific guidance
+
 ## Provider Configuration
 
 Zen activates any provider that has credentials in your `.env`. See `.env.example` for deeper customization.

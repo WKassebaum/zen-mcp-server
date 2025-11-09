@@ -15,15 +15,15 @@ Key Features:
 - Auto-session management with idempotent identity
 """
 
+import hashlib
 import json
 import logging
 import os
+import subprocess
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-import hashlib
-import subprocess
+from typing import Any, Optional
 
 from .storage_base import StorageBackend
 
@@ -37,11 +37,11 @@ class FileBasedStorage(StorageBackend):
         self.storage_dir = Path(storage_dir).expanduser()
         self.conversations_dir = self.storage_dir / "conversations"
         self._lock = threading.Lock()
-        
+
         # Create directories if they don't exist
         self.storage_dir.mkdir(exist_ok=True)
         self.conversations_dir.mkdir(exist_ok=True)
-        
+
         # Cleanup settings
         timeout_hours = int(os.getenv("CONVERSATION_TIMEOUT_HOURS", "3"))
         self._cleanup_interval = (timeout_hours * 3600) // 10
@@ -66,26 +66,22 @@ class FileBasedStorage(StorageBackend):
         safe_key = key.replace("/", "_").replace("\\", "_")
         return self.conversations_dir / f"{safe_key}.json"
 
-    def set(self, key: str, value: Dict[str, Any], ttl: Optional[int] = None) -> None:
+    def set(self, key: str, value: dict[str, Any], ttl: Optional[int] = None) -> None:
         """Store value with optional TTL (implements StorageBackend interface)"""
         ttl_seconds = ttl or 10800  # Default 3 hours
         with self._lock:
             expires_at = time.time() + ttl_seconds
-            data = {
-                "value": value,  # Store dict directly
-                "expires_at": expires_at,
-                "created_at": time.time()
-            }
+            data = {"value": value, "expires_at": expires_at, "created_at": time.time()}  # Store dict directly
 
             file_path = self._get_file_path(key)
             try:
-                with open(file_path, 'w', encoding='utf-8') as f:
+                with open(file_path, "w", encoding="utf-8") as f:
                     json.dump(data, f, ensure_ascii=False, indent=2)
                 logger.debug(f"Stored key {key} with TTL {ttl_seconds}s in {file_path}")
             except Exception as e:
                 logger.error(f"Failed to store key {key}: {e}")
 
-    def get(self, key: str) -> Optional[Dict[str, Any]]:
+    def get(self, key: str) -> Optional[dict[str, Any]]:
         """Retrieve value from file if not expired (implements StorageBackend interface)"""
         with self._lock:
             file_path = self._get_file_path(key)
@@ -94,7 +90,7 @@ class FileBasedStorage(StorageBackend):
                 return None
 
             try:
-                with open(file_path, 'r', encoding='utf-8') as f:
+                with open(file_path, encoding="utf-8") as f:
                     data = json.load(f)
 
                 expires_at = data.get("expires_at", 0)
@@ -134,21 +130,21 @@ class FileBasedStorage(StorageBackend):
             return False
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
             expires_at = data.get("expires_at", 0)
             return time.time() < expires_at
         except:
             return False
 
-    def list_keys(self, pattern: str = "*") -> List[str]:
+    def list_keys(self, pattern: str = "*") -> list[str]:
         """List all keys matching pattern"""
         with self._lock:
             keys = []
             current_time = time.time()
             for file_path in self.conversations_dir.glob("*.json"):
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, encoding="utf-8") as f:
                         data = json.load(f)
                     expires_at = data.get("expires_at", 0)
                     if current_time < expires_at:
@@ -163,26 +159,26 @@ class FileBasedStorage(StorageBackend):
         """List all active (non-expired) conversation keys with metadata"""
         active_conversations = []
         current_time = time.time()
-        
+
         with self._lock:
             for file_path in self.conversations_dir.glob("*.json"):
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, encoding="utf-8") as f:
                         data = json.load(f)
-                    
+
                     expires_at = data.get("expires_at", 0)
                     if current_time < expires_at:
                         key = file_path.stem
                         metadata = {
                             "created_at": data.get("created_at", 0),
                             "expires_at": expires_at,
-                            "file_path": str(file_path)
+                            "file_path": str(file_path),
                         }
                         active_conversations.append((key, metadata))
-                        
+
                 except Exception as e:
                     logger.debug(f"Skipping corrupted conversation file {file_path}: {e}")
-                    
+
         return sorted(active_conversations, key=lambda x: x[1]["created_at"], reverse=True)
 
     def _cleanup_worker(self):
@@ -196,17 +192,17 @@ class FileBasedStorage(StorageBackend):
         with self._lock:
             current_time = time.time()
             expired_count = 0
-            
+
             for file_path in self.conversations_dir.glob("*.json"):
                 try:
-                    with open(file_path, 'r', encoding='utf-8') as f:
+                    with open(file_path, encoding="utf-8") as f:
                         data = json.load(f)
-                    
+
                     expires_at = data.get("expires_at", 0)
                     if current_time >= expires_at:
                         file_path.unlink()
                         expired_count += 1
-                        
+
                 except Exception as e:
                     # Remove corrupted files
                     logger.debug(f"Removing corrupted conversation file {file_path}: {e}")
@@ -228,59 +224,54 @@ class FileBasedStorage(StorageBackend):
 
 class SessionManager:
     """Manages auto-session creation with idempotent identity"""
-    
+
     def __init__(self, storage: FileBasedStorage):
         self.storage = storage
         self._session_cache = {}
-        
+
     def get_session_identity(self) -> str:
         """Generate idempotent session identity based on context"""
         # Base identity on current working directory
         cwd = os.getcwd()
-        
+
         # Try to get git commit hash for more specific identity
         git_hash = self._get_git_hash()
-        
+
         # Create identity components
         identity_parts = [cwd]
         if git_hash:
             identity_parts.append(git_hash[:8])  # Short git hash
-        
+
         # Add timestamp rounded to hour for session grouping
         hour_timestamp = int(time.time() // 3600) * 3600
         identity_parts.append(str(hour_timestamp))
-        
+
         # Create hash of identity components
         identity_string = "|".join(identity_parts)
         session_hash = hashlib.md5(identity_string.encode()).hexdigest()[:16]
-        
+
         return f"auto_{session_hash}"
-    
+
     def _get_git_hash(self) -> Optional[str]:
         """Get current git commit hash if in a git repository"""
         try:
-            result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
+            result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception:
             pass
         return None
-    
+
     def get_or_create_auto_session(self) -> str:
         """Get or create an auto-session based on current context"""
         session_id = self.get_session_identity()
-        
+
         # Check if session already exists
         existing_thread = self.storage.get(f"thread:{session_id}")
         if existing_thread:
             logger.debug(f"Resuming auto-session: {session_id}")
             return session_id
-        
+
         # Session doesn't exist, will be created when first conversation is started
         logger.debug(f"Auto-session identity: {session_id}")
         return session_id
@@ -306,6 +297,7 @@ def get_storage_backend() -> FileBasedStorage:
                 else:
                     # Fall back to in-memory storage
                     from .storage_base import InMemoryStorage
+
                     _storage_instance = InMemoryStorage()
                     logger.info("Initialized in-memory conversation storage")
     return _storage_instance

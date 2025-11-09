@@ -5,8 +5,6 @@ from typing import ClassVar, Optional
 
 from anthropic import Anthropic
 
-from utils.env import get_env
-
 from .base import ModelProvider, ModelResponse
 from .registries.anthropic import AnthropicModelRegistry
 from .registry_provider_mixin import RegistryBackedProviderMixin
@@ -90,21 +88,21 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                         # Extract base64 data from data URL
                         image_data = image_data.split(",", 1)[1]
 
-                    user_content.append({
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/png",  # Default to PNG
-                            "data": image_data
+                    user_content.append(
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/png",  # Default to PNG
+                                "data": image_data,
+                            },
                         }
-                    })
+                    )
                 except Exception as e:
                     logger.warning(f"Failed to process image: {e}")
                     continue
         elif images and not capabilities.supports_images:
-            logger.warning(
-                f"Model {resolved_model_name} does not support images, ignoring {len(images)} image(s)"
-            )
+            logger.warning(f"Model {resolved_model_name} does not support images, ignoring {len(images)} image(s)")
 
         messages.append({"role": "user", "content": user_content})
 
@@ -130,7 +128,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
 
             # Build usage info
             usage = {}
-            if hasattr(response, 'usage'):
+            if hasattr(response, "usage"):
                 usage = {
                     "input_tokens": response.usage.input_tokens,
                     "output_tokens": response.usage.output_tokens,
@@ -145,7 +143,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                 provider=ProviderType.ANTHROPIC,
                 metadata={
                     "finish_reason": "stop",
-                }
+                },
             )
 
         except Exception as e:

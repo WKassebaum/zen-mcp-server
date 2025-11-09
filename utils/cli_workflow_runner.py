@@ -11,11 +11,10 @@ separate tool call. The CLI needs single-invocation completion, so this runner:
 - Consolidates results for CLI presentation
 """
 
-import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -33,11 +32,8 @@ class CLIWorkflowRunner:
         self.max_steps = max_steps
 
     async def run_workflow(
-        self,
-        tool_instance,
-        initial_prompt: str,
-        options: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
+        self, tool_instance, initial_prompt: str, options: Optional[dict[str, Any]] = None
+    ) -> dict[str, Any]:
         """
         Execute a complete workflow tool from CLI invocation.
 
@@ -73,18 +69,14 @@ class CLIWorkflowRunner:
                     step_number=step_number,
                     total_steps=total_steps,
                     workflow_history=workflow_history,
-                    options=options
+                    options=options,
                 )
 
                 logger.debug(f"Executing {tool_name} step {step_number}/{total_steps}")
 
                 # Execute workflow step
                 result = await tool_instance.execute(step_arguments)
-                workflow_history.append({
-                    "step_number": step_number,
-                    "arguments": step_arguments,
-                    "result": result
-                })
+                workflow_history.append({"step_number": step_number, "arguments": step_arguments, "result": result})
 
                 # Parse continuation signals
                 result_data = json.loads(result[0].text)
@@ -120,9 +112,9 @@ class CLIWorkflowRunner:
         initial_prompt: str,
         step_number: int,
         total_steps: int,
-        workflow_history: List[Dict],
-        options: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        workflow_history: list[dict],
+        options: dict[str, Any],
+    ) -> dict[str, Any]:
         """
         Build tool-specific arguments for current workflow step.
 
@@ -164,12 +156,7 @@ class CLIWorkflowRunner:
 
         return arguments
 
-    def _get_step_one_fields(
-        self,
-        tool_name: str,
-        initial_prompt: str,
-        options: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _get_step_one_fields(self, tool_name: str, initial_prompt: str, options: dict[str, Any]) -> dict[str, Any]:
         """
         Get tool-specific fields required for step 1 initialization.
 
@@ -191,33 +178,43 @@ class CLIWorkflowRunner:
             step_one_fields = {}
 
         elif tool_name == "analyze":
-            step_one_fields.update({
-                "analysis_type": options.get("analysis_type", "architecture"),
-            })
+            step_one_fields.update(
+                {
+                    "analysis_type": options.get("analysis_type", "architecture"),
+                }
+            )
 
         elif tool_name == "thinkdeep":
-            step_one_fields.update({
-                "reasoning_depth": options.get("depth", "extended"),
-            })
+            step_one_fields.update(
+                {
+                    "reasoning_depth": options.get("depth", "extended"),
+                }
+            )
 
         elif tool_name == "testgen":
-            step_one_fields.update({
-                "framework": options.get("framework", "pytest"),
-                "test_type": options.get("test_type", "unit"),
-            })
+            step_one_fields.update(
+                {
+                    "framework": options.get("framework", "pytest"),
+                    "test_type": options.get("test_type", "unit"),
+                }
+            )
 
         elif tool_name == "secaudit":
-            step_one_fields.update({
-                "focus": options.get("focus", "all"),
-                "issues_found": [],
-            })
+            step_one_fields.update(
+                {
+                    "focus": options.get("focus", "all"),
+                    "issues_found": [],
+                }
+            )
 
         elif tool_name == "refactor":
-            step_one_fields.update({
-                "refactor_type": options.get("refactor_type", "codesmells"),
-                "focus_areas": options.get("focus_areas", []),
-                "issues_found": [],
-            })
+            step_one_fields.update(
+                {
+                    "refactor_type": options.get("refactor_type", "codesmells"),
+                    "focus_areas": options.get("focus_areas", []),
+                    "issues_found": [],
+                }
+            )
 
         elif tool_name == "docgen":
             step_one_fields = {
@@ -243,18 +240,17 @@ class CLIWorkflowRunner:
             }
 
         elif tool_name == "precommit":
-            step_one_fields.update({
-                "validation_type": options.get("validation_type", "all"),
-            })
+            step_one_fields.update(
+                {
+                    "validation_type": options.get("validation_type", "all"),
+                }
+            )
 
         return step_one_fields
 
     def _get_continuation_fields(
-        self,
-        tool_name: str,
-        workflow_history: List[Dict],
-        options: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, tool_name: str, workflow_history: list[dict], options: dict[str, Any]
+    ) -> dict[str, Any]:
         """
         Get fields for continuation steps (step 2+).
 
@@ -282,11 +278,7 @@ class CLIWorkflowRunner:
             "confidence": "medium",
         }
 
-    def _consolidate_results(
-        self,
-        workflow_history: List[Dict],
-        tool_name: str
-    ) -> Dict[str, Any]:
+    def _consolidate_results(self, workflow_history: list[dict], tool_name: str) -> dict[str, Any]:
         """
         Consolidate workflow results for CLI presentation.
 
@@ -301,7 +293,7 @@ class CLIWorkflowRunner:
             return {
                 "status": "error",
                 "error": "No workflow steps executed",
-                "content": "Workflow completed with no steps"
+                "content": "Workflow completed with no steps",
             }
 
         # Get final step result
@@ -318,7 +310,7 @@ class CLIWorkflowRunner:
                 "steps_completed": len(workflow_history),
                 "final_confidence": final_result.get("confidence", "unknown"),
                 "files_analyzed": len(final_result.get("relevant_files", [])),
-            }
+            },
         }
 
         # Add tool-specific consolidated data

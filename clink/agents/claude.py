@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import os
 import shlex
 import shutil
 import time
 from collections.abc import Sequence
-from pathlib import Path
 
 from clink.constants import DEFAULT_STREAM_LIMIT
-from clink.models import ResolvedCLIRole, ResolvedCLIClient
+from clink.models import ResolvedCLIRole
 from clink.parsers.base import ParserError
 
 from .base import AgentOutput, BaseCLIAgent, CLIAgentError

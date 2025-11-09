@@ -4,13 +4,10 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 import shlex
 import shutil
-import tempfile
 import time
 from collections.abc import Sequence
-from pathlib import Path
 from typing import Any
 
 from clink.constants import DEFAULT_STREAM_LIMIT

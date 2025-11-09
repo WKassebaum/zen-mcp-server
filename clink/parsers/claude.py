@@ -26,7 +26,9 @@ class ClaudeJSONParser(BaseParser):
         payload: dict[str, Any]
         if isinstance(parsed_data, list):
             # Find the result object (type == "result")
-            result_obj = next((obj for obj in parsed_data if isinstance(obj, dict) and obj.get("type") == "result"), None)
+            result_obj = next(
+                (obj for obj in parsed_data if isinstance(obj, dict) and obj.get("type") == "result"), None
+            )
             if result_obj:
                 payload = result_obj
             else:

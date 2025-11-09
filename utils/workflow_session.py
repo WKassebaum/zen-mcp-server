@@ -18,7 +18,7 @@ import random
 import string
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from utils.storage_backend import get_storage_backend
 
@@ -42,19 +42,14 @@ def generate_session_id(tool_name: str) -> str:
         Unique session ID string
     """
     timestamp = int(time.time())
-    random_suffix = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
+    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=8))
     session_id = f"{tool_name}_{timestamp}_{random_suffix}"
 
     logger.debug(f"Generated session ID: {session_id}")
     return session_id
 
 
-def save_session_state(
-    session_id: str,
-    tool_name: str,
-    result_data: Dict[str, Any],
-    arguments: Dict[str, Any]
-) -> None:
+def save_session_state(session_id: str, tool_name: str, result_data: dict[str, Any], arguments: dict[str, Any]) -> None:
     """
     Save workflow state for next continuation.
 
@@ -71,26 +66,26 @@ def save_session_state(
     state = {
         "session_id": session_id,
         "tool_name": tool_name,
-
         # Workflow progress
         "step_number": result_data.get("step_number", 1),
         "total_steps": result_data.get("total_steps", 5),
         "next_step_required": result_data.get("next_step_required", True),
-
         # Accumulated investigation data
         "findings": result_data.get("findings", ""),
         "files_checked": result_data.get("files_checked", []),
         "relevant_files": result_data.get("relevant_files", []),
         "relevant_context": result_data.get("relevant_context", []),
         "confidence": result_data.get("confidence", "exploring"),
-
         # Tool-specific data
         "issues_found": result_data.get("issues_found", []),
         "hypotheses": result_data.get("hypotheses", []),
-
         # Metadata
         "last_arguments": arguments,
-        "created_at": state.get("created_at", datetime.now(timezone.utc).isoformat()) if isinstance(state := load_session_state(session_id) or {}, dict) else datetime.now(timezone.utc).isoformat(),
+        "created_at": (
+            state.get("created_at", datetime.now(timezone.utc).isoformat())
+            if isinstance(state := load_session_state(session_id) or {}, dict)
+            else datetime.now(timezone.utc).isoformat()
+        ),
         "last_updated": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -101,7 +96,7 @@ def save_session_state(
     logger.info(f"Saved session state for {session_id} (step {state['step_number']}/{state['total_steps']})")
 
 
-def load_session_state(session_id: str) -> Optional[Dict[str, Any]]:
+def load_session_state(session_id: str) -> Optional[dict[str, Any]]:
     """
     Load previous workflow state from storage.
 
@@ -171,10 +166,8 @@ def list_active_sessions(tool_name: Optional[str] = None) -> list:
 
 
 def enhance_with_continuation_instructions(
-    result_data: Dict[str, Any],
-    session_id: str,
-    tool_name: str
-) -> Dict[str, Any]:
+    result_data: dict[str, Any], session_id: str, tool_name: str
+) -> dict[str, Any]:
     """
     Add session ID and continuation instructions to tool response.
 
@@ -216,14 +209,14 @@ def enhance_with_continuation_instructions(
                 f"2. Run: {continuation_cmd}\n"
                 f"3. Replace '<your findings here>' with what you discovered or completed\n"
                 f"4. Session expires in 3 hours"
-            )
+            ),
         }
     else:
         # Workflow complete
         enhanced["workflow_status"] = "complete"
         enhanced["workflow_instructions"] = {
             "for_claude_code": "Workflow completed successfully. You may now proceed with presenting results or next tasks.",
-            "for_manual_users": "Workflow completed successfully. No further action needed."
+            "for_manual_users": "Workflow completed successfully. No further action needed.",
         }
 
         # Clean up session since workflow is complete
@@ -233,10 +226,8 @@ def enhance_with_continuation_instructions(
 
 
 def build_continuation_arguments(
-    session_state: Dict[str, Any],
-    continue_findings: str,
-    model: Optional[str] = None
-) -> Dict[str, Any]:
+    session_state: dict[str, Any], continue_findings: str, model: Optional[str] = None
+) -> dict[str, Any]:
     """
     Build arguments for workflow continuation step.
 
@@ -260,17 +251,14 @@ def build_continuation_arguments(
         "step_number": next_step,
         "total_steps": session_state["total_steps"],
         "next_step_required": True,  # Will be determined by tool
-
         # Accumulated state from previous steps
         "findings": session_state.get("findings", ""),
         "files_checked": session_state.get("files_checked", []),
         "relevant_files": session_state.get("relevant_files", []),
         "relevant_context": session_state.get("relevant_context", []),
         "confidence": session_state.get("confidence", "exploring"),
-
         # Tool-specific accumulated data
         "issues_found": session_state.get("issues_found", []),
-
         # Working directory from original invocation
         "working_directory": session_state.get("last_arguments", {}).get("working_directory", "."),
     }
@@ -288,7 +276,7 @@ def build_continuation_arguments(
     return arguments
 
 
-def format_session_info(session_state: Dict[str, Any]) -> str:
+def format_session_info(session_state: dict[str, Any]) -> str:
     """
     Format session information for display.
 

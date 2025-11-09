@@ -4,9 +4,8 @@ Comprehensive Testing Script for Zen CLI
 Tests all tools with various file scenarios to ensure they work as expected
 """
 
-import subprocess
 import json
-import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -17,25 +16,22 @@ TEST_FILE = SCRIPT_DIR / "README.md"
 TEST_FILE2 = SCRIPT_DIR / "setup.py"
 NON_EXISTENT_FILE = SCRIPT_DIR / "nonexistent.txt"
 
+
 class Colors:
-    GREEN = '\033[92m'
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    CYAN = '\033[96m'
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
+    GREEN = "\033[92m"
+    RED = "\033[91m"
+    YELLOW = "\033[93m"
+    CYAN = "\033[96m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+
 
 def run_command(cmd, expected_success=True):
     """Run a zen command and check if it succeeds."""
     print(f"{Colors.CYAN}Running: {' '.join(cmd)}{Colors.RESET}")
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
 
         # Check if command succeeded
         success = result.returncode == 0
@@ -67,6 +63,7 @@ def run_command(cmd, expected_success=True):
         print(f"  {Colors.RED}✗ Exception: {e}{Colors.RESET}")
         return False
 
+
 def test_basic_commands():
     """Test basic commands that don't need files."""
     print(f"\n{Colors.BOLD}=== Testing Basic Commands ==={Colors.RESET}")
@@ -84,6 +81,7 @@ def test_basic_commands():
 
     return all(results)
 
+
 def test_file_handling():
     """Test commands with file handling."""
     print(f"\n{Colors.BOLD}=== Testing File Handling ==={Colors.RESET}")
@@ -95,40 +93,61 @@ def test_file_handling():
 
     tests = [
         # Test with single file
-        (["zen", "debug", "Test issue", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
-         "Debug with single file"),
-
+        (
+            ["zen", "debug", "Test issue", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
+            "Debug with single file",
+        ),
         # Test with multiple files using repeated -f
-        (["zen", "debug", "Test issue", "-f", str(TEST_FILE), "-f", str(TEST_FILE2), "--model", TEST_MODEL, "--json"],
-         "Debug with multiple files (repeated -f)"),
-
+        (
+            [
+                "zen",
+                "debug",
+                "Test issue",
+                "-f",
+                str(TEST_FILE),
+                "-f",
+                str(TEST_FILE2),
+                "--model",
+                TEST_MODEL,
+                "--json",
+            ],
+            "Debug with multiple files (repeated -f)",
+        ),
         # Test with comma-separated files
-        (["zen", "debug", "Test issue", "-f", f"{TEST_FILE},{TEST_FILE2}", "--model", TEST_MODEL, "--json"],
-         "Debug with comma-separated files"),
-
+        (
+            ["zen", "debug", "Test issue", "-f", f"{TEST_FILE},{TEST_FILE2}", "--model", TEST_MODEL, "--json"],
+            "Debug with comma-separated files",
+        ),
         # Test with absolute path
-        (["zen", "debug", "Test issue", "-f", str(TEST_FILE.absolute()), "--model", TEST_MODEL, "--json"],
-         "Debug with absolute path"),
-
+        (
+            ["zen", "debug", "Test issue", "-f", str(TEST_FILE.absolute()), "--model", TEST_MODEL, "--json"],
+            "Debug with absolute path",
+        ),
         # Test codereview with files
-        (["zen", "codereview", "-f", str(TEST_FILE), "--review-type", "quality", "--model", TEST_MODEL, "--json"],
-         "Codereview with file"),
-
+        (
+            ["zen", "codereview", "-f", str(TEST_FILE), "--review-type", "quality", "--model", TEST_MODEL, "--json"],
+            "Codereview with file",
+        ),
         # Test analyze with files
-        (["zen", "analyze", "-f", str(TEST_FILE), "--analysis-type", "all", "--model", TEST_MODEL, "--json"],
-         "Analyze with file"),
-
+        (
+            ["zen", "analyze", "-f", str(TEST_FILE), "--analysis-type", "all", "--model", TEST_MODEL, "--json"],
+            "Analyze with file",
+        ),
         # Test consensus with context files
-        (["zen", "consensus", "Is this good documentation?", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
-         "Consensus with context file"),
-
+        (
+            ["zen", "consensus", "Is this good documentation?", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
+            "Consensus with context file",
+        ),
         # Test planner with context files
-        (["zen", "planner", "Improve this documentation", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
-         "Planner with context file"),
-
+        (
+            ["zen", "planner", "Improve this documentation", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
+            "Planner with context file",
+        ),
         # Test chat with files
-        (["zen", "chat", "What is this file about?", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
-         "Chat with file"),
+        (
+            ["zen", "chat", "What is this file about?", "-f", str(TEST_FILE), "--model", TEST_MODEL, "--json"],
+            "Chat with file",
+        ),
     ]
 
     results = []
@@ -137,20 +156,25 @@ def test_file_handling():
         results.append(run_command(cmd))
 
     return all(results)
+
 
 def test_workflow_without_files():
     """Test workflow tools without providing files."""
     print(f"\n{Colors.BOLD}=== Testing Workflow Tools Without Files ==={Colors.RESET}")
 
     tests = [
-        (["zen", "debug", "Generic issue", "--model", TEST_MODEL, "--json"],
-         "Debug without files (should investigate, not demand files)"),
-
-        (["zen", "codereview", "--review-type", "quality", "--model", TEST_MODEL, "--json"],
-         "Codereview without files (should offer to find files)"),
-
-        (["zen", "analyze", "--analysis-type", "architecture", "--model", TEST_MODEL, "--json"],
-         "Analyze without files (should explore codebase)"),
+        (
+            ["zen", "debug", "Generic issue", "--model", TEST_MODEL, "--json"],
+            "Debug without files (should investigate, not demand files)",
+        ),
+        (
+            ["zen", "codereview", "--review-type", "quality", "--model", TEST_MODEL, "--json"],
+            "Codereview without files (should offer to find files)",
+        ),
+        (
+            ["zen", "analyze", "--analysis-type", "architecture", "--model", TEST_MODEL, "--json"],
+            "Analyze without files (should explore codebase)",
+        ),
     ]
 
     results = []
@@ -159,6 +183,7 @@ def test_workflow_without_files():
         results.append(run_command(cmd))
 
     return all(results)
+
 
 def test_error_handling():
     """Test error handling scenarios."""
@@ -166,12 +191,17 @@ def test_error_handling():
 
     tests = [
         # Non-existent file
-        (["zen", "debug", "Test issue", "-f", str(NON_EXISTENT_FILE), "--model", TEST_MODEL, "--json"],
-         "Debug with non-existent file", False),  # Should fail gracefully
-
+        (
+            ["zen", "debug", "Test issue", "-f", str(NON_EXISTENT_FILE), "--model", TEST_MODEL, "--json"],
+            "Debug with non-existent file",
+            False,
+        ),  # Should fail gracefully
         # Invalid model
-        (["zen", "chat", "Hello", "--model", "invalid-model", "--json"],
-         "Chat with invalid model", False),  # Should fail
+        (
+            ["zen", "chat", "Hello", "--model", "invalid-model", "--json"],
+            "Chat with invalid model",
+            False,
+        ),  # Should fail
     ]
 
     results = []
@@ -180,6 +210,7 @@ def test_error_handling():
         results.append(run_command(cmd, expected_success=expected))
 
     return all(results)
+
 
 def main():
     """Run all tests and report results."""
@@ -223,6 +254,7 @@ def main():
     else:
         print(f"{Colors.RED}{Colors.BOLD}Some tests failed. Please review the output above.{Colors.RESET}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

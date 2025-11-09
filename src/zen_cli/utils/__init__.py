@@ -7,4 +7,4 @@ Provides essential CLI infrastructure including:
 - Session management
 """
 
-__all__ = ['storage_backend', 'storage_base', 'file_storage', 'redis_storage']
+__all__ = ["storage_backend", "storage_base", "file_storage", "redis_storage"]

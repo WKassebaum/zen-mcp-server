@@ -17,10 +17,8 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Optional, List, Dict, Any
 
 import click
-from dotenv import load_dotenv
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
@@ -33,6 +31,7 @@ env_file = zen_config_dir / ".env"
 # Must update both os.environ (for os.getenv) and utils.env's _DOTENV_VALUES (for override mode)
 if env_file.exists():
     from dotenv import dotenv_values
+
     cli_env_values = dotenv_values(env_file)
 
     # 1. Set in os.environ so os.getenv() finds them
@@ -42,27 +41,27 @@ if env_file.exists():
 
     # 2. Update utils.env's _DOTENV_VALUES for override mode
     from utils.env import reload_env
+
     reload_env(cli_env_values)
 
 # NOW safe to import modules that use get_env() - they'll see CLI's .env values
 from config import __version__
-from providers.registry import ModelProviderRegistry
-from providers.shared import ProviderType
+from providers.anthropic import AnthropicProvider
+from providers.azure_openai import AzureOpenAIProvider
+from providers.custom import CustomProvider
+from providers.dial import DIALModelProvider
 
 # Import providers from root
 from providers.gemini import GeminiModelProvider
 from providers.openai import OpenAIModelProvider
-from providers.anthropic import AnthropicProvider
-from providers.azure_openai import AzureOpenAIProvider
-from providers.xai import XAIModelProvider
-from providers.dial import DIALModelProvider
 from providers.openrouter import OpenRouterProvider
-from providers.custom import CustomProvider
+from providers.registry import ModelProviderRegistry
+from providers.shared import ProviderType
+from providers.xai import XAIModelProvider
 
 # Import tools from root (import individually in commands to avoid name conflicts)
 # from tools import chat, debug, codereview, consensus, analyze, planner, thinkdeep
 # from tools import challenge, precommit, refactor, secaudit, testgen, docgen
-
 # Import utilities (get_env imported via reload_env above)
 from utils.env import get_env
 
@@ -161,7 +160,7 @@ def _present_workflow_step(result: dict, session_id: str, tool_name: str):
 
     # Workflow status and continuation
     if result.get("workflow_status") == "in_progress":
-        console.print(f"\n[bold yellow]⚠️  Workflow Continuation Required[/bold yellow]\n")
+        console.print("\n[bold yellow]⚠️  Workflow Continuation Required[/bold yellow]\n")
 
         # Show continuation command
         if "continuation_command" in result:
@@ -173,14 +172,14 @@ def _present_workflow_step(result: dict, session_id: str, tool_name: str):
             console.print("[dim]" + result["workflow_instructions"]["for_manual_users"] + "[/dim]")
 
     elif result.get("workflow_status") == "complete":
-        console.print(f"\n[bold green]✓ Workflow Complete![/bold green]")
+        console.print("\n[bold green]✓ Workflow Complete![/bold green]")
         console.print("[dim]Session has been automatically cleaned up.[/dim]")
 
 
 # Global context object for Click
 @click.group()
 @click.version_option(version=__version__, prog_name="zen")
-@click.option('--verbose', '-v', is_flag=True, help='Enable verbose output')
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output")
 @click.pass_context
 def cli(ctx, verbose):
     """Zen CLI - AI-powered development assistant
@@ -196,23 +195,23 @@ def cli(ctx, verbose):
     """
     # Create ZenCLI instance and store in context
     ctx.ensure_object(dict)
-    ctx.obj['zen'] = ZenCLI(verbose=verbose)
+    ctx.obj["zen"] = ZenCLI(verbose=verbose)
 
 
 def _get_zen_instance(ctx: click.Context) -> ZenCLI:
     """Helper to get ZenCLI instance from context."""
     if ctx.obj is None:
         ctx.obj = {}
-    if 'zen' not in ctx.obj:
-        ctx.obj['zen'] = ZenCLI(verbose=False)
-    return ctx.obj['zen']
+    if "zen" not in ctx.obj:
+        ctx.obj["zen"] = ZenCLI(verbose=False)
+    return ctx.obj["zen"]
 
 
 @cli.command()
-@click.argument('message')
-@click.option('--model', default='auto', help='Model to use (default: auto)')
-@click.option('--files', '-f', multiple=True, help='Context files to include')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("message")
+@click.option("--model", default="auto", help="Model to use (default: auto)")
+@click.option("--files", "-f", multiple=True, help="Context files to include")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def chat(ctx, message, model, files, output_json):
     """Chat with AI for brainstorming and quick consultations
@@ -222,7 +221,7 @@ def chat(ctx, message, model, files, output_json):
         zen chat "Best practices for error handling" --model gemini-pro
         zen chat "Analyze this code" --files app.py
     """
-    zen = _get_zen_instance(ctx)
+    _get_zen_instance(ctx)
 
     # Prepare arguments for chat tool
     arguments = {
@@ -238,14 +237,15 @@ def chat(ctx, message, model, files, output_json):
     # Execute chat tool asynchronously
     try:
         from tools.chat import ChatTool
+
         result = asyncio.run(ChatTool().execute(arguments))
 
         if output_json:
             console.print_json(data=result)
         else:
             # Pretty print the response
-            if isinstance(result, dict) and 'content' in result:
-                console.print(Markdown(result['content']))
+            if isinstance(result, dict) and "content" in result:
+                console.print(Markdown(result["content"]))
             else:
                 console.print(result)
 
@@ -255,12 +255,16 @@ def chat(ctx, message, model, files, output_json):
 
 
 @cli.command()
-@click.argument('problem')
-@click.option('--files', '-f', multiple=True, help='Files to analyze')
-@click.option('--confidence', type=click.Choice(['exploring', 'low', 'medium', 'high', 'certain']),
-              default='exploring', help='Initial confidence level')
-@click.option('--model', default='auto', help='Model to use')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("problem")
+@click.option("--files", "-f", multiple=True, help="Files to analyze")
+@click.option(
+    "--confidence",
+    type=click.Choice(["exploring", "low", "medium", "high", "certain"]),
+    default="exploring",
+    help="Initial confidence level",
+)
+@click.option("--model", default="auto", help="Model to use")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def debug(ctx, problem, files, confidence, model, output_json):
     """Debug issues with systematic investigation
@@ -269,7 +273,7 @@ def debug(ctx, problem, files, confidence, model, output_json):
         zen debug "OAuth tokens not persisting" --files auth.py session.py
         zen debug "Memory leak after 1000 requests" --confidence medium
     """
-    zen = _get_zen_instance(ctx)
+    _get_zen_instance(ctx)
 
     arguments = {
         "problem_description": problem,
@@ -283,13 +287,14 @@ def debug(ctx, problem, files, confidence, model, output_json):
 
     try:
         from tools.debug import DebugIssueTool
+
         result = asyncio.run(DebugIssueTool().execute(arguments))
 
         if output_json:
             console.print_json(data=result)
         else:
-            if isinstance(result, dict) and 'content' in result:
-                console.print(Markdown(result['content']))
+            if isinstance(result, dict) and "content" in result:
+                console.print(Markdown(result["content"]))
             else:
                 console.print(result)
 
@@ -299,11 +304,16 @@ def debug(ctx, problem, files, confidence, model, output_json):
 
 
 @cli.command()
-@click.option('--files', '-f', multiple=True, help='Files to review')
-@click.option('--type', 'review_type', type=click.Choice(['quality', 'security', 'performance', 'all']),
-              default='all', help='Type of review')
-@click.option('--model', default='auto', help='Model to use')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.option("--files", "-f", multiple=True, help="Files to review")
+@click.option(
+    "--type",
+    "review_type",
+    type=click.Choice(["quality", "security", "performance", "all"]),
+    default="all",
+    help="Type of review",
+)
+@click.option("--model", default="auto", help="Model to use")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def codereview(ctx, files, review_type, model, output_json):
     """Professional code review with severity levels
@@ -312,7 +322,7 @@ def codereview(ctx, files, review_type, model, output_json):
         zen codereview --files src/*.py --type security
         zen codereview --files auth/ payment/ --type all
     """
-    zen = _get_zen_instance(ctx)
+    _get_zen_instance(ctx)
 
     if not files:
         console.print("[yellow]Warning:[/yellow] No files specified. Use --files to specify files to review.")
@@ -327,13 +337,14 @@ def codereview(ctx, files, review_type, model, output_json):
 
     try:
         from tools.codereview import CodeReviewTool
+
         result = asyncio.run(CodeReviewTool().execute(arguments))
 
         if output_json:
             console.print_json(data=result)
         else:
-            if isinstance(result, dict) and 'content' in result:
-                console.print(Markdown(result['content']))
+            if isinstance(result, dict) and "content" in result:
+                console.print(Markdown(result["content"]))
             else:
                 console.print(result)
 
@@ -343,9 +354,9 @@ def codereview(ctx, files, review_type, model, output_json):
 
 
 @cli.command()
-@click.argument('question')
-@click.option('--models', '-m', multiple=True, help='Models to consult (e.g., gemini-pro,o3)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("question")
+@click.option("--models", "-m", multiple=True, help="Models to consult (e.g., gemini-pro,o3)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def consensus(ctx, question, models, output_json):
     """Get consensus from multiple AI models
@@ -354,14 +365,14 @@ def consensus(ctx, question, models, output_json):
         zen consensus "Should we use microservices or monolith?"
         zen consensus "PostgreSQL vs MongoDB?" --models gemini-pro,o3,gpt-4
     """
-    zen = _get_zen_instance(ctx)
+    _get_zen_instance(ctx)
 
     # Parse models if provided
     model_list = []
     if models:
         for model_str in models:
             # Handle comma-separated models in single argument
-            model_list.extend(m.strip() for m in model_str.split(',') if m.strip())
+            model_list.extend(m.strip() for m in model_str.split(",") if m.strip())
 
     # If no models specified, use default set
     if not model_list:
@@ -382,6 +393,7 @@ def consensus(ctx, question, models, output_json):
 
     try:
         from tools.consensus import ConsensusTool
+
         result = asyncio.run(ConsensusTool().execute(arguments))
 
         if output_json:
@@ -401,7 +413,7 @@ def consensus(ctx, question, models, output_json):
                     model_resp = result_data["model_response"]
                     console.print(f"\n[bold cyan]Model:[/bold cyan] {model_resp.get('model', 'unknown')}")
                     console.print(f"[bold cyan]Stance:[/bold cyan] {model_resp.get('stance', 'neutral')}\n")
-                    console.print(Markdown(model_resp.get('verdict', '')))
+                    console.print(Markdown(model_resp.get("verdict", "")))
 
                 # Display synthesis if complete
                 if result_data.get("consensus_complete"):
@@ -415,9 +427,10 @@ def consensus(ctx, question, models, output_json):
         sys.exit(1)
 
 
-@cli.command('listmodels')
-@click.option('--format', 'output_format', type=click.Choice(['table', 'json', 'simple']),
-              default='table', help='Output format')
+@cli.command("listmodels")
+@click.option(
+    "--format", "output_format", type=click.Choice(["table", "json", "simple"]), default="table", help="Output format"
+)
 @click.pass_context
 def listmodels_cmd(ctx, output_format):
     """List all available AI models
@@ -430,20 +443,22 @@ def listmodels_cmd(ctx, output_format):
     zen = _get_zen_instance(ctx)
 
     try:
-        if output_format == 'json':
+        if output_format == "json":
             # For JSON, return structured data from registry
             providers_data = []
             for provider_type in zen.registry.get_available_providers():
                 provider = zen.registry.get_provider(provider_type)
                 if provider:
                     models = zen.registry.get_available_model_names(provider_type)
-                    providers_data.append({
-                        "provider": provider_type.value if hasattr(provider_type, 'value') else str(provider_type),
-                        "models": sorted(models),
-                        "count": len(models)
-                    })
+                    providers_data.append(
+                        {
+                            "provider": provider_type.value if hasattr(provider_type, "value") else str(provider_type),
+                            "models": sorted(models),
+                            "count": len(models),
+                        }
+                    )
             console.print_json(data={"providers": providers_data})
-        elif output_format == 'simple':
+        elif output_format == "simple":
             # Simple text-only format - exhaustive list for easy selection
             console.print("\n[bold]Available AI Models[/bold]\n")
 
@@ -455,7 +470,7 @@ def listmodels_cmd(ctx, output_format):
 
                 models = zen.registry.get_available_model_names(provider_type)
                 if models:
-                    provider_name = provider_type.value if hasattr(provider_type, 'value') else str(provider_type)
+                    provider_name = provider_type.value if hasattr(provider_type, "value") else str(provider_type)
                     console.print(f"[cyan]{provider_name}[/cyan]: {len(models)} models")
                     # Show ALL models for easy selection
                     for model in sorted(models):
@@ -475,7 +490,7 @@ def listmodels_cmd(ctx, output_format):
             total_models = 0
             for provider_type in zen.registry.get_available_providers():
                 provider = zen.registry.get_provider(provider_type)
-                provider_name = provider_type.value if hasattr(provider_type, 'value') else str(provider_type)
+                provider_name = provider_type.value if hasattr(provider_type, "value") else str(provider_type)
 
                 if provider:
                     models = zen.registry.get_available_model_names(provider_type)
@@ -509,7 +524,7 @@ def listmodels_cmd(ctx, output_format):
 def version(ctx):
     """Show version information"""
     console.print(f"Zen CLI v{__version__}")
-    console.print(f"Based on Zen MCP Server v9.0.0")
+    console.print("Based on Zen MCP Server v9.0.0")
 
 
 @cli.command()
@@ -520,17 +535,19 @@ def setup(ctx):
     Guides you through configuring API keys and storage settings.
     Creates or updates ~/.zen/.env file with your preferences.
     """
+
     from rich.panel import Panel
-    from rich.prompt import Prompt, Confirm
-    import re
+    from rich.prompt import Confirm, Prompt
 
     console.print()
-    console.print(Panel.fit(
-        "[bold cyan]Zen CLI Setup Wizard[/bold cyan]\n\n"
-        "This wizard will help you configure Zen CLI.\n"
-        "Press Enter to keep existing values, or type new values to update.",
-        border_style="cyan"
-    ))
+    console.print(
+        Panel.fit(
+            "[bold cyan]Zen CLI Setup Wizard[/bold cyan]\n\n"
+            "This wizard will help you configure Zen CLI.\n"
+            "Press Enter to keep existing values, or type new values to update.",
+            border_style="cyan",
+        )
+    )
     console.print()
 
     # Ensure config directory exists
@@ -540,11 +557,11 @@ def setup(ctx):
     existing_config = {}
     if env_file.exists():
         console.print("[dim]Found existing configuration at ~/.zen/.env[/dim]")
-        with open(env_file, 'r') as f:
+        with open(env_file) as f:
             for line in f:
                 line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
+                if line and not line.startswith("#") and "=" in line:
+                    key, value = line.split("=", 1)
                     # Remove quotes if present
                     value = value.strip().strip('"').strip("'")
                     existing_config[key] = value
@@ -559,7 +576,9 @@ def setup(ctx):
             return "****"
         return f"{key[:6]}...{key[-6:]}"
 
-    def prompt_for_value(key: str, description: str, current_value: str = "", required: bool = False, is_secret: bool = False) -> str:
+    def prompt_for_value(
+        key: str, description: str, current_value: str = "", required: bool = False, is_secret: bool = False
+    ) -> str:
         """Prompt user for a configuration value"""
         if current_value:
             if is_secret:
@@ -582,96 +601,64 @@ def setup(ctx):
     console.print("[bold cyan]═══ API Keys ═══[/bold cyan]")
     console.print("[dim]Configure API keys for different AI providers[/dim]\n")
 
-    config['GEMINI_API_KEY'] = prompt_for_value(
-        'GEMINI_API_KEY',
-        'Google Gemini API Key',
-        existing_config.get('GEMINI_API_KEY', ''),
+    config["GEMINI_API_KEY"] = prompt_for_value(
+        "GEMINI_API_KEY",
+        "Google Gemini API Key",
+        existing_config.get("GEMINI_API_KEY", ""),
         required=True,
-        is_secret=True
+        is_secret=True,
     )
 
-    config['OPENAI_API_KEY'] = prompt_for_value(
-        'OPENAI_API_KEY',
-        'OpenAI API Key',
-        existing_config.get('OPENAI_API_KEY', ''),
-        required=False,
-        is_secret=True
+    config["OPENAI_API_KEY"] = prompt_for_value(
+        "OPENAI_API_KEY", "OpenAI API Key", existing_config.get("OPENAI_API_KEY", ""), required=False, is_secret=True
     )
 
     if Confirm.ask("\nConfigure optional API keys? (Anthropic, XAI, OpenRouter)", default=False):
         console.print()
-        config['ANTHROPIC_API_KEY'] = prompt_for_value(
-            'ANTHROPIC_API_KEY',
-            'Anthropic API Key',
-            existing_config.get('ANTHROPIC_API_KEY', ''),
-            is_secret=True
+        config["ANTHROPIC_API_KEY"] = prompt_for_value(
+            "ANTHROPIC_API_KEY", "Anthropic API Key", existing_config.get("ANTHROPIC_API_KEY", ""), is_secret=True
         )
 
-        config['XAI_API_KEY'] = prompt_for_value(
-            'XAI_API_KEY',
-            'XAI (Grok) API Key',
-            existing_config.get('XAI_API_KEY', ''),
-            is_secret=True
+        config["XAI_API_KEY"] = prompt_for_value(
+            "XAI_API_KEY", "XAI (Grok) API Key", existing_config.get("XAI_API_KEY", ""), is_secret=True
         )
 
-        config['OPENROUTER_API_KEY'] = prompt_for_value(
-            'OPENROUTER_API_KEY',
-            'OpenRouter API Key',
-            existing_config.get('OPENROUTER_API_KEY', ''),
-            is_secret=True
+        config["OPENROUTER_API_KEY"] = prompt_for_value(
+            "OPENROUTER_API_KEY", "OpenRouter API Key", existing_config.get("OPENROUTER_API_KEY", ""), is_secret=True
         )
 
     # Storage Configuration Section
     console.print("\n[bold cyan]═══ Storage Configuration ═══[/bold cyan]")
     console.print("[dim]Choose where to store conversation history[/dim]\n")
 
-    storage_type = existing_config.get('ZEN_STORAGE_TYPE', 'file')
-    storage_choices = ['file', 'redis', 'memory']
+    storage_type = existing_config.get("ZEN_STORAGE_TYPE", "file")
+    storage_choices = ["file", "redis", "memory"]
     console.print("Storage backends:")
     console.print("  [green]file[/green]   - Local file storage (recommended, zero dependencies)")
     console.print("  [yellow]redis[/yellow]  - Redis storage (for distributed/team environments)")
     console.print("  [red]memory[/red]  - In-memory storage (ephemeral, testing only)\n")
 
-    config['ZEN_STORAGE_TYPE'] = Prompt.ask(
-        "Storage backend",
-        choices=storage_choices,
-        default=storage_type
-    )
+    config["ZEN_STORAGE_TYPE"] = Prompt.ask("Storage backend", choices=storage_choices, default=storage_type)
 
     # Redis configuration if redis selected
-    if config['ZEN_STORAGE_TYPE'] == 'redis':
+    if config["ZEN_STORAGE_TYPE"] == "redis":
         console.print("\n[bold yellow]Redis Configuration[/bold yellow]\n")
-        config['REDIS_HOST'] = prompt_for_value(
-            'REDIS_HOST',
-            'Redis host',
-            existing_config.get('REDIS_HOST', 'localhost')
+        config["REDIS_HOST"] = prompt_for_value(
+            "REDIS_HOST", "Redis host", existing_config.get("REDIS_HOST", "localhost")
         )
 
-        config['REDIS_PORT'] = prompt_for_value(
-            'REDIS_PORT',
-            'Redis port',
-            existing_config.get('REDIS_PORT', '6379')
-        )
+        config["REDIS_PORT"] = prompt_for_value("REDIS_PORT", "Redis port", existing_config.get("REDIS_PORT", "6379"))
 
-        config['REDIS_DB'] = prompt_for_value(
-            'REDIS_DB',
-            'Redis database number',
-            existing_config.get('REDIS_DB', '0')
-        )
+        config["REDIS_DB"] = prompt_for_value("REDIS_DB", "Redis database number", existing_config.get("REDIS_DB", "0"))
 
-        redis_password = existing_config.get('REDIS_PASSWORD', '')
+        redis_password = existing_config.get("REDIS_PASSWORD", "")
         if redis_password or Confirm.ask("Set Redis password?", default=False):
-            config['REDIS_PASSWORD'] = prompt_for_value(
-                'REDIS_PASSWORD',
-                'Redis password',
-                redis_password,
-                is_secret=True
+            config["REDIS_PASSWORD"] = prompt_for_value(
+                "REDIS_PASSWORD", "Redis password", redis_password, is_secret=True
             )
 
-        config['REDIS_KEY_PREFIX'] = prompt_for_value(
-            'REDIS_KEY_PREFIX',
-            'Redis key prefix',
-            existing_config.get('REDIS_KEY_PREFIX', 'zen:')
+        config["REDIS_KEY_PREFIX"] = prompt_for_value(
+            "REDIS_KEY_PREFIX", "Redis key prefix", existing_config.get("REDIS_KEY_PREFIX", "zen:")
         )
 
     # Save configuration
@@ -683,35 +670,36 @@ def setup(ctx):
             final_config.update({k: v for k, v in config.items() if v})  # Only save non-empty values
 
             # Write .env file
-            with open(env_file, 'w') as f:
+            with open(env_file, "w") as f:
                 f.write("# Zen CLI Configuration\n")
                 f.write(f"# Generated by zen setup on {Path.home()}\n")
                 f.write("# Edit this file manually or run 'zen setup' again to update\n\n")
 
                 # API Keys section
-                if any(k.endswith('_API_KEY') for k in final_config.keys()):
+                if any(k.endswith("_API_KEY") for k in final_config.keys()):
                     f.write("# ═══ API Keys ═══\n")
                     for key in sorted(final_config.keys()):
-                        if key.endswith('_API_KEY') and final_config[key]:
+                        if key.endswith("_API_KEY") and final_config[key]:
                             f.write(f'{key}="{final_config[key]}"\n')
                     f.write("\n")
 
                 # Storage configuration
-                if 'ZEN_STORAGE_TYPE' in final_config:
+                if "ZEN_STORAGE_TYPE" in final_config:
                     f.write("# ═══ Storage Configuration ═══\n")
                     f.write(f'ZEN_STORAGE_TYPE="{final_config["ZEN_STORAGE_TYPE"]}"\n')
 
-                    if final_config['ZEN_STORAGE_TYPE'] == 'redis':
-                        for key in ['REDIS_HOST', 'REDIS_PORT', 'REDIS_DB', 'REDIS_PASSWORD', 'REDIS_KEY_PREFIX']:
+                    if final_config["ZEN_STORAGE_TYPE"] == "redis":
+                        for key in ["REDIS_HOST", "REDIS_PORT", "REDIS_DB", "REDIS_PASSWORD", "REDIS_KEY_PREFIX"]:
                             if key in final_config and final_config[key]:
                                 f.write(f'{key}="{final_config[key]}"\n')
                     f.write("\n")
 
                 # Other configuration
-                other_keys = [k for k in final_config.keys()
-                             if not k.endswith('_API_KEY')
-                             and not k.startswith('REDIS_')
-                             and k != 'ZEN_STORAGE_TYPE']
+                other_keys = [
+                    k
+                    for k in final_config.keys()
+                    if not k.endswith("_API_KEY") and not k.startswith("REDIS_") and k != "ZEN_STORAGE_TYPE"
+                ]
                 if other_keys:
                     f.write("# ═══ Other Configuration ═══\n")
                     for key in sorted(other_keys):
@@ -722,25 +710,27 @@ def setup(ctx):
             env_file.chmod(0o600)
 
             console.print()
-            console.print(Panel.fit(
-                f"[bold green]✓ Configuration saved successfully![/bold green]\n\n"
-                f"Location: [cyan]{env_file}[/cyan]\n"
-                f"Permissions: [dim]600 (owner read/write only)[/dim]\n\n"
-                f"Test your setup with: [yellow]zen listmodels[/yellow]",
-                border_style="green"
-            ))
+            console.print(
+                Panel.fit(
+                    f"[bold green]✓ Configuration saved successfully![/bold green]\n\n"
+                    f"Location: [cyan]{env_file}[/cyan]\n"
+                    f"Permissions: [dim]600 (owner read/write only)[/dim]\n\n"
+                    f"Test your setup with: [yellow]zen listmodels[/yellow]",
+                    border_style="green",
+                )
+            )
 
             # Show summary of configured providers
             console.print("\n[bold]Configured Providers:[/bold]")
-            if final_config.get('GEMINI_API_KEY'):
+            if final_config.get("GEMINI_API_KEY"):
                 console.print("  [green]✓[/green] Google Gemini")
-            if final_config.get('OPENAI_API_KEY'):
+            if final_config.get("OPENAI_API_KEY"):
                 console.print("  [green]✓[/green] OpenAI")
-            if final_config.get('ANTHROPIC_API_KEY'):
+            if final_config.get("ANTHROPIC_API_KEY"):
                 console.print("  [green]✓[/green] Anthropic")
-            if final_config.get('XAI_API_KEY'):
+            if final_config.get("XAI_API_KEY"):
                 console.print("  [green]✓[/green] XAI (Grok)")
-            if final_config.get('OPENROUTER_API_KEY'):
+            if final_config.get("OPENROUTER_API_KEY"):
                 console.print("  [green]✓[/green] OpenRouter")
 
             console.print(f"\n[bold]Storage:[/bold] [cyan]{final_config.get('ZEN_STORAGE_TYPE', 'file')}[/cyan]")
@@ -758,13 +748,14 @@ def setup(ctx):
 # CRITICAL TOOLS
 # ============================================================================
 
+
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID for multi-step workflows (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue existing session with your findings/work results')
-@click.option('--context-files', '-f', multiple=True, help='Context files to include')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID for multi-step workflows (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue existing session with your findings/work results")
+@click.option("--context-files", "-f", multiple=True, help="Context files to include")
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def planner(ctx, goal, session, continue_findings, context_files, model, output_json):
     """Generate sequential task plan for complex goals
@@ -817,11 +808,11 @@ def planner(ctx, goal, session, continue_findings, context_files, model, output_
       • Completed workflows automatically clean up their sessions
     """
     from utils.workflow_session import (
+        build_continuation_arguments,
+        enhance_with_continuation_instructions,
         generate_session_id,
         load_session_state,
         save_session_state,
-        enhance_with_continuation_instructions,
-        build_continuation_arguments
     )
 
     try:
@@ -852,7 +843,7 @@ def planner(ctx, goal, session, continue_findings, context_files, model, output_
             # NEW WORKFLOW: Initialize with auto-generated or provided session ID
             if not goal:
                 console.print("[red]Error:[/red] Goal is required for new workflows")
-                console.print("[yellow]Usage:[/yellow] zen planner \"your goal here\"")
+                console.print('[yellow]Usage:[/yellow] zen planner "your goal here"')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -884,11 +875,7 @@ def planner(ctx, goal, session, continue_findings, context_files, model, output_
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -903,14 +890,18 @@ def planner(ctx, goal, session, continue_findings, context_files, model, output_
 
 
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--files', '-f', multiple=True, help='Files to analyze')
-@click.option('--analysis-type', type=click.Choice(['architecture', 'patterns', 'complexity', 'all']),
-              default='all', help='Type of analysis to perform')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--files", "-f", multiple=True, help="Files to analyze")
+@click.option(
+    "--analysis-type",
+    type=click.Choice(["architecture", "patterns", "complexity", "all"]),
+    default="all",
+    help="Type of analysis to perform",
+)
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, output_json):
     """Comprehensive code analysis and architecture assessment
@@ -934,8 +925,11 @@ def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, 
     try:
         from tools.analyze import AnalyzeTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -956,8 +950,10 @@ def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, 
         else:
             # Start new workflow
             if not goal:
-                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen analyze \"Understand architecture\" --files src/*.py")
+                console.print(
+                    "[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen analyze "Understand architecture" --files src/*.py')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -991,11 +987,7 @@ def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, 
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1010,12 +1002,12 @@ def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, 
 
 
 @cli.command()
-@click.argument('question', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--thinking-budget', type=int, help='Thinking token budget (128-32768)')
-@click.option('--model', '-m', help='AI model to use (must support extended thinking)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("question", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--thinking-budget", type=int, help="Thinking token budget (128-32768)")
+@click.option("--model", "-m", help="AI model to use (must support extended thinking)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model, output_json):
     """Extended reasoning mode for complex problems
@@ -1040,8 +1032,11 @@ def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model,
     try:
         from tools.thinkdeep import ThinkDeepTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1062,8 +1057,10 @@ def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model,
         else:
             # Start new workflow
             if not question:
-                console.print("[red]Error:[/red] Question required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen thinkdeep \"How should we architect this?\"")
+                console.print(
+                    "[red]Error:[/red] Question required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen thinkdeep "How should we architect this?"')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1098,11 +1095,7 @@ def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model,
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1117,12 +1110,12 @@ def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model,
 
 
 @cli.command()
-@click.argument('prompt_text', required=False)
-@click.option('--cli-name', help='CLI client to invoke (gemini, codex, claude)')
-@click.option('--role', help='Role preset for the CLI (default, planner, codereviewer)')
-@click.option('--files', '-f', multiple=True, help='Files to pass to the CLI')
-@click.option('--images', '-i', multiple=True, help='Images to pass to the CLI')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("prompt_text", required=False)
+@click.option("--cli-name", help="CLI client to invoke (gemini, codex, claude)")
+@click.option("--role", help="Role preset for the CLI (default, planner, codereviewer)")
+@click.option("--files", "-f", multiple=True, help="Files to pass to the CLI")
+@click.option("--images", "-i", multiple=True, help="Images to pass to the CLI")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
     """CLI-to-CLI bridge - spawn external AI CLIs as subagents
@@ -1141,7 +1134,7 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
     arguments = {
         "prompt": prompt,
         "cli_name": cli_name or "default",  # Required field
-        "role": role or "assistant",         # Optional with default
+        "role": role or "assistant",  # Optional with default
         "files": list(files) if files else [],
         "images": list(images) if images else [],
     }
@@ -1149,6 +1142,7 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
 
     try:
         from tools.clink import CLinkTool
+
         result = asyncio.run(CLinkTool().execute(arguments))
 
         if output_json:
@@ -1156,7 +1150,7 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
         else:
             if isinstance(result, list) and len(result) > 0:
                 content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
+                console.print(Markdown(content.get("content", str(content))))
             else:
                 console.print(result)
 
@@ -1166,12 +1160,12 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
 
 
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--files', '-f', multiple=True, help='Files to validate before commit')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--files", "-f", multiple=True, help="Files to validate before commit")
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def precommit(ctx, goal, session, continue_findings, files, model, output_json):
     """Pre-commit validation and quality checks
@@ -1195,8 +1189,11 @@ def precommit(ctx, goal, session, continue_findings, files, model, output_json):
     try:
         from tools.precommit import PrecommitTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1217,8 +1214,10 @@ def precommit(ctx, goal, session, continue_findings, files, model, output_json):
         else:
             # Start new workflow
             if not goal:
-                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen precommit \"Validate changes\" --files src/*.py")
+                console.print(
+                    "[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen precommit "Validate changes" --files src/*.py')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1252,11 +1251,7 @@ def precommit(ctx, goal, session, continue_findings, files, model, output_json):
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1274,16 +1269,21 @@ def precommit(ctx, goal, session, continue_findings, files, model, output_json):
 # QUALITY TOOLS
 # ============================================================================
 
+
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--files', '-f', multiple=True, help='Files to generate tests for')
-@click.option('--framework', help='Test framework (pytest, jest, etc.)')
-@click.option('--test-type', type=click.Choice(['unit', 'integration', 'e2e', 'all']),
-              default='unit', help='Type of tests to generate')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--files", "-f", multiple=True, help="Files to generate tests for")
+@click.option("--framework", help="Test framework (pytest, jest, etc.)")
+@click.option(
+    "--test-type",
+    type=click.Choice(["unit", "integration", "e2e", "all"]),
+    default="unit",
+    help="Type of tests to generate",
+)
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def testgen(ctx, goal, session, continue_findings, files, framework, test_type, model, output_json):
     """Generate comprehensive test suites
@@ -1307,8 +1307,11 @@ def testgen(ctx, goal, session, continue_findings, files, framework, test_type, 
     try:
         from tools.testgen import TestGenTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1329,8 +1332,10 @@ def testgen(ctx, goal, session, continue_findings, files, framework, test_type, 
         else:
             # Start new workflow
             if not goal:
-                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen testgen \"Generate unit tests\" --files auth.py")
+                console.print(
+                    "[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen testgen "Generate unit tests" --files auth.py')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1365,11 +1370,7 @@ def testgen(ctx, goal, session, continue_findings, files, framework, test_type, 
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1384,14 +1385,15 @@ def testgen(ctx, goal, session, continue_findings, files, framework, test_type, 
 
 
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--files', '-f', multiple=True, help='Files to audit')
-@click.option('--focus', type=click.Choice(['auth', 'crypto', 'injection', 'all']),
-              default='all', help='Security focus area')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--files", "-f", multiple=True, help="Files to audit")
+@click.option(
+    "--focus", type=click.Choice(["auth", "crypto", "injection", "all"]), default="all", help="Security focus area"
+)
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_json):
     """Security audit and vulnerability assessment
@@ -1415,8 +1417,11 @@ def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_
     try:
         from tools.secaudit import SecauditTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1437,8 +1442,10 @@ def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_
         else:
             # Start new workflow
             if not goal:
-                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen secaudit \"Check for vulnerabilities\" --files auth.py")
+                console.print(
+                    "[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen secaudit "Check for vulnerabilities" --files auth.py')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1473,11 +1480,7 @@ def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1492,14 +1495,18 @@ def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_
 
 
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--files', '-f', multiple=True, help='Files to refactor')
-@click.option('--refactor-type', type=click.Choice(['readability', 'performance', 'maintainability', 'codesmells', 'all']),
-              default='codesmells', help='Type of refactoring to perform')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--files", "-f", multiple=True, help="Files to refactor")
+@click.option(
+    "--refactor-type",
+    type=click.Choice(["readability", "performance", "maintainability", "codesmells", "all"]),
+    default="codesmells",
+    help="Type of refactoring to perform",
+)
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def refactor(ctx, goal, session, continue_findings, files, refactor_type, model, output_json):
     """Code refactoring suggestions and improvements
@@ -1523,8 +1530,11 @@ def refactor(ctx, goal, session, continue_findings, files, refactor_type, model,
     try:
         from tools.refactor import RefactorTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1545,8 +1555,10 @@ def refactor(ctx, goal, session, continue_findings, files, refactor_type, model,
         else:
             # Start new workflow
             if not goal:
-                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen refactor \"Improve readability\" --files legacy.py")
+                console.print(
+                    "[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen refactor "Improve readability" --files legacy.py')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1582,11 +1594,7 @@ def refactor(ctx, goal, session, continue_findings, files, refactor_type, model,
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1604,15 +1612,20 @@ def refactor(ctx, goal, session, continue_findings, files, refactor_type, model,
 # UTILITY TOOLS
 # ============================================================================
 
+
 @cli.command()
-@click.argument('goal', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--files', '-f', multiple=True, help='Files to document')
-@click.option('--style', type=click.Choice(['docstring', 'markdown', 'jsdoc', 'godoc']),
-              default='docstring', help='Documentation style')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("goal", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--files", "-f", multiple=True, help="Files to document")
+@click.option(
+    "--style",
+    type=click.Choice(["docstring", "markdown", "jsdoc", "godoc"]),
+    default="docstring",
+    help="Documentation style",
+)
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def docgen(ctx, goal, session, continue_findings, files, style, model, output_json):
     """Generate comprehensive documentation
@@ -1636,8 +1649,11 @@ def docgen(ctx, goal, session, continue_findings, files, style, model, output_js
     try:
         from tools.docgen import DocgenTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1658,8 +1674,10 @@ def docgen(ctx, goal, session, continue_findings, files, style, model, output_js
         else:
             # Start new workflow
             if not goal:
-                console.print("[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen docgen \"Generate API documentation\" --files api.py")
+                console.print(
+                    "[red]Error:[/red] Goal required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen docgen "Generate API documentation" --files api.py')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1696,11 +1714,7 @@ def docgen(ctx, goal, session, continue_findings, files, style, model, output_js
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1715,14 +1729,15 @@ def docgen(ctx, goal, session, continue_findings, files, style, model, output_js
 
 
 @cli.command()
-@click.argument('target', required=False)
-@click.option('--session', '-s', help='Session ID (auto-generated if not provided)')
-@click.option('--continue', 'continue_findings', help='Continue with findings/work results')
-@click.option('--depth', type=int, default=3, help='Trace depth (default: 3)')
-@click.option('--trace-mode', type=click.Choice(['forward', 'backward', 'both', 'ask']),
-              default='ask', help='Trace direction')
-@click.option('--model', '-m', help='AI model to use (default: auto)')
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("target", required=False)
+@click.option("--session", "-s", help="Session ID (auto-generated if not provided)")
+@click.option("--continue", "continue_findings", help="Continue with findings/work results")
+@click.option("--depth", type=int, default=3, help="Trace depth (default: 3)")
+@click.option(
+    "--trace-mode", type=click.Choice(["forward", "backward", "both", "ask"]), default="ask", help="Trace direction"
+)
+@click.option("--model", "-m", help="AI model to use (default: auto)")
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def tracer(ctx, target, session, continue_findings, depth, trace_mode, model, output_json):
     """Trace code execution flow and dependencies
@@ -1746,8 +1761,11 @@ def tracer(ctx, target, session, continue_findings, depth, trace_mode, model, ou
     try:
         from tools.tracer import TracerTool
         from utils.workflow_session import (
-            generate_session_id, load_session_state, save_session_state,
-            enhance_with_continuation_instructions, build_continuation_arguments
+            build_continuation_arguments,
+            enhance_with_continuation_instructions,
+            generate_session_id,
+            load_session_state,
+            save_session_state,
         )
 
         # Determine continuation vs new workflow
@@ -1768,8 +1786,10 @@ def tracer(ctx, target, session, continue_findings, depth, trace_mode, model, ou
         else:
             # Start new workflow
             if not target:
-                console.print("[red]Error:[/red] Target required for new workflow. Use --session and --continue for continuation.")
-                console.print("Example: zen tracer \"handleRequest function\"")
+                console.print(
+                    "[red]Error:[/red] Target required for new workflow. Use --session and --continue for continuation."
+                )
+                console.print('Example: zen tracer "handleRequest function"')
                 sys.exit(1)
 
             session_id = session or generate_session_id(tool_name)
@@ -1803,11 +1823,7 @@ def tracer(ctx, target, session, continue_findings, depth, trace_mode, model, ou
             save_session_state(session_id, tool_name, result_data, arguments)
 
         # Enhance response with continuation instructions
-        enhanced_result = enhance_with_continuation_instructions(
-            result_data,
-            session_id,
-            tool_name
-        )
+        enhanced_result = enhance_with_continuation_instructions(result_data, session_id, tool_name)
 
         # Present results
         if output_json:
@@ -1822,8 +1838,8 @@ def tracer(ctx, target, session, continue_findings, depth, trace_mode, model, ou
 
 
 @cli.command()
-@click.argument('statement', nargs=-1, required=True)
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("statement", nargs=-1, required=True)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def challenge(ctx, statement, output_json):
     """Challenge assumptions and explore alternatives
@@ -1837,7 +1853,7 @@ def challenge(ctx, statement, output_json):
         zen challenge "We should use GraphQL instead of REST"
     """
     # Join all statement words into single prompt
-    full_statement = ' '.join(statement)
+    full_statement = " ".join(statement)
 
     # Build arguments matching ChallengeRequest schema
     arguments = {
@@ -1847,6 +1863,7 @@ def challenge(ctx, statement, output_json):
 
     try:
         from tools.challenge import ChallengeTool
+
         result = asyncio.run(ChallengeTool().execute(arguments))
 
         if output_json:
@@ -1854,7 +1871,7 @@ def challenge(ctx, statement, output_json):
         else:
             if isinstance(result, list) and len(result) > 0:
                 content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
+                console.print(Markdown(content.get("content", str(content))))
             else:
                 console.print(result)
 
@@ -1864,8 +1881,8 @@ def challenge(ctx, statement, output_json):
 
 
 @cli.command()
-@click.argument('query', nargs=-1, required=True)
-@click.option('--json', 'output_json', is_flag=True, help='Output as JSON')
+@click.argument("query", nargs=-1, required=True)
+@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
 def apilookup(ctx, query, output_json):
     """Look up API documentation and usage examples
@@ -1879,7 +1896,7 @@ def apilookup(ctx, query, output_json):
         zen apilookup "react hooks API 2025"
     """
     # Join all query words into single prompt
-    full_query = ' '.join(query)
+    full_query = " ".join(query)
 
     # Build arguments matching LookupRequest schema
     arguments = {
@@ -1889,6 +1906,7 @@ def apilookup(ctx, query, output_json):
 
     try:
         from tools.apilookup import LookupTool
+
         result = asyncio.run(LookupTool().execute(arguments))
 
         if output_json:
@@ -1896,7 +1914,7 @@ def apilookup(ctx, query, output_json):
         else:
             if isinstance(result, list) and len(result) > 0:
                 content = json.loads(result[0].text)
-                console.print(Markdown(content.get('content', str(content))))
+                console.print(Markdown(content.get("content", str(content))))
             else:
                 console.print(result)
 
@@ -1905,5 +1923,5 @@ def apilookup(ctx, query, output_json):
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli(obj={})

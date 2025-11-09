@@ -265,17 +265,23 @@ class BaseTool(ABC):
         Returns:
             bool: True if we should require model selection
         """
-        # Case 1: Model is explicitly "auto"
+        # NOTE: Auto mode is now handled by _resolve_model_context() before this check.
+        # If "auto" reaches here, it indicates a code path that bypassed resolution.
         if model_name.lower() == "auto":
+            logger_instance = logging.getLogger(f"tools.{self.name}")
+            logger_instance.error(
+                f"Auto mode reached validation without resolution in {self.name} tool. "
+                "This indicates a code path that bypassed model resolution."
+            )
             return True
 
-        # Case 2: Requested model is not available
+        # Check if requested model is available
         from providers.registry import ModelProviderRegistry
 
         provider = ModelProviderRegistry.get_provider_for_model(model_name)
         if not provider:
-            logger = logging.getLogger(f"tools.{self.name}")
-            logger.warning(f"Model '{model_name}' is not available with current API keys. Requiring model selection.")
+            logger_instance = logging.getLogger(f"tools.{self.name}")
+            logger_instance.warning(f"Model '{model_name}' is not available with current API keys.")
             return True
 
         return False
@@ -1293,16 +1299,21 @@ When recommending searches, be specific about what information you need and why 
         Returns:
             bool: True if we should require model selection
         """
-        # Case 1: Model is explicitly "auto"
+        # NOTE: Auto mode is now handled by _resolve_model_context() before this check.
+        # If "auto" reaches here, it indicates a code path that bypassed resolution.
         if model_name.lower() == "auto":
+            logger.error(
+                f"Auto mode reached validation without resolution in {self.name} tool. "
+                "This indicates a code path that bypassed model resolution."
+            )
             return True
 
-        # Case 2: Requested model is not available
+        # Check if requested model is available
         from providers.registry import ModelProviderRegistry
 
         provider = ModelProviderRegistry.get_provider_for_model(model_name)
         if not provider:
-            logger.warning(f"Model '{model_name}' is not available with current API keys. Requiring model selection.")
+            logger.warning(f"Model '{model_name}' is not available with current API keys.")
             return True
 
         return False
@@ -1387,24 +1398,31 @@ When recommending searches, be specific about what information you need and why 
             model_name = resolved_model_name
             logger.debug(f"Using pre-resolved model '{model_name}' from MCP boundary")
         else:
-            # Fallback for direct execute calls
+            # Fallback for direct execute calls (CLI mode)
             model_name = getattr(request, "model", None)
             if not model_name:
                 from config import DEFAULT_MODEL
 
                 model_name = DEFAULT_MODEL
-            logger.debug(f"Using fallback model resolution for '{model_name}' (test mode)")
+            logger.debug(f"Using fallback model resolution for '{model_name}' (CLI mode)")
 
-            # For tests: Check if we should require model selection (auto mode)
+            # Handle auto mode: Intelligently select model based on tool category
+            if model_name.lower() == "auto":
+                tool_category = self.get_model_category()
+                from providers.registry import ModelProviderRegistry
+
+                model_name = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+                logger.info(
+                    f"Auto mode resolved to '{model_name}' for {self.get_name()} tool (category: {tool_category.value})"
+                )
+
+            # Check if model is available
             if self._should_require_model_selection(model_name):
-                # Build error message based on why selection is required
-                if model_name.lower() == "auto":
-                    error_message = self._build_auto_mode_required_message()
-                else:
-                    error_message = self._build_model_unavailable_message(model_name)
+                # Build error message for unavailable model
+                error_message = self._build_model_unavailable_message(model_name)
                 raise ValueError(error_message)
 
-            # Create model context for tests
+            # Create model context for CLI mode
             from utils.model_context import ModelContext
 
             model_context = ModelContext(model_name)

@@ -9,17 +9,18 @@ Tests the multi-backend storage system (File, Redis, Memory) to ensure:
 """
 
 import os
+import sys
 import tempfile
-import pytest
 import time
 from pathlib import Path
-import sys
 
-sys.path.insert(0, 'src')
+import pytest
 
-from zen_cli.utils.storage_base import StorageBackend, InMemoryStorage
+sys.path.insert(0, "src")
+
 from zen_cli.utils.file_storage import FileBasedStorage
 from zen_cli.utils.storage_backend import get_storage_backend
+from zen_cli.utils.storage_base import InMemoryStorage
 
 
 class TestInMemoryStorage:
@@ -27,7 +28,7 @@ class TestInMemoryStorage:
 
     def setup_method(self):
         """Setup for each test method"""
-        os.environ['ZEN_CLI_MODE'] = '1'  # Disable cleanup thread
+        os.environ["ZEN_CLI_MODE"] = "1"  # Disable cleanup thread
         self.storage = InMemoryStorage()
 
     def test_basic_operations(self):
@@ -124,7 +125,7 @@ class TestFileBasedStorage:
 
     def setup_method(self):
         """Setup for each test method"""
-        os.environ['ZEN_CLI_MODE'] = '1'  # Disable cleanup thread
+        os.environ["ZEN_CLI_MODE"] = "1"  # Disable cleanup thread
         # Create temporary directory for test storage
         self.temp_dir = tempfile.mkdtemp()
         self.storage = FileBasedStorage(storage_dir=self.temp_dir)
@@ -135,6 +136,7 @@ class TestFileBasedStorage:
         self.storage.shutdown()
         # Clean up temp directory
         import shutil
+
         shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     def test_basic_operations(self):
@@ -227,7 +229,7 @@ class TestFileBasedStorage:
         conversations_dir = Path(self.temp_dir) / "conversations"
         file_path = conversations_dir / f"{key}.json"
 
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             f.write("{ this is not valid json }")
 
         # Should handle corrupted file gracefully
@@ -240,18 +242,20 @@ class TestStorageBackendFactory:
 
     def setup_method(self):
         """Setup for each test"""
-        os.environ['ZEN_CLI_MODE'] = '1'
+        os.environ["ZEN_CLI_MODE"] = "1"
         # Reset singleton
         import zen_cli.utils.storage_backend as sb
+
         sb._storage_instance = None
 
     def teardown_method(self):
         """Cleanup after each test"""
         # Reset singleton
         import zen_cli.utils.storage_backend as sb
+
         sb._storage_instance = None
         # Remove environment variables
-        for key in ['ZEN_STORAGE_TYPE']:
+        for key in ["ZEN_STORAGE_TYPE"]:
             if key in os.environ:
                 del os.environ[key]
 
@@ -263,10 +267,11 @@ class TestStorageBackendFactory:
 
     def test_file_backend(self):
         """Test explicit file storage selection"""
-        os.environ['ZEN_STORAGE_TYPE'] = 'file'
+        os.environ["ZEN_STORAGE_TYPE"] = "file"
 
         # Reset singleton
         import zen_cli.utils.storage_backend as sb
+
         sb._storage_instance = None
 
         storage = get_storage_backend()
@@ -274,10 +279,11 @@ class TestStorageBackendFactory:
 
     def test_memory_backend(self):
         """Test memory storage selection"""
-        os.environ['ZEN_STORAGE_TYPE'] = 'memory'
+        os.environ["ZEN_STORAGE_TYPE"] = "memory"
 
         # Reset singleton
         import zen_cli.utils.storage_backend as sb
+
         sb._storage_instance = None
 
         storage = get_storage_backend()
@@ -293,10 +299,11 @@ class TestStorageBackendFactory:
 
     def test_fallback_on_unknown_type(self):
         """Test fallback to in-memory on unknown storage type"""
-        os.environ['ZEN_STORAGE_TYPE'] = 'unknown'
+        os.environ["ZEN_STORAGE_TYPE"] = "unknown"
 
         # Reset singleton
         import zen_cli.utils.storage_backend as sb
+
         sb._storage_instance = None
 
         storage = get_storage_backend()
@@ -311,6 +318,7 @@ class TestRedisStorage:
         """Setup for each test"""
         try:
             from zen_cli.utils.redis_storage import RedisStorage
+
             self.redis_available = True
             # Try to create Redis storage
             self.storage = RedisStorage()
@@ -320,7 +328,7 @@ class TestRedisStorage:
 
     def teardown_method(self):
         """Cleanup after each test"""
-        if self.redis_available and hasattr(self, 'storage'):
+        if self.redis_available and hasattr(self, "storage"):
             # Clean up test keys
             try:
                 keys = self.storage.list_keys("test_*")
@@ -370,5 +378,5 @@ class TestRedisStorage:
         self.storage.delete(key)
 
 
-if __name__ == '__main__':
-    pytest.main([__file__, '-v'])
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])
