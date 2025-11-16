@@ -157,10 +157,14 @@ For best results when using [Codex CLI](https://developers.openai.com/codex/cli)
 git clone https://github.com/BeehiveInnovations/zen-mcp-server.git
 cd zen-mcp-server
 
-# Handles everything: setup, config, API keys from system environment. 
+# Handles everything: setup, config, API keys from system environment.
 # Auto-configures Claude Desktop, Claude Code, Gemini CLI, Codex CLI, Qwen CLI
 # Enable / disable additional settings in .env
-./run-server.sh  
+./run-server.sh
+
+# To use the zen CLI tool, activate the virtual environment and install in editable mode
+source .zen_venv/bin/activate
+pip install -e .
 ```
 
 **Option B: Instant Setup with [uvx](https://docs.astral.sh/uv/getting-started/installation/)**
