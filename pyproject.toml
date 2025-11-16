@@ -24,7 +24,7 @@ redis = ["redis>=5.0.0"]
 cli = ["click>=8.1.0", "rich>=13.0.0", "redis>=5.0.0"]
 
 [tool.setuptools.packages.find]
-where = ["."]
+where = [".", "src"]
 include = ["tools*", "providers*", "systemprompts*", "utils*", "conf", "conf.*", "clink*", "zen_cli*"]
 
 [tool.setuptools]
