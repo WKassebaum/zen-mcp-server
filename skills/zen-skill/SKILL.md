@@ -64,6 +64,140 @@ zen chat "What is 2+2?" --model gemini-2.5-pro
 - **CLI**: Command-line flags, text output, works everywhere
 - **Both**: Same underlying functionality, same models, same quality
 
+## 📁 Installation Paths & Configuration
+
+### Zen CLI Installation
+
+**Primary installation paths:**
+- **Via pip/pipx**: `~/.local/bin/zen` (added to PATH)
+- **Via uvx**: Managed by uv, available system-wide
+- **Development**: `/path/to/zen-cli/.zen_venv/bin/zen`
+
+**Check installation:**
+```bash
+which zen                     # Show zen CLI path
+zen --version                 # Verify zen is installed
+zen listmodels                # Test zen functionality
+```
+
+### Configuration Files
+
+**Main configuration:**
+- `~/.zen/.env` - API keys and provider configuration
+  - Created by `./run-server.sh` or `zen setup` wizard
+  - Contains: ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, etc.
+  - Created automatically by setup wizard
+
+**View configuration:**
+```bash
+cat ~/.zen/.env              # View zen configuration
+ls -la ~/.zen/               # List zen config directory
+```
+
+### MCP Client Configuration Paths
+
+**Claude Desktop/Code:**
+- `~/.claude/settings.json` - MCP server configuration
+- `~/.claude/CLAUDE.md` - Global instructions and templates
+
+**Gemini CLI:**
+- `~/.gemini/settings.json` - MCP server and timeout configuration
+
+**Codex CLI:**
+- `~/.codex/config.toml` - MCP server configuration with per-server timeouts
+
+**Qwen CLI:**
+- `~/.qwen/settings.json` - MCP server configuration
+
+**OpenCode CLI:**
+- `~/.config/opencode/opencode.json` - MCP server configuration
+
+### Log Files
+
+**Server logs:**
+- `<zen-cli-root>/logs/mcp_server.log` - Main server log (all activity + debug)
+- `<zen-cli-root>/logs/mcp_activity.log` - Tool calls and completions only
+
+**View logs:**
+```bash
+# Real-time monitoring
+tail -f logs/mcp_server.log
+
+# Recent activity
+tail -n 100 logs/mcp_activity.log
+
+# Search for errors
+grep "ERROR" logs/mcp_server.log
+```
+
+### Virtual Environment
+
+**Development/MCP server:**
+- `.zen_venv/` - Python virtual environment for MCP server
+- `.zen_venv/bin/python` - Python interpreter for MCP server
+- `.zen_venv/bin/zen` - CLI when running from development directory
+
+**Verify virtual environment:**
+```bash
+source .zen_venv/bin/activate     # Activate venv
+which python                      # Should show .zen_venv/bin/python
+which zen                         # Check zen path
+deactivate                        # Exit venv
+```
+
+### Conversation Storage
+
+**Conversation persistence:**
+- `~/.zen/conversations/` - File-based conversation storage
+- Stores continuation_id data for multi-turn workflows
+- Automatic cleanup after 3-hour timeout
+
+### PATH Requirements
+
+**Ensure PATH includes:**
+- `/usr/local/bin` - Common binary location
+- `~/.local/bin` - pip/pipx install location
+- `/opt/homebrew/bin` - macOS Homebrew (ARM)
+
+**Check PATH:**
+```bash
+echo $PATH | tr ':' '\n'          # List PATH directories
+which zen                         # Verify zen is in PATH
+```
+
+### Setup Wizard
+
+**Interactive configuration:**
+```bash
+zen setup                         # Run interactive setup wizard
+```
+
+**The wizard will:**
+- Guide you through API key configuration
+- Create/update `~/.zen/.env` file
+- Mask existing keys for security
+- Allow individual key updates without re-entering all
+
+### Quick Setup Verification
+
+**Complete verification checklist:**
+```bash
+# 1. Check zen CLI is installed
+which zen
+
+# 2. Verify configuration exists
+cat ~/.zen/.env
+
+# 3. Test API connectivity
+zen listmodels
+
+# 4. Run simple test
+zen chat "test" --model auto
+
+# 5. Check logs if issues occur
+tail -n 50 logs/mcp_server.log
+```
+
 ## When to Use Zen
 
 ### Auto-Trigger Scenarios
