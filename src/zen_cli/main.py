@@ -227,7 +227,7 @@ def chat(ctx, message, model, files, output_json):
     arguments = {
         "prompt": message,
         "model": model,
-        "working_directory": os.getcwd(),
+        "working_directory_absolute_path": os.getcwd(),
     }
 
     # Add files if provided
