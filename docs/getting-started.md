@@ -426,55 +426,167 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 
 ### Via Standalone CLI
 
-**After installing with Method B** (clone and `pip install -e .`), you can use zen directly from the command line:
+Want to use `zen` directly from your terminal without MCP server integration? Follow this setup guide.
 
-**Configuration:**
+#### Prerequisites
+- **Python 3.10+**
+- **Git**
+- **API Keys** from at least one provider (see [API Keys Configuration](#api-keys-configuration) above)
+
+#### Installation Steps
+
+**1. Clone the Repository**
 ```bash
-# Activate virtual environment (if using Method B)
-source .zen_venv/bin/activate
-
-# Set up API keys (if not using .env)
-export GEMINI_API_KEY="your-key-here"
-export OPENAI_API_KEY="your-key-here"
+git clone https://github.com/BeehiveInnovations/zen-mcp-server.git
+cd zen-mcp-server
 ```
 
-**Basic Commands:**
+**2. Run Setup Script**
 ```bash
-# List available models
+# Sets up Python virtual environment, installs dependencies, creates .env file
+./run-server.sh
+```
+
+**3. Install CLI Tool**
+```bash
+# Activate virtual environment
+source .zen_venv/bin/activate
+
+# Install zen CLI in editable mode
+pip install -e .
+```
+
+**4. Verify Installation**
+```bash
+zen --version
+# Output: zen, version 9.1.3
+
+zen listmodels
+# Shows all available models across configured providers
+```
+
+#### Configuration
+
+Zen CLI reads API keys from these sources (in priority order):
+
+1. **System environment variables**
+   ```bash
+   export GEMINI_API_KEY="your-key-here"
+   export OPENAI_API_KEY="your-key-here"
+   export XAI_API_KEY="your-key-here"
+   ```
+
+2. **~/.zen/.env file** (created by `./run-server.sh`)
+   ```bash
+   # Edit this file to add your API keys
+   nano ~/.zen/.env
+   ```
+
+3. **.env file in current directory**
+   ```bash
+   # Project-specific API keys
+   cp .env.example .env
+   nano .env
+   ```
+
+#### Usage Examples
+
+```bash
+# List all available models
 zen listmodels
 
-# General consultation
-zen chat "What's the best approach for API design?" --model gemini-2.5-pro
+# Chat with AI
+zen chat "Explain REST API best practices" --model gemini-2.5-pro
 
-# Debugging
-zen debug "OAuth tokens not persisting after 1-2 minutes" \
+# Debug an issue
+zen debug "OAuth tokens expire after 2 minutes" \
   -f src/auth/oauth.py \
   -f src/middleware/session.py
 
-# Multi-model consensus
-zen consensus "Should we migrate to microservices?" \
+# Get multi-model consensus
+zen consensus "Should we migrate to microservices or stay monolithic?" \
   --models gemini-2.5-pro,gpt-5,o3 \
-  -f architecture.md
+  -f docs/architecture.md
 
 # Code review
 zen codereview -f src/*.py --review-type security
 
 # Architecture analysis
 zen analyze -f src/app.py --analysis-type architecture
+
+# Sequential task planning
+zen planner "Implement OAuth2 authentication with refresh tokens"
+
+# Pre-commit validation
+zen precommit -f src/*.py
+
+# Security audit
+zen secaudit -f src/api/*.py --focus auth
 ```
 
-**Get Help:**
+#### All Available Commands
+
 ```bash
-zen --help           # List all commands
-zen chat --help      # Get help for specific command
-zen listmodels       # Show configured models
+zen chat         # General AI consultation and brainstorming
+zen debug        # Systematic debugging with hypothesis testing
+zen consensus    # Multi-model consensus for complex decisions
+zen codereview   # Comprehensive code review with severity levels
+zen analyze      # Architecture and code analysis
+zen planner      # Sequential task planning for complex goals
+zen thinkdeep    # Extended reasoning mode for difficult problems
+zen refactor     # Code refactoring suggestions and improvements
+zen testgen      # Test generation with edge case coverage
+zen precommit    # Pre-commit validation and quality checks
+zen secaudit     # Security audit with OWASP analysis
+zen tracer       # Code execution flow tracing
+zen docgen       # Generate comprehensive documentation
+zen clink        # CLI-to-CLI bridge - spawn external AI CLIs
+zen apilookup    # Look up API documentation and usage
+zen challenge    # Challenge assumptions and explore alternatives
+zen listmodels   # List all available AI models
+zen --help       # Show full command reference
 ```
 
-**Configuration Sources** (in priority order):
-1. Command-line arguments (`--model gemini-2.5-pro`)
-2. Environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`)
-3. `~/.zen/.env` file (created by `./run-server.sh`)
-4. `.env` file in current directory
+#### Get Help
+
+```bash
+# General help
+zen --help
+
+# Command-specific help
+zen chat --help
+zen debug --help
+zen consensus --help
+```
+
+#### Troubleshooting
+
+**"zen: command not found"**
+```bash
+# Make sure virtual environment is activated
+source .zen_venv/bin/activate
+
+# Verify installation
+which zen
+# Should show: /path/to/zen-mcp-server/.zen_venv/bin/zen
+```
+
+**"No API keys configured"**
+```bash
+# Check if .env file exists and has keys
+cat ~/.zen/.env
+
+# Or set environment variables
+export GEMINI_API_KEY="your-key-here"
+```
+
+**"Model not available"**
+```bash
+# List configured models
+zen listmodels
+
+# Check provider status and available models
+```
 
 👉 **[Load zen-skill](../skills/zen-skill/SKILL.md)** via `Skill(skill="zen-skill")` in Claude Code for comprehensive CLI documentation
 
