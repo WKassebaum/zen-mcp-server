@@ -400,7 +400,7 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 
 ## Step 5: Start Using Zen
 
-### Basic Usage Patterns:
+### Via MCP (Claude Code, Cursor, IDE clients)
 
 **Let Claude pick the model:**
 ```
@@ -410,7 +410,7 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 ```
 
 **Specify the model:**
-```  
+```
 "Use zen with gemini pro to review this complex algorithm"
 "Debug with o3 using zen for logical analysis"
 "Get flash to quickly format this code via zen"
@@ -419,9 +419,63 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 **Multi-model workflows:**
 ```
 "Use zen to get consensus from pro and o3 on this architecture"
-"Code review with gemini, then precommit validation with o3"  
+"Code review with gemini, then precommit validation with o3"
 "Analyze with flash, then deep dive with pro if issues found"
 ```
+
+### Via Standalone CLI
+
+**After installing with Method B** (clone and `pip install -e .`), you can use zen directly from the command line:
+
+**Configuration:**
+```bash
+# Activate virtual environment (if using Method B)
+source .zen_venv/bin/activate
+
+# Set up API keys (if not using .env)
+export GEMINI_API_KEY="your-key-here"
+export OPENAI_API_KEY="your-key-here"
+```
+
+**Basic Commands:**
+```bash
+# List available models
+zen listmodels
+
+# General consultation
+zen chat "What's the best approach for API design?" --model gemini-2.5-pro
+
+# Debugging
+zen debug "OAuth tokens not persisting after 1-2 minutes" \
+  -f src/auth/oauth.py \
+  -f src/middleware/session.py
+
+# Multi-model consensus
+zen consensus "Should we migrate to microservices?" \
+  --models gemini-2.5-pro,gpt-5,o3 \
+  -f architecture.md
+
+# Code review
+zen codereview -f src/*.py --review-type security
+
+# Architecture analysis
+zen analyze -f src/app.py --analysis-type architecture
+```
+
+**Get Help:**
+```bash
+zen --help           # List all commands
+zen chat --help      # Get help for specific command
+zen listmodels       # Show configured models
+```
+
+**Configuration Sources** (in priority order):
+1. Command-line arguments (`--model gemini-2.5-pro`)
+2. Environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`)
+3. `~/.zen/.env` file (created by `./run-server.sh`)
+4. `.env` file in current directory
+
+👉 **[Load zen-skill](../skills/zen-skill/SKILL.md)** via `Skill(skill="zen-skill")` in Claude Code for comprehensive CLI documentation
 
 ### Quick Tool Reference:
 

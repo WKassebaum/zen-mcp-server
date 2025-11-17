@@ -188,6 +188,8 @@ pip install -e .
 ```
 
 **3. Start Using!**
+
+**Via MCP (in Claude Code, Cursor, etc.):**
 ```
 "Use zen to analyze this code for security issues with gemini pro"
 "Debug this error with o3 and then get flash to suggest optimizations"
@@ -195,8 +197,55 @@ pip install -e .
 "clink with cli_name=\"gemini\" role=\"planner\" to draft a phased rollout plan"
 ```
 
+**Via Standalone CLI:**
+```bash
+# After pip install -e . (from Option A above)
+zen listmodels                                    # Show available models
+zen chat "What's the best approach for API design?" --model gemini-2.5-pro
+zen debug "OAuth tokens not persisting" -f src/auth.py -f src/session.py
+zen consensus "Should we use Redis or PostgreSQL?" --models gemini-2.5-pro,gpt-5,o3
+zen codereview -f src/*.py --review-type security
+```
+
+**Available Commands:**
+```bash
+zen chat         # General AI consultation and brainstorming
+zen debug        # Systematic debugging with hypothesis testing
+zen consensus    # Multi-model consensus for complex decisions
+zen codereview   # Comprehensive code review
+zen analyze      # Architecture and code analysis
+zen planner      # Sequential task planning
+zen thinkdeep    # Extended reasoning mode
+zen refactor     # Code improvement suggestions
+zen testgen      # Test generation
+zen precommit    # Pre-commit validation
+zen secaudit     # Security audit
+zen tracer       # Code execution tracing
+zen clink        # Bridge to other CLI tools
+zen listmodels   # List available models
+zen --help       # Full command reference
+```
+
+**Configuration:**
+
+Zen CLI reads API keys from:
+1. System environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, etc.)
+2. `~/.zen/.env` file (created by `./run-server.sh`)
+3. `.env` file in current directory
+
+**Quick Start Example:**
+```bash
+# Set up API key
+export GEMINI_API_KEY="your-key-here"
+
+# Start using zen CLI
+zen chat "Explain microservices architecture" --model gemini-2.5-pro
+zen analyze -f src/app.py --analysis-type architecture
+```
+
 👉 **[Complete Setup Guide](docs/getting-started.md)** with detailed installation, configuration for Gemini / Codex / Qwen, and troubleshooting
 👉 **[Cursor & VS Code Setup](docs/getting-started.md#ide-clients)** for IDE integration instructions
+👉 **[Comprehensive CLI Documentation](skills/zen-skill/SKILL.md)** - Load via `Skill(skill="zen-skill")` in Claude Code for full CLI reference
 📺 **[Watch tools in action](#-watch-tools-in-action)** to see real-world examples
 
 **4. Integrate with Your CLAUDE.md (Optional but Recommended)**
