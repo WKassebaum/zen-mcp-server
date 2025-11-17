@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## Unreleased
+
+### Bug Fixes
+
+- **anthropic**: Enable streaming to prevent 10-minute timeout errors
+  - Anthropic API requires streaming for operations longer than 10 minutes
+  - Modified `AnthropicProvider.generate_content()` to use streaming API
+  - Uses `client.messages.stream()` context manager instead of `create()`
+  - Fixes timeout errors on long-running chat/debug/consensus operations
+  - No breaking changes - maintains same ModelResponse format
+  - Resolves issue where `zen chat` with sonnet-4.5 failed on prompts exceeding 10-minute execution time
+
 ## v9.1.3 (2025-10-22)
 
 ### Bug Fixes
