@@ -13,6 +13,13 @@
   - Fixes timeout errors on long-running chat/debug/consensus operations
   - No breaking changes - maintains same ModelResponse format
   - Resolves issue where `zen chat` with sonnet-4.5 failed on prompts exceeding 10-minute execution time
+  - **Tested successfully**: Long-running prompts now complete without timeout
+
+- **cli**: Fix zen chat parameter validation error
+  - CLI was passing `working_directory` but ChatTool expects `working_directory_absolute_path`
+  - Fixed parameter name mismatch in `src/zen_cli/main.py` line 230
+  - Resolves "Field required" validation error when running `zen chat` commands
+  - Discovered during streaming implementation testing
 
 ## v9.1.3 (2025-10-22)
 
