@@ -35,6 +35,14 @@ readonly DESKTOP_CONFIG_FLAG=".desktop_configured"
 readonly LOG_DIR="logs"
 readonly LOG_FILE="mcp_server.log"
 
+# Determine portable arguments for sed -i (GNU vs BSD)
+declare -a SED_INPLACE_ARGS
+if sed --version >/dev/null 2>&1; then
+    SED_INPLACE_ARGS=(-i)
+else
+    SED_INPLACE_ARGS=(-i "")
+fi
+
 # ----------------------------------------------------------------------------
 # Utility Functions
 # ----------------------------------------------------------------------------
@@ -1057,14 +1065,6 @@ setup_env_file() {
     cp .env.example .env
     print_success "Created .env from .env.example"
 
-    # Detect sed version for cross-platform compatibility
-    local sed_cmd
-    if sed --version >/dev/null 2>&1; then
-        sed_cmd="sed -i"  # GNU sed (Linux)
-    else
-        sed_cmd="sed -i ''"  # BSD sed (macOS)
-    fi
-
     # Update API keys from environment if present
     local api_keys=(
         "GEMINI_API_KEY:your_gemini_api_key_here"
@@ -1080,7 +1080,7 @@ setup_env_file() {
         local key_value="${!key_name:-}"
 
         if [[ -n "$key_value" ]]; then
-            $sed_cmd "s/$placeholder/$key_value/" .env
+            sed "${SED_INPLACE_ARGS[@]}" "s/$placeholder/$key_value/" .env
             print_success "Updated .env with $key_name from environment"
         fi
     done
@@ -1100,16 +1100,8 @@ migrate_env_file() {
     # Create backup
     cp .env .env.backup_$(date +%Y%m%d_%H%M%S)
 
-    # Detect sed version for cross-platform compatibility
-    local sed_cmd
-    if sed --version >/dev/null 2>&1; then
-        sed_cmd="sed -i"  # GNU sed (Linux)
-    else
-        sed_cmd="sed -i ''"  # BSD sed (macOS)
-    fi
-
     # Replace host.docker.internal with localhost
-    $sed_cmd 's/host\.docker\.internal/localhost/g' .env
+    sed "${SED_INPLACE_ARGS[@]}" 's/host\.docker\.internal/localhost/g' .env
 
     print_success "Migrated Docker URLs to localhost in .env"
     echo "  (Backup saved as .env.backup_*)"
@@ -1789,6 +1781,7 @@ check_codex_cli_integration() {
         echo "[mcp_servers.zen]"
         echo "command = \"bash\""
         echo "args = [\"-c\", \"for p in \$(which uvx 2>/dev/null) \$HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \\\"\$p\\\" ] && exec \\\"\$p\\\" --from git+https://github.com/BeehiveInnovations/zen-mcp-server.git zen-mcp-server; done; echo 'uvx not found' >&2; exit 1\"]"
+        echo "tool_timeout_sec = 1200"
         echo ""
         echo "[mcp_servers.zen.env]"
         echo "PATH = \"/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin\""
@@ -1871,10 +1864,11 @@ PY
         
         # Generate example with actual environment variables for error case
         env_vars=$(parse_env_variables)
-        cat << EOF
+cat << EOF
 [mcp_servers.zen]
 command = "sh"
 args = ["-c", "exec \$(which uvx 2>/dev/null || echo uvx) --from git+https://github.com/BeehiveInnovations/zen-mcp-server.git zen-mcp-server"]
+tool_timeout_sec = 1200
 
 [mcp_servers.zen.env]
 PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin"
@@ -2632,5 +2626,6 @@ main() {
 # Script Entry Point
 # ----------------------------------------------------------------------------
 
-# Run main function with all arguments
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi

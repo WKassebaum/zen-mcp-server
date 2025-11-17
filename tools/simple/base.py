@@ -3,7 +3,7 @@ Base class for simple MCP tools.
 
 Simple tools follow a straightforward pattern:
 1. Receive request
-2. Prepare prompt (with files, context, etc.)
+2. Prepare prompt (with absolute file paths, context, etc.)
 3. Call AI model
 4. Format and return response
 
@@ -17,6 +17,7 @@ from typing import Any, Optional
 
 from tools.shared.base_models import ToolRequest
 from tools.shared.base_tool import BaseTool
+from tools.shared.exceptions import ToolExecutionError
 from tools.shared.schema_builders import SchemaBuilder
 
 
@@ -49,7 +50,7 @@ class SimpleTool(BaseTool):
                         "type": "string",
                         "description": "Your question or idea...",
                     },
-                    "files": SimpleTool.FILES_FIELD,
+                    "absolute_file_paths": SimpleTool.FILES_FIELD,
                 }
 
             def get_required_fields(self) -> List[str]:
@@ -57,7 +58,7 @@ class SimpleTool(BaseTool):
     """
 
     # Common field definitions that simple tools can reuse
-    FILES_FIELD = SchemaBuilder.SIMPLE_FIELD_SCHEMAS["files"]
+    FILES_FIELD = SchemaBuilder.SIMPLE_FIELD_SCHEMAS["absolute_file_paths"]
     IMAGES_FIELD = SchemaBuilder.COMMON_FIELD_SCHEMAS["images"]
 
     @abstractmethod
@@ -78,7 +79,7 @@ class SimpleTool(BaseTool):
                     "type": "string",
                     "description": "The user's question or request",
                 },
-                "files": SimpleTool.FILES_FIELD,  # Reuse common field
+                "absolute_file_paths": SimpleTool.FILES_FIELD,  # Reuse common field
                 "max_tokens": {
                     "type": "integer",
                     "minimum": 1,
@@ -229,11 +230,14 @@ class SimpleTool(BaseTool):
             return None
 
     def get_request_files(self, request) -> list:
-        """Get files from request. Override for custom file handling."""
+        """Get absolute file paths from request. Override for custom file handling."""
         try:
-            return request.files if request.files is not None else []
+            files = request.absolute_file_paths
         except AttributeError:
+            files = None
+        if files is None:
             return []
+        return files
 
     def get_request_as_dict(self, request) -> dict:
         """Convert request to dictionary. Override for custom serialization."""
@@ -249,11 +253,10 @@ class SimpleTool(BaseTool):
                 return {"prompt": self.get_request_prompt(request)}
 
     def set_request_files(self, request, files: list) -> None:
-        """Set files on request. Override for custom file setting."""
+        """Set absolute file paths on request. Override for custom file setting."""
         try:
-            request.files = files
+            request.absolute_file_paths = files
         except AttributeError:
-            # If request doesn't support file setting, ignore silently
             pass
 
     def get_actually_processed_files(self) -> list:
@@ -269,7 +272,6 @@ class SimpleTool(BaseTool):
 
         This method replicates the proven execution pattern while using SimpleTool hooks.
         """
-        import json
         import logging
 
         from mcp.types import TextContent
@@ -298,7 +300,8 @@ class SimpleTool(BaseTool):
                     content=path_error,
                     content_type="text",
                 )
-                return [TextContent(type="text", text=error_output.model_dump_json())]
+                logger.error("Path validation failed for %s: %s", self.get_name(), path_error)
+                raise ToolExecutionError(error_output.model_dump_json())
 
             # Use centralized model resolution from base_tool.py
             # This handles auto mode intelligently based on tool category
@@ -377,7 +380,15 @@ class SimpleTool(BaseTool):
                     images, model_context=self._model_context, continuation_id=continuation_id
                 )
                 if image_validation_error:
-                    return [TextContent(type="text", text=json.dumps(image_validation_error, ensure_ascii=False))]
+                    error_output = ToolOutput(
+                        status=image_validation_error.get("status", "error"),
+                        content=image_validation_error.get("content"),
+                        content_type=image_validation_error.get("content_type", "text"),
+                        metadata=image_validation_error.get("metadata"),
+                    )
+                    payload = error_output.model_dump_json()
+                    logger.error("Image validation failed for %s: %s", self.get_name(), payload)
+                    raise ToolExecutionError(payload)
 
             # Get and validate temperature against model constraints
             temperature, temp_warnings = self.get_validated_temperature(request, self._model_context)
@@ -540,15 +551,21 @@ class SimpleTool(BaseTool):
                             content_type="text",
                         )
 
-            # Return the tool output as TextContent
-            return [TextContent(type="text", text=tool_output.model_dump_json())]
+            # Return the tool output as TextContent, marking protocol errors appropriately
+            payload = tool_output.model_dump_json()
+            if tool_output.status == "error":
+                logger.error("%s reported error status - raising ToolExecutionError", self.get_name())
+                raise ToolExecutionError(payload)
+            return [TextContent(type="text", text=payload)]
 
+        except ToolExecutionError:
+            raise
         except Exception as e:
             # Special handling for MCP size check errors
             if str(e).startswith("MCP_SIZE_CHECK:"):
                 # Extract the JSON content after the prefix
                 json_content = str(e)[len("MCP_SIZE_CHECK:") :]
-                return [TextContent(type="text", text=json_content)]
+                raise ToolExecutionError(json_content)
 
             logger.error(f"Error in {self.get_name()}: {str(e)}")
             error_output = ToolOutput(
@@ -556,7 +573,7 @@ class SimpleTool(BaseTool):
                 content=f"Error in {self.get_name()}: {str(e)}",
                 content_type="text",
             )
-            return [TextContent(type="text", text=error_output.model_dump_json())]
+            raise ToolExecutionError(error_output.model_dump_json()) from e
 
     def _parse_response(self, raw_text: str, request, model_info: Optional[dict] = None):
         """
@@ -855,7 +872,7 @@ Please provide a thoughtful, comprehensive response:"""
         Raises:
             ValueError: If prompt is too large for MCP transport
         """
-        # Check for prompt.txt in files
+        # Check for prompt.txt in provided absolute file paths
         files = self.get_request_files(request)
         if files:
             prompt_content, updated_files = self.handle_prompt_file(files)
@@ -923,7 +940,7 @@ Please provide a thoughtful, comprehensive response:"""
         """
         import os
 
-        # Check if request has 'files' attribute (used by most tools)
+        # Check if request has absolute file paths attribute (legacy tools may still provide 'files')
         files = self.get_request_files(request)
         if files:
             for file_path in files:

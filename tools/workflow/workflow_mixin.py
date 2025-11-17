@@ -33,6 +33,7 @@ from config import MCP_PROMPT_SIZE_LIMIT
 from utils.conversation_memory import add_turn, create_thread
 
 from ..shared.base_models import ConsolidatedFindings
+from ..shared.exceptions import ToolExecutionError
 
 logger = logging.getLogger(__name__)
 
@@ -645,7 +646,8 @@ class BaseWorkflowMixin(ABC):
                         content=path_error,
                         content_type="text",
                     )
-                    return [TextContent(type="text", text=error_output.model_dump_json())]
+                    logger.error("Path validation failed for %s: %s", self.get_name(), path_error)
+                    raise ToolExecutionError(error_output.model_dump_json())
             except AttributeError:
                 # validate_file_paths method not available - skip validation
                 pass
@@ -699,11 +701,6 @@ class BaseWorkflowMixin(ABC):
                 # Allow tools to store initial description for expert analysis
                 self.store_initial_issue(request.step)
 
-            # Handle backtracking if requested
-            backtrack_step = self.get_backtrack_step(request)
-            if backtrack_step:
-                self._handle_backtracking(backtrack_step)
-
             # Process work step - allow tools to customize field mapping
             step_data = self.prepare_step_data(request)
 
@@ -738,7 +735,13 @@ class BaseWorkflowMixin(ABC):
 
             return [TextContent(type="text", text=json.dumps(response_data, indent=2, ensure_ascii=False))]
 
+        except ToolExecutionError:
+            raise
         except Exception as e:
+            if str(e).startswith("MCP_SIZE_CHECK:"):
+                payload = str(e)[len("MCP_SIZE_CHECK:") :]
+                raise ToolExecutionError(payload)
+
             logger.error(f"Error in {self.get_name()} work: {e}", exc_info=True)
             error_data = {
                 "status": f"{self.get_name()}_failed",
@@ -749,7 +752,7 @@ class BaseWorkflowMixin(ABC):
             # Add metadata to error responses too
             self._add_workflow_metadata(error_data, arguments)
 
-            return [TextContent(type="text", text=json.dumps(error_data, indent=2, ensure_ascii=False))]
+            raise ToolExecutionError(json.dumps(error_data, indent=2, ensure_ascii=False)) from e
 
     # Hook methods for tool customization
 
@@ -983,13 +986,6 @@ class BaseWorkflowMixin(ABC):
             return self._current_arguments or {}
         except AttributeError:
             return {}
-
-    def get_backtrack_step(self, request) -> Optional[int]:
-        """Get backtrack step from request. Override for custom backtrack handling."""
-        try:
-            return request.backtrack_from_step
-        except AttributeError:
-            return None
 
     def store_initial_issue(self, step_description: str):
         """Store initial issue description. Override for custom storage."""
@@ -1370,13 +1366,6 @@ class BaseWorkflowMixin(ABC):
 
         return response_data
 
-    def _handle_backtracking(self, backtrack_step: int):
-        """Handle backtracking to a previous step"""
-        # Remove findings after the backtrack point
-        self.work_history = [s for s in self.work_history if s["step_number"] < backtrack_step]
-        # Reprocess consolidated findings
-        self._reprocess_consolidated_findings()
-
     def _update_consolidated_findings(self, step_data: dict):
         """Update consolidated findings with new step data"""
         self.consolidated_findings.files_checked.update(step_data.get("files_checked", []))
@@ -1577,11 +1566,13 @@ class BaseWorkflowMixin(ABC):
                 error_data = {"status": "error", "content": "No arguments provided"}
                 # Add basic metadata even for validation errors
                 error_data["metadata"] = {"tool_name": self.get_name()}
-                return [TextContent(type="text", text=json.dumps(error_data, ensure_ascii=False))]
+                raise ToolExecutionError(json.dumps(error_data, ensure_ascii=False))
 
             # Delegate to execute_workflow
             return await self.execute_workflow(arguments)
 
+        except ToolExecutionError:
+            raise
         except Exception as e:
             logger.error(f"Error in {self.get_name()} tool execution: {e}", exc_info=True)
             error_data = {
@@ -1589,12 +1580,7 @@ class BaseWorkflowMixin(ABC):
                 "content": f"Error in {self.get_name()}: {str(e)}",
             }  # Add metadata to error responses
             self._add_workflow_metadata(error_data, arguments)
-            return [
-                TextContent(
-                    type="text",
-                    text=json.dumps(error_data, ensure_ascii=False),
-                )
-            ]
+            raise ToolExecutionError(json.dumps(error_data, ensure_ascii=False)) from e
 
     # Default implementations for methods that workflow-based tools typically don't need
 

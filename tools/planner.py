@@ -83,7 +83,6 @@ class PlannerRequest(WorkflowRequest):
     issues_found: list[dict] = Field(default_factory=list, exclude=True, description="Planning doesn't find issues")
     confidence: str = Field(default="planning", exclude=True, description="Planning uses different confidence model")
     hypothesis: str | None = Field(default=None, exclude=True, description="Planning doesn't use hypothesis")
-    backtrack_from_step: int | None = Field(default=None, exclude=True, description="Planning uses revision instead")
 
     # Exclude other non-planning fields
     temperature: float | None = Field(default=None, exclude=True)
@@ -211,14 +210,13 @@ class PlannerTool(WorkflowTool):
             "issues_found",  # Planning doesn't find issues
             "confidence",  # Planning uses different confidence model
             "hypothesis",  # Planning doesn't use hypothesis
-            "backtrack_from_step",  # Planning uses revision instead
         ]
 
         excluded_common_fields = [
             "temperature",  # Planning doesn't need temperature control
             "thinking_mode",  # Planning doesn't need thinking mode
             "images",  # Planning doesn't use images
-            "files",  # Planning doesn't use files
+            "absolute_file_paths",  # Planning doesn't use file attachments
         ]
 
         # Build schema with proper field exclusion (following consensus pattern)

@@ -27,13 +27,14 @@ from .simple.base import SimpleTool
 # Field descriptions matching the original Chat tool exactly
 CHAT_FIELD_DESCRIPTIONS = {
     "prompt": (
-        "Your question or idea for collaborative thinking. Provide detailed context, including your goal, what you've tried, and any specific challenges. "
-        "CRITICAL: To discuss code, use 'files' parameter instead of pasting code blocks here."
+        "Your question or idea for collaborative thinking to be sent to the external model. Provide detailed context, "
+        "including your goal, what you've tried, and any specific challenges. "
+        "WARNING: Large inline code must NOT be shared in prompt. Provide full-path to files on disk as separate parameter."
     ),
-    "files": "absolute file or folder paths for code context (do NOT shorten).",
-    "images": "Optional absolute image paths or base64 for visual context when helpful.",
-    "working_directory": (
-        "Absolute full directory path where the assistant AI can save generated code for implementation. The directory must already exist"
+    "absolute_file_paths": ("Full, absolute file paths to relevant code in order to share with external model"),
+    "images": "Image paths (absolute) or base64 strings for optional visual context.",
+    "working_directory_absolute_path": (
+        "Absolute path to an existing directory where generated code artifacts can be saved."
     ),
 }
 
@@ -42,9 +43,15 @@ class ChatRequest(ToolRequest):
     """Request model for Chat tool"""
 
     prompt: str = Field(..., description=CHAT_FIELD_DESCRIPTIONS["prompt"])
-    files: Optional[list[str]] = Field(default_factory=list, description=CHAT_FIELD_DESCRIPTIONS["files"])
+    absolute_file_paths: Optional[list[str]] = Field(
+        default_factory=list,
+        description=CHAT_FIELD_DESCRIPTIONS["absolute_file_paths"],
+    )
     images: Optional[list[str]] = Field(default_factory=list, description=CHAT_FIELD_DESCRIPTIONS["images"])
-    working_directory: str = Field(..., description=CHAT_FIELD_DESCRIPTIONS["working_directory"])
+    working_directory_absolute_path: str = Field(
+        ...,
+        description=CHAT_FIELD_DESCRIPTIONS["working_directory_absolute_path"],
+    )
 
 
 class ChatTool(SimpleTool):
@@ -98,18 +105,12 @@ class ChatTool(SimpleTool):
         """Return the Chat-specific request model"""
         return ChatRequest
 
-    # === Schema Generation ===
-    # For maximum compatibility, we override get_input_schema() to match the original Chat tool exactly
+    # === Schema Generation Utilities ===
 
     def get_input_schema(self) -> dict[str, Any]:
-        """
-        Generate input schema matching the original Chat tool exactly.
+        """Generate input schema matching the original Chat tool expectations."""
 
-        This maintains 100% compatibility with the original Chat tool by using
-        the same schema generation approach while still benefiting from SimpleTool
-        convenience methods.
-        """
-        required_fields = ["prompt", "working_directory"]
+        required_fields = ["prompt", "working_directory_absolute_path"]
         if self.is_effective_auto_mode():
             required_fields.append("model")
 
@@ -120,19 +121,19 @@ class ChatTool(SimpleTool):
                     "type": "string",
                     "description": CHAT_FIELD_DESCRIPTIONS["prompt"],
                 },
-                "files": {
+                "absolute_file_paths": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": CHAT_FIELD_DESCRIPTIONS["files"],
+                    "description": CHAT_FIELD_DESCRIPTIONS["absolute_file_paths"],
                 },
                 "images": {
                     "type": "array",
                     "items": {"type": "string"},
                     "description": CHAT_FIELD_DESCRIPTIONS["images"],
                 },
-                "working_directory": {
+                "working_directory_absolute_path": {
                     "type": "string",
-                    "description": CHAT_FIELD_DESCRIPTIONS["working_directory"],
+                    "description": CHAT_FIELD_DESCRIPTIONS["working_directory_absolute_path"],
                 },
                 "model": self.get_model_field_schema(),
                 "temperature": {
@@ -152,42 +153,38 @@ class ChatTool(SimpleTool):
                 },
             },
             "required": required_fields,
+            "additionalProperties": False,
         }
 
         return schema
 
-    # === Tool-specific field definitions (alternative approach for reference) ===
-    # These aren't used since we override get_input_schema(), but they show how
-    # the tool could be implemented using the automatic SimpleTool schema building
-
     def get_tool_fields(self) -> dict[str, dict[str, Any]]:
-        """
-        Tool-specific field definitions for ChatSimple.
+        """Tool-specific field definitions used by SimpleTool scaffolding."""
 
-        Note: This method isn't used since we override get_input_schema() for
-        exact compatibility, but it demonstrates how ChatSimple could be
-        implemented using automatic schema building.
-        """
         return {
             "prompt": {
                 "type": "string",
                 "description": CHAT_FIELD_DESCRIPTIONS["prompt"],
             },
-            "files": {
+            "absolute_file_paths": {
                 "type": "array",
                 "items": {"type": "string"},
-                "description": CHAT_FIELD_DESCRIPTIONS["files"],
+                "description": CHAT_FIELD_DESCRIPTIONS["absolute_file_paths"],
             },
             "images": {
                 "type": "array",
                 "items": {"type": "string"},
                 "description": CHAT_FIELD_DESCRIPTIONS["images"],
             },
+            "working_directory_absolute_path": {
+                "type": "string",
+                "description": CHAT_FIELD_DESCRIPTIONS["working_directory_absolute_path"],
+            },
         }
 
     def get_required_fields(self) -> list[str]:
         """Required fields for ChatSimple tool"""
-        return ["prompt", "working_directory"]
+        return ["prompt", "working_directory_absolute_path"]
 
     # === Hook Method Implementations ===
 
@@ -204,16 +201,34 @@ class ChatTool(SimpleTool):
     def _validate_file_paths(self, request) -> Optional[str]:
         """Extend validation to cover the working directory path."""
 
+        files = self.get_request_files(request)
+        if files:
+            expanded_files: list[str] = []
+            for file_path in files:
+                expanded = os.path.expanduser(file_path)
+                if not os.path.isabs(expanded):
+                    return (
+                        "Error: All file paths must be FULL absolute paths to real files / folders - DO NOT SHORTEN. "
+                        f"Received: {file_path}"
+                    )
+                expanded_files.append(expanded)
+            self.set_request_files(request, expanded_files)
+
         error = super()._validate_file_paths(request)
         if error:
             return error
 
-        working_directory = getattr(request, "working_directory", None)
+        working_directory = request.working_directory_absolute_path
         if working_directory:
             expanded = os.path.expanduser(working_directory)
             if not os.path.isabs(expanded):
                 return (
-                    "Error: 'working_directory' must be an absolute path (you may use '~' which will be expanded). "
+                    "Error: 'working_directory_absolute_path' must be an absolute path (you may use '~' which will be expanded). "
+                    f"Received: {working_directory}"
+                )
+            if not os.path.isdir(expanded):
+                return (
+                    "Error: 'working_directory_absolute_path' must reference an existing directory. "
                     f"Received: {working_directory}"
                 )
         return None
@@ -227,26 +242,42 @@ class ChatTool(SimpleTool):
         recordable_override: Optional[str] = None
 
         if self._model_supports_code_generation():
-            block, remainder = self._extract_generated_code_block(response)
+            block, remainder, _ = self._extract_generated_code_block(response)
             if block:
                 sanitized_text = remainder.strip()
+                target_directory = request.working_directory_absolute_path
                 try:
-                    artifact_path = self._persist_generated_code_block(block, request.working_directory)
+                    artifact_path = self._persist_generated_code_block(block, target_directory)
                 except Exception as exc:  # pragma: no cover - rare filesystem failures
                     logger.error("Failed to persist generated code block: %s", exc, exc_info=True)
                     warning = (
-                        f"WARNING: Unable to write zen_generated.code inside '{request.working_directory}'. "
+                        f"WARNING: Unable to write zen_generated.code inside '{target_directory}'. "
                         "Check the path permissions and re-run. The generated code block is included below for manual handling."
                     )
 
-                    history_copy = self._join_sections(sanitized_text, warning) if sanitized_text else warning
+                    history_copy_base = sanitized_text
+                    history_copy = self._join_sections(history_copy_base, warning) if history_copy_base else warning
                     recordable_override = history_copy
 
                     sanitized_warning = history_copy.strip()
                     body = f"{sanitized_warning}\n\n{block.strip()}".strip()
                 else:
                     if not sanitized_text:
-                        sanitized_text = "Generated code saved to zen_generated.code. Follow the structured instructions in that file exactly before continuing."
+                        base_message = (
+                            "Generated code saved to zen_generated.code.\n"
+                            "\n"
+                            "CRITICAL: Contains mixed instructions + partial snippets - NOT complete code to copy as-is!\n"
+                            "\n"
+                            "You MUST:\n"
+                            "  1. Read as a proposal from partial context - you may need to read the file in sections\n"
+                            "  2. Implement ideas using YOUR complete codebase context and understanding\n"
+                            "  3. Never paste wholesale - snippets may be partial with missing lines, pasting will corrupt your code!\n"
+                            "  4. Adapt to fit your actual structure and style\n"
+                            "  5. Build/lint/test after implementation to verify correctness\n"
+                            "\n"
+                            "Treat as guidance to implement thoughtfully, not ready-to-paste code."
+                        )
+                        sanitized_text = base_message
 
                     instruction = self._build_agent_instruction(artifact_path)
                     body = self._join_sections(sanitized_text, instruction)
@@ -287,26 +318,26 @@ class ChatTool(SimpleTool):
 
         return bool(capabilities.allow_code_generation)
 
-    def _extract_generated_code_block(self, text: str) -> tuple[Optional[str], str]:
-        match = re.search(r"<GENERATED-CODE>.*?</GENERATED-CODE>", text, flags=re.DOTALL | re.IGNORECASE)
-        if not match:
-            return None, text
+    def _extract_generated_code_block(self, text: str) -> tuple[Optional[str], str, int]:
+        matches = list(re.finditer(r"<GENERATED-CODE>.*?</GENERATED-CODE>", text, flags=re.DOTALL | re.IGNORECASE))
+        if not matches:
+            return None, text, 0
 
-        block = match.group(0)
-        before = text[: match.start()].rstrip()
-        after = text[match.end() :].lstrip()
+        last_match = matches[-1]
+        block = last_match.group(0).strip()
 
-        if before and after:
-            remainder = f"{before}\n\n{after}"
-        else:
-            remainder = before or after
+        # Merge the text before and after the final block while trimming excess whitespace
+        before = text[: last_match.start()]
+        after = text[last_match.end() :]
+        remainder = self._join_sections(before, after)
 
-        return block, remainder or ""
+        return block, remainder, len(matches)
 
     def _persist_generated_code_block(self, block: str, working_directory: str) -> Path:
         expanded = os.path.expanduser(working_directory)
         target_dir = Path(expanded).resolve()
-        target_dir.mkdir(parents=True, exist_ok=True)
+        if not target_dir.is_dir():
+            raise FileNotFoundError(f"Absolute working directory path '{working_directory}' does not exist")
 
         target_file = target_dir / "zen_generated.code"
         if target_file.exists():
@@ -323,26 +354,19 @@ class ChatTool(SimpleTool):
     @staticmethod
     def _build_agent_instruction(artifact_path: Path) -> str:
         return (
-            f"CONTINUING FROM PREVIOUS DISCUSSION: The coding assistant has analyzed our conversation context and generated "
-            f"a structured implementation plan at `{artifact_path}`. This is a direct continuation of our discussion—all previous "
-            "context, requirements, and shared code remain relevant.\n"
+            f"CONTINUING FROM PREVIOUS DISCUSSION: Implementation plan saved to `{artifact_path}`.\n"
             "\n"
-            f"MANDATORY NEXT STEP: Open `{artifact_path}` immediately and review the implementation plan:\n"
-            "1. Read the step-by-step instructions—they reference our previous discussion. You may need to read the file in parts if it's too long.\n"
-            "2. Review each <NEWFILE:…> or <UPDATED_EXISTING_FILE:…> section in the context of what we've discussed\n"
-            "3. Verify the proposed changes align with the requirements and code we've already shared\n"
-            "4. Check for syntax errors, missing imports, or incomplete implementations\n"
+            f"CRITICAL WARNING: `{artifact_path}` may contain partial code snippets from another AI with limited context. "
+            "Wholesale copy-pasting MAY CORRUPT your codebase with incomplete logic and missing lines.\n"
             "\n"
-            "Then systematically apply the changes:\n"
-            "- Create new files or update existing ones as instructed, maintaining code style consistency\n"
-            "- If updating existing code we discussed earlier, carefully preserve unmodified sections\n"
-            "- Run syntax validation after each modification\n"
-            "- Execute relevant tests to confirm functionality\n"
-            "- Verify the implementation works end-to-end with existing code\n"
+            "Required workflow:\n"
+            "1. For <UPDATED_EXISTING_FILE:...> blocks: Partial excerpts only. Understand the intent and implement using YOUR full context. "
+            "DO NOT copy wholesale - adapt ideas to fit actual structure.\n"
+            "2. For <NEWFILE:...> blocks: Understand proposal and create properly. Verify completeness (imports, syntax, logic).\n"
+            "3. Validation: After ALL changes, verify correctness using available tools (build/compile, linters, tests, type checks, etc.).\n"
+            f"4. Cleanup: After you're done reading and applying changes, delete `{artifact_path}` once verified to prevent stale instructions.\n"
             "\n"
-            "Remember: This builds upon our conversation. The generated code reflects the full context of what we've discussed, "
-            "including any files, requirements, or constraints mentioned earlier. Proceed with implementation immediately."
-            "Only after you finish applying ALL the changes completely: delete `zen_generated.code` so stale instructions do not linger."
+            "Treat this as a patch-set requiring manual integration, not ready-to-paste code. You have full codebase context - use it."
         )
 
     @staticmethod

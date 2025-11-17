@@ -2,6 +2,126 @@
 
 <!-- version list -->
 
+## v9.1.3 (2025-10-22)
+
+### Bug Fixes
+
+- Reduced token usage, removed parameters from schema that CLIs never seem to use
+  ([`3e27319`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/3e27319e60b0287df918856b58b2bbf042c948a8))
+
+- Telemetry option no longer available in gemini 0.11
+  ([`2a8dff0`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/2a8dff0cc8a3f33111533cdb971d654637ed0578))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`9e163f9`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/9e163f9dc0654fc28961c9897b7c787a2b96e57d))
+
+- Sync version to config.py [skip ci]
+  ([`557e443`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/557e443a63ffd733fb41faaa8696f6f4bb2c2fd1))
+
+### Refactoring
+
+- Improved precommit system prompt
+  ([`3efff60`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/3efff6056e322ee1531d7bed5601038c129a8b29))
+
+
+## v9.1.2 (2025-10-21)
+
+### Bug Fixes
+
+- Configure codex with a longer timeout
+  ([`d2773f4`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/d2773f488af28986632846652874de9ff633049c))
+
+- Handle claude's array style JSON https://github.com/BeehiveInnovations/zen-mcp-server/issues/295
+  ([`d5790a9`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/d5790a9bfef719f03d17f2d719f1882e55d13b3b))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`04132f1`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/04132f1459f1e086afd8e3d456f671b63338f846))
+
+
+## v9.1.1 (2025-10-17)
+
+### Bug Fixes
+
+- Failing test
+  ([`aed3e3e`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/aed3e3ee80c440ac8ab0d4abbf235b84df723d18))
+
+- Handler for parsing multiple generated code blocks
+  ([`f4c20d2`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/f4c20d2a20e1c57d8b10e8f508e07e2a8d72f94a))
+
+- Improved error reporting; codex cli would at times fail to figure out how to handle plain-text /
+  JSON errors
+  ([`95e69a7`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/95e69a7cb234305dcd37dcdd2f22be715922e9a8))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`942757a`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/942757a360a74c021b2a1aa63e394f18f5abcecd))
+
+
+## v9.1.0 (2025-10-17)
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`3ee0c8f`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/3ee0c8f555cb51b975700290919c2a8e2ada8cc4))
+
+### Features
+
+- Enhance review prompts to emphasize static analysis
+  ([`36e66e2`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/36e66e2e9a44a73a466545d4d3477ecb2cb3e669))
+
+
+## v9.0.4 (2025-10-17)
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`8c6f653`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/8c6f6532d843f7f1b283ce9b6472e5ba991efe16))
+
+
+## v9.0.3 (2025-10-16)
+
+### Bug Fixes
+
+- Remove duplicate -o json flag in gemini CLI config
+  ([`3b2eff5`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/3b2eff58ac0e2388045a7442c63f56ce259b54ba))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`b205d71`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/b205d7159b674ce47ebc11af7255d1e3556fff93))
+
+
+## v9.0.2 (2025-10-15)
+
+### Bug Fixes
+
+- Update Claude CLI commands to new mcp syntax
+  ([`a2189cb`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/a2189cb88a295ebad6268b9b08c893cd65bc1d89))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`d08cdc6`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/d08cdc6691e0f68917f2824945905b7256e0e568))
+
+
+## v9.0.1 (2025-10-14)
+
+### Bug Fixes
+
+- Add JSON output flag to gemini CLI configuration
+  ([`eb3dff8`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/eb3dff845828f60ff2659586883af622b8b035eb))
+
+### Chores
+
+- Sync version to config.py [skip ci]
+  ([`b9408aa`](https://github.com/BeehiveInnovations/zen-mcp-server/commit/b9408aae8860d43b1da0ba67f9db98db7e4de2cf))
+
+
 ## v9.0.0 (2025-10-08)
 
 ### Chores
