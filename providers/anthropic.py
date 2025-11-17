@@ -120,20 +120,36 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             params["temperature"] = temperature
 
         try:
-            # Make API call
-            response = self.client.messages.create(**params)
+            # Make API call with streaming to avoid 10-minute timeout limit
+            # Anthropic requires streaming for operations that may take longer than 10 minutes
+            logger.debug(f"Starting streaming request to Anthropic for model {resolved_model_name}")
 
-            # Extract text from response
-            text = response.content[0].text if response.content else ""
-
-            # Build usage info
+            text = ""
             usage = {}
-            if hasattr(response, "usage"):
-                usage = {
-                    "input_tokens": response.usage.input_tokens,
-                    "output_tokens": response.usage.output_tokens,
-                    "total_tokens": response.usage.input_tokens + response.usage.output_tokens,
-                }
+            finish_reason = "stop"
+
+            # Use streaming context manager
+            with self.client.messages.stream(**params) as stream:
+                # Accumulate text from stream chunks
+                for text_chunk in stream.text_stream:
+                    text += text_chunk
+
+                # Get final message with usage information
+                final_message = stream.get_final_message()
+
+                # Extract usage info from final message
+                if hasattr(final_message, "usage"):
+                    usage = {
+                        "input_tokens": final_message.usage.input_tokens,
+                        "output_tokens": final_message.usage.output_tokens,
+                        "total_tokens": final_message.usage.input_tokens + final_message.usage.output_tokens,
+                    }
+
+                # Extract finish reason
+                if hasattr(final_message, "stop_reason") and final_message.stop_reason:
+                    finish_reason = final_message.stop_reason
+
+            logger.debug(f"Streaming completed for {resolved_model_name}, received {len(text)} characters")
 
             return ModelResponse(
                 content=text,
@@ -142,7 +158,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                 friendly_name="Anthropic",
                 provider=ProviderType.ANTHROPIC,
                 metadata={
-                    "finish_reason": "stop",
+                    "finish_reason": finish_reason,
                 },
             )
 
