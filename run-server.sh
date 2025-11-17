@@ -2192,7 +2192,7 @@ install_zen_skill() {
     if [ $? -eq 0 ]; then
         print_success "Zen skill installed successfully"
         echo "  Location: $skill_target"
-        echo "  Usage: Type '/skill zen-skill' in Claude Code"
+        echo "  Usage: Skill(skill=\"zen-skill\") in Claude Code"
         echo "  Docs: Comprehensive guide for all 15 Zen MCP tools"
     else
         print_error "Failed to install zen skill"

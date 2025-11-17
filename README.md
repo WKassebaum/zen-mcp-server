@@ -488,12 +488,9 @@ The zen-skill is **automatically installed** when you run `./run-server.sh`. You
 
 Load the comprehensive Zen documentation when needed:
 
-```bash
-# Option 1: Use the Skill tool
+```python
+# In Claude Code, use the Skill tool to load comprehensive documentation
 Skill(skill="zen-skill")
-
-# Option 2: Use the /skill command
-/skill zen-skill
 ```
 
 The skill will load comprehensive documentation for all Zen tools, providing detailed guidance without consuming tokens until you need it.
