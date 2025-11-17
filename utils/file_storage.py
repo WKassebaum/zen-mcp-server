@@ -107,7 +107,7 @@ class FileBasedStorage(StorageBackend):
                 # Remove corrupted file
                 try:
                     file_path.unlink()
-                except:
+                except Exception:
                     pass
 
         return None
@@ -134,7 +134,7 @@ class FileBasedStorage(StorageBackend):
                 data = json.load(f)
             expires_at = data.get("expires_at", 0)
             return time.time() < expires_at
-        except:
+        except Exception:
             return False
 
     def list_keys(self, pattern: str = "*") -> list[str]:
@@ -151,7 +151,7 @@ class FileBasedStorage(StorageBackend):
                         key = file_path.stem
                         if pattern == "*" or key.startswith(pattern.rstrip("*")):
                             keys.append(key)
-                except:
+                except Exception:
                     pass  # Skip corrupted files
             return keys
 
@@ -209,7 +209,7 @@ class FileBasedStorage(StorageBackend):
                     try:
                         file_path.unlink()
                         expired_count += 1
-                    except:
+                    except Exception:
                         pass
 
             if expired_count > 0:

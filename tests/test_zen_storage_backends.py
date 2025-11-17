@@ -334,7 +334,7 @@ class TestRedisStorage:
                 keys = self.storage.list_keys("test_*")
                 for key in keys:
                     self.storage.delete(key)
-            except:
+            except Exception:
                 pass
 
     def test_basic_operations(self):
