@@ -467,6 +467,23 @@ zen listmodels
 
 #### Configuration
 
+**Option 1: Interactive Setup Wizard (Recommended)**
+
+The easiest way to configure Zen CLI is using the interactive setup wizard:
+
+```bash
+# Run the setup wizard
+zen setup
+```
+
+This wizard will:
+- Guide you through configuring API keys
+- Create or update `~/.zen/.env` file
+- Mask existing API keys for security
+- Allow you to update individual keys without re-entering all of them
+
+**Option 2: Manual Configuration**
+
 Zen CLI reads API keys from these sources (in priority order):
 
 1. **System environment variables**
@@ -476,7 +493,7 @@ Zen CLI reads API keys from these sources (in priority order):
    export XAI_API_KEY="your-key-here"
    ```
 
-2. **~/.zen/.env file** (created by `./run-server.sh`)
+2. **~/.zen/.env file** (created by `./run-server.sh` or `zen setup`)
    ```bash
    # Edit this file to add your API keys
    nano ~/.zen/.env
@@ -527,6 +544,7 @@ zen secaudit -f src/api/*.py --focus auth
 #### All Available Commands
 
 ```bash
+zen setup        # Interactive setup wizard for API keys and configuration
 zen chat         # General AI consultation and brainstorming
 zen debug        # Systematic debugging with hypothesis testing
 zen consensus    # Multi-model consensus for complex decisions
