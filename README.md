@@ -293,9 +293,11 @@ zen listmodels
 
 ### Configuration
 
+**After completing the installation steps above**, configure your API keys:
+
 #### Option 1: Interactive Setup Wizard (Recommended)
 
-The easiest way to configure Zen CLI is using the interactive setup wizard:
+Run the interactive wizard to configure your API keys:
 
 ```bash
 # Run the setup wizard
