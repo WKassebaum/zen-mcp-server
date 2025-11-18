@@ -4,6 +4,25 @@
 
 ## Unreleased
 
+### Features
+
+- **models**: Add support for latest Grok 4.1 and GPT-5.1 model releases
+  - **X.AI Grok 4.1** (released Nov 17-18, 2025):
+    - Added `grok-4.1` - Latest flagship model, ranks #1 on LMArena (1483 Elo), 3x less hallucination
+    - Added `grok-4.1-thinking` - Advanced reasoning variant with enhanced thinking capabilities
+    - Updated provider preference logic to prioritize Grok 4.1 variants over Grok 4
+    - Intelligence score: 18 (higher than Grok 4's 17)
+  - **OpenAI GPT-5.1** (released Nov 12, 2025):
+    - Added `gpt-5.1` - Enhanced model with adaptive reasoning and 24h cache retention (score: 17)
+    - Added `gpt-5.1-instant` - Fast variant optimized for low-latency responses (score: 16)
+    - Added `gpt-5.1-thinking` - Advanced reasoning variant with extended thinking (score: 19)
+    - Added `gpt-5.1-codex` - Enhanced coding specialist with improved code generation (score: 18)
+    - Added `gpt-5.1-codex-mini` - Efficient coding assistant balancing speed and capability (score: 17)
+    - Updated provider preference logic to prioritize GPT-5.1 variants
+  - **Gemini 3.0 Pro**: Confirmed NOT yet released (expected Dec 2025 preview)
+  - Registry files updated: `conf/xai_models.json`, `conf/openai_models.json`
+  - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`
+
 ### Bug Fixes
 
 - **anthropic**: Enable streaming to prevent 10-minute timeout errors

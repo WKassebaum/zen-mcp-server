@@ -24,10 +24,52 @@
   },
   "models": [
     {
+      "model_name": "grok-4.1",
+      "friendly_name": "X.AI (Grok 4.1)",
+      "aliases": [
+        "grok",
+        "grok4.1",
+        "grok-4-1"
+      ],
+      "intelligence_score": 18,
+      "description": "Grok 4.1 - Latest flagship model, ranks #1 on LMArena (1483 Elo), 3x less hallucination, 256K context",
+      "context_window": 256000,
+      "max_output_tokens": 256000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-4.1-thinking",
+      "friendly_name": "X.AI (Grok 4.1 Thinking)",
+      "aliases": [
+        "grok4.1-thinking",
+        "grok-4-1-thinking"
+      ],
+      "intelligence_score": 18,
+      "description": "Grok 4.1 Thinking - Advanced reasoning variant with enhanced thinking capabilities, ranks #1 on LMArena",
+      "context_window": 256000,
+      "max_output_tokens": 256000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "grok-4",
       "friendly_name": "X.AI (Grok 4)",
       "aliases": [
-        "grok",
         "grok4",
         "grok-4-0709"
       ],

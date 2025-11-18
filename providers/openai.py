@@ -115,20 +115,52 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer models with extended thinking support
-            # GPT-5-Codex first for coding tasks
-            preferred = find_first(["gpt-5-codex", "gpt-5-pro", "o3", "o3-pro", "gpt-5"])
+            # GPT-5.1-Codex first for coding tasks, then GPT-5.1-Thinking for advanced reasoning
+            preferred = find_first(
+                [
+                    "gpt-5.1-codex",
+                    "gpt-5.1-thinking",
+                    "gpt-5-codex",
+                    "gpt-5.1",
+                    "gpt-5-pro",
+                    "o3",
+                    "o3-pro",
+                    "gpt-5",
+                ]
+            )
             return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            # GPT-5 models for speed, GPT-5-Codex after (premium pricing but cached)
-            preferred = find_first(["gpt-5", "gpt-5-mini", "gpt-5-codex", "o4-mini", "o3-mini"])
+            # GPT-5.1-Instant first (optimized for low latency), then GPT-5 models
+            preferred = find_first(
+                [
+                    "gpt-5.1-instant",
+                    "gpt-5",
+                    "gpt-5.1",
+                    "gpt-5-mini",
+                    "gpt-5-codex",
+                    "o4-mini",
+                    "o3-mini",
+                ]
+            )
             return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
             # Prefer balanced performance/cost models
-            # Include GPT-5-Codex for coding workflows
-            preferred = find_first(["gpt-5", "gpt-5-codex", "gpt-5-pro", "gpt-5-mini", "o4-mini", "o3-mini"])
+            # GPT-5.1 variants first (enhanced capabilities), then GPT-5 variants
+            preferred = find_first(
+                [
+                    "gpt-5.1",
+                    "gpt-5.1-codex",
+                    "gpt-5",
+                    "gpt-5-codex",
+                    "gpt-5-pro",
+                    "gpt-5-mini",
+                    "o4-mini",
+                    "o3-mini",
+                ]
+            )
             return preferred if preferred else allowed_models[0]
 
 
