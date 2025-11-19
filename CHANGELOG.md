@@ -19,9 +19,17 @@
     - Added `gpt-5.1-codex` - Enhanced coding specialist with improved code generation (score: 18)
     - Added `gpt-5.1-codex-mini` - Efficient coding assistant balancing speed and capability (score: 17)
     - Updated provider preference logic to prioritize GPT-5.1 variants
-  - **Gemini 3.0 Pro**: Confirmed NOT yet released (expected Dec 2025 preview)
-  - Registry files updated: `conf/xai_models.json`, `conf/openai_models.json`
-  - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`
+  - **Google Gemini 3 Pro Preview** (released Nov 18, 2025):
+    - Added `gemini-3-pro-preview` - State-of-the-art reasoning model, ranks #1 on LMArena (1501 Elo)
+    - 1M context window, 64K output tokens, sparse MoE architecture
+    - Intelligence score: 19 (highest Gemini model, surpassing Gemini 2.5 Pro's 18)
+    - Native multimodal support (text, images, audio, video)
+    - Supports extended thinking with 32,768 thinking token budget
+    - Updated provider preference logic to prioritize Gemini 3 Pro Preview for extended reasoning and balanced use
+    - Aliases: `gemini3`, `gemini-3`, `gemini3-pro`, `gemini-3-pro`
+    - **Note**: Currently available as preview model via API (`gemini-3-pro-preview`)
+  - Registry files updated: `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`
+  - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`, `providers/gemini.py`
 
 ### Bug Fixes
 

@@ -48,6 +48,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         "gemini-2.0-flash-lite": 0,  # No thinking support
         "gemini-2.5-flash": 24576,  # Flash 2.5 thinking budget limit
         "gemini-2.5-pro": 32768,  # Pro 2.5 thinking budget limit
+        "gemini-3-pro-preview": 32768,  # Pro 3.0 Preview thinking budget limit
     }
 
     def __init__(self, api_key: str, **kwargs):
@@ -476,7 +477,11 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # For extended reasoning, prefer models with thinking support
-            # First try Pro models that support thinking
+            # Prefer Gemini 3 Pro Preview first (highest intelligence, #1 on LMArena)
+            if "gemini-3-pro-preview" in allowed_models:
+                return "gemini-3-pro-preview"
+
+            # Then try other Pro models that support thinking
             pro_thinking = [
                 m
                 for m in allowed_models
@@ -504,7 +509,11 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 return find_best(flash_models)
 
         # Default for BALANCED or as fallback
-        # Prefer Flash for balanced use, then Pro, then anything
+        # Prefer Gemini 3 Pro Preview for balanced use (best overall capabilities)
+        if "gemini-3-pro-preview" in allowed_models:
+            return "gemini-3-pro-preview"
+
+        # Then Flash for speed, then other Pro models, then anything
         flash_models = [m for m in allowed_models if "flash" in m]
         if flash_models:
             return find_best(flash_models)
