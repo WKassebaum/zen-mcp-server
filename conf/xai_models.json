@@ -24,47 +24,48 @@
   },
   "models": [
     {
-      "model_name": "grok-4.1",
-      "friendly_name": "X.AI (Grok 4.1)",
+      "model_name": "grok-4-1-fast-reasoning",
+      "friendly_name": "X.AI (Grok 4.1 Fast Reasoning)",
       "aliases": [
         "grok",
         "grok4.1",
-        "grok-4-1"
+        "grok-4-1",
+        "grok4.1-fast",
+        "grok-4-1-fast"
       ],
       "intelligence_score": 18,
-      "description": "Grok 4.1 - Latest flagship model, ranks #1 on LMArena (1483 Elo), 3x less hallucination, 256K context",
-      "context_window": 256000,
-      "max_output_tokens": 256000,
+      "description": "Grok 4.1 Fast Reasoning - Latest flagship with Agent Tools API, ranks #1 on LMArena (1483 Elo), 2M context, 3x less hallucination",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
       "supports_extended_thinking": true,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
       "supports_json_mode": true,
-      "supports_images": true,
+      "supports_images": false,
       "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
+      "allow_code_generation": true
     },
     {
-      "model_name": "grok-4.1-thinking",
-      "friendly_name": "X.AI (Grok 4.1 Thinking)",
+      "model_name": "grok-4-1-fast-non-reasoning",
+      "friendly_name": "X.AI (Grok 4.1 Fast)",
       "aliases": [
-        "grok4.1-thinking",
-        "grok-4-1-thinking"
+        "grok4.1-fast-non-reasoning",
+        "grok-4-1-fast-non-reasoning",
+        "grok4.1-non-reasoning"
       ],
       "intelligence_score": 18,
-      "description": "Grok 4.1 Thinking - Advanced reasoning variant with enhanced thinking capabilities, ranks #1 on LMArena",
-      "context_window": 256000,
-      "max_output_tokens": 256000,
-      "supports_extended_thinking": true,
+      "description": "Grok 4.1 Fast Non-Reasoning - Latest with Agent Tools API, direct responses without thinking, 2M context, 3x less hallucination",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
+      "supports_extended_thinking": false,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
       "supports_json_mode": true,
-      "supports_images": true,
+      "supports_images": false,
       "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
+      "allow_code_generation": true
     },
     {
       "model_name": "grok-4",

@@ -7,11 +7,15 @@
 ### Features
 
 - **models**: Add support for latest Grok 4.1 and GPT-5.1 model releases
-  - **X.AI Grok 4.1** (released Nov 17-18, 2025):
-    - Added `grok-4.1` - Latest flagship model, ranks #1 on LMArena (1483 Elo), 3x less hallucination
-    - Added `grok-4.1-thinking` - Advanced reasoning variant with enhanced thinking capabilities
-    - Updated provider preference logic to prioritize Grok 4.1 variants over Grok 4
+  - **X.AI Grok 4.1 Fast** (released Nov 19, 2025):
+    - Added `grok-4-1-fast-reasoning` - Latest flagship with Agent Tools API, ranks #1 on LMArena (1483 Elo), 2M context, 3x less hallucination
+    - Added `grok-4-1-fast-non-reasoning` - Fast variant without thinking, Agent Tools API, 2M context, 3x less hallucination
+    - Agent Tools API enables advanced tool-calling capabilities for agentic workflows
+    - 2M context window (8x increase from Grok 4's 256K)
+    - Updated provider preference logic to prioritize Grok 4.1 Fast variants over Grok 4
     - Intelligence score: 18 (higher than Grok 4's 17)
+    - Aliases: `grok`, `grok4.1`, `grok-4-1`, `grok4.1-fast` for reasoning variant
+    - **Note**: Uses official API model names from https://docs.x.ai/docs/models
   - **OpenAI GPT-5.1** (released Nov 12, 2025):
     - Added `gpt-5.1` - Enhanced model with adaptive reasoning and 24h cache retention (score: 17)
     - Added `gpt-5.1-instant` - Fast variant optimized for low-latency responses (score: 16)
