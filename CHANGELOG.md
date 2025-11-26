@@ -6,7 +6,16 @@
 
 ### Features
 
-- **models**: Add support for latest Grok 4.1 and GPT-5.1 model releases
+- **models**: Add support for Claude Opus 4.5, Grok 4.1 Fast, Gemini 3 Pro Preview, and GPT-5.1 model releases
+  - **Anthropic Claude Opus 4.5** (released Nov 24, 2025):
+    - Added `claude-opus-4-5-20251101` - Most intelligent model for coding, agents, and computer use
+    - 200K context window, 64K output tokens
+    - New effort parameter for controlling thinking budget (low/medium/high)
+    - Enhanced computer use with zoom capability
+    - Thinking block preservation across conversations
+    - Intelligence score: 20 (highest rating)
+    - Pricing: $5/$25 per million tokens
+    - Aliases: `opus`, `opus-4.5`, `claude-opus`, `claude-opus-4.5`
   - **X.AI Grok 4.1 Fast** (released Nov 19, 2025):
     - Added `grok-4-1-fast-reasoning` - Latest flagship with Agent Tools API, ranks #1 on LMArena (1483 Elo), 2M context, 3x less hallucination
     - Added `grok-4-1-fast-non-reasoning` - Fast variant without thinking, Agent Tools API, 2M context, 3x less hallucination
@@ -32,7 +41,7 @@
     - Updated provider preference logic to prioritize Gemini 3 Pro Preview for extended reasoning and balanced use
     - Aliases: `gemini3`, `gemini-3`, `gemini3-pro`, `gemini-3-pro`
     - **Note**: Currently available as preview model via API (`gemini-3-pro-preview`)
-  - Registry files updated: `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`
+  - Registry files updated: `conf/anthropic_models.json`, `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`
   - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`, `providers/gemini.py`
 
 ### Bug Fixes
