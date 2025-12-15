@@ -41,6 +41,14 @@
     - Updated provider preference logic to prioritize Gemini 3 Pro Preview for extended reasoning and balanced use
     - Aliases: `gemini3`, `gemini-3`, `gemini3-pro`, `gemini-3-pro`
     - **Note**: Currently available as preview model via API (`gemini-3-pro-preview`)
+  - **OpenAI GPT-5.2** (released Dec 11, 2025):
+    - Added `gpt-5.2` - Most capable frontier model for professional work and long-running agents (score: 18)
+    - Added `gpt-5.2-instant` - Fast variant optimized for low-latency responses (score: 17)
+    - Added `gpt-5.2-thinking` - State-of-the-art reasoning, 100% AIME 2025, 92.4% GPQA Diamond (score: 20)
+    - 400K context window, up to 272K output tokens (thinking variant)
+    - Outperforms industry professionals at 44 occupations on GDPval benchmark
+    - Exceptional at agentic data science and document analysis
+    - Aliases: `gpt5.2`, `gpt-5-2`, `gpt5.2-instant`, `gpt5.2-thinking`
   - Registry files updated: `conf/anthropic_models.json`, `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`
   - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`, `providers/gemini.py`
 
