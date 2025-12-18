@@ -29,13 +29,35 @@
       "model_name": "gemini-3-pro-preview",
       "friendly_name": "Gemini (Pro 3.0 Preview)",
       "aliases": [
-        "gemini3",
-        "gemini-3",
         "gemini3-pro",
         "gemini-3-pro"
       ],
       "intelligence_score": 19,
       "description": "Gemini 3 Pro Preview (1M context, 64K output) - State-of-the-art reasoning, ranks #1 on LMArena (1501 Elo), sparse MoE architecture, native multimodal",
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "max_thinking_tokens": 32768,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 32.0
+    },
+    {
+      "model_name": "gemini-3-flash-preview",
+      "friendly_name": "Gemini (Flash 3.0 Preview)",
+      "aliases": [
+        "gemini3",
+        "gemini-3",
+        "gemini3-flash",
+        "gemini-3-flash"
+      ],
+      "intelligence_score": 18,
+      "description": "Gemini 3 Flash Preview (1M context, 64K output) - 78% SWE-bench (beats Pro), frontier intelligence at Flash speed, best for agentic workflows",
       "context_window": 1000000,
       "max_output_tokens": 64000,
       "max_thinking_tokens": 32768,

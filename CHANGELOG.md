@@ -49,6 +49,14 @@
     - Outperforms industry professionals at 44 occupations on GDPval benchmark
     - Exceptional at agentic data science and document analysis
     - Aliases: `gpt5.2`, `gpt-5-2`, `gpt5.2-instant`, `gpt5.2-thinking`
+  - **Google Gemini 3 Flash Preview** (released Dec 17, 2025):
+    - Added `gemini-3-flash-preview` - Frontier intelligence at Flash speed, 78% SWE-bench (beats Pro!)
+    - 1M context window, 64K output tokens, sparse MoE architecture
+    - Intelligence score: 18 (matches Pro, but faster and recommended for agentic workflows)
+    - Supports extended thinking with 32,768 thinking token budget
+    - Now the default for `gemini3`/`gemini-3` aliases (better for agentic work)
+    - Aliases: `gemini3`, `gemini-3`, `gemini3-flash`, `gemini-3-flash`
+    - **Note**: Currently available as preview model via API (`gemini-3-flash-preview`)
   - Registry files updated: `conf/anthropic_models.json`, `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`
   - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`, `providers/gemini.py`
 
