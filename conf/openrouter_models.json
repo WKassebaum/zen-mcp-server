@@ -123,9 +123,10 @@
       "intelligence_score": 10
     },
     {
-      "model_name": "mistralai/mistral-large-2411",
+      "model_name": "mistralai/mistral-large-2512",
       "aliases": [
         "mistral-large",
+        "mistral-large-3",
         "mistral"
       ],
       "context_window": 128000,
@@ -133,10 +134,29 @@
       "supports_extended_thinking": false,
       "supports_json_mode": true,
       "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "description": "Mistral Large 3 (Dec 2025) - 41B active / 675B total MoE, multimodal, Apache 2.0",
+      "intelligence_score": 14,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "mistralai/devstral-2512",
+      "aliases": [
+        "devstral",
+        "devstral-2",
+        "mistral-code"
+      ],
+      "context_window": 262144,
+      "max_output_tokens": 32000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
       "supports_images": false,
       "max_image_size_mb": 0.0,
-      "description": "Mistral's largest model (text-only)",
-      "intelligence_score": 11
+      "description": "Devstral 2 (Dec 2025) - 123B coding specialist, 256K context, agentic workflows",
+      "intelligence_score": 15,
+      "allow_code_generation": true
     },
     {
       "model_name": "meta-llama/llama-3-70b",

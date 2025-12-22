@@ -57,7 +57,12 @@
     - Now the default for `gemini3`/`gemini-3` aliases (better for agentic work)
     - Aliases: `gemini3`, `gemini-3`, `gemini3-flash`, `gemini-3-flash`
     - **Note**: Currently available as preview model via API (`gemini-3-flash-preview`)
-  - Registry files updated: `conf/anthropic_models.json`, `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`
+  - **Mistral AI December 2025 Models** (via OpenRouter):
+    - Updated `mistralai/mistral-large-2512` - Mistral Large 3 with 41B active / 675B total MoE architecture
+    - Added `mistralai/devstral-2512` - Devstral 2, 123B coding specialist with 256K context
+    - Mistral Large 3 now supports multimodal (images), released under Apache 2.0
+    - Aliases: `mistral`, `mistral-large`, `mistral-large-3`, `devstral`, `devstral-2`, `mistral-code`
+  - Registry files updated: `conf/anthropic_models.json`, `conf/xai_models.json`, `conf/openai_models.json`, `conf/gemini_models.json`, `conf/openrouter_models.json`
   - Provider preference logic updated: `providers/xai.py`, `providers/openai.py`, `providers/gemini.py`
 
 ### Bug Fixes
