@@ -34,7 +34,7 @@
         "grok-4-1-fast"
       ],
       "intelligence_score": 18,
-      "description": "Grok 4.1 Fast Reasoning - Latest flagship with Agent Tools API, ranks #1 on LMArena (1483 Elo), 2M context, 3x less hallucination",
+      "description": "Grok 4.1 Fast Reasoning - Latest flagship with Agent Tools API, ranks #1 on LMArena (1483 Elo), 2M context, multimodal, 3x less hallucination",
       "context_window": 2000000,
       "max_output_tokens": 2000000,
       "supports_extended_thinking": true,
@@ -42,9 +42,10 @@
       "supports_streaming": true,
       "supports_function_calling": true,
       "supports_json_mode": true,
-      "supports_images": false,
+      "supports_images": true,
       "supports_temperature": true,
-      "allow_code_generation": true
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
     },
     {
       "model_name": "grok-4-1-fast-non-reasoning",
@@ -55,7 +56,7 @@
         "grok4.1-non-reasoning"
       ],
       "intelligence_score": 18,
-      "description": "Grok 4.1 Fast Non-Reasoning - Latest with Agent Tools API, direct responses without thinking, 2M context, 3x less hallucination",
+      "description": "Grok 4.1 Fast Non-Reasoning - Latest with Agent Tools API, direct responses without thinking, 2M context, multimodal, 3x less hallucination",
       "context_window": 2000000,
       "max_output_tokens": 2000000,
       "supports_extended_thinking": false,
@@ -63,9 +64,10 @@
       "supports_streaming": true,
       "supports_function_calling": true,
       "supports_json_mode": true,
-      "supports_images": false,
+      "supports_images": true,
       "supports_temperature": true,
-      "allow_code_generation": true
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
     },
     {
       "model_name": "grok-4",
@@ -96,17 +98,18 @@
         "grok-4-reasoning"
       ],
       "intelligence_score": 16,
-      "description": "Grok 4 Fast Reasoning - Cost-efficient with extended reasoning for complex problem-solving",
-      "context_window": 256000,
-      "max_output_tokens": 256000,
+      "description": "Grok 4 Fast Reasoning - Cost-efficient with extended reasoning, 2M context, multimodal",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
       "supports_extended_thinking": true,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
       "supports_json_mode": true,
-      "supports_images": false,
+      "supports_images": true,
       "supports_temperature": true,
-      "allow_code_generation": true
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
     },
     {
       "model_name": "grok-4-fast-non-reasoning",
@@ -116,17 +119,18 @@
         "grok-4-fast"
       ],
       "intelligence_score": 15,
-      "description": "Grok 4 Fast - Lightweight, fast responses, outperforms Grok 3 Mini at lower cost",
-      "context_window": 256000,
-      "max_output_tokens": 256000,
+      "description": "Grok 4 Fast - Lightweight, fast responses, 2M context, multimodal",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
       "supports_extended_thinking": false,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
       "supports_json_mode": true,
-      "supports_images": false,
+      "supports_images": true,
       "supports_temperature": true,
-      "allow_code_generation": true
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
     },
     {
       "model_name": "grok-code-fast-1",

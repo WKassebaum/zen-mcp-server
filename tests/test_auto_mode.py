@@ -2,12 +2,10 @@
 
 import importlib
 import os
-from unittest.mock import patch
 
 import pytest
 
 from tools.chat import ChatTool
-from tools.shared.exceptions import ToolExecutionError
 
 
 class TestAutoMode:
@@ -137,9 +135,8 @@ class TestAutoMode:
                 os.environ.pop("DEFAULT_MODEL", None)
             importlib.reload(config)
 
-    @pytest.mark.asyncio
-    async def test_auto_mode_requires_model_parameter(self, tmp_path):
-        """Test that auto mode enforces model parameter"""
+    def test_auto_mode_resolves_model_when_none_provided(self):
+        """Test that auto mode intelligently selects a model when none is specified"""
         # Save original
         original = os.environ.get("DEFAULT_MODEL", "")
 
@@ -152,16 +149,19 @@ class TestAutoMode:
 
             tool = ChatTool()
 
-            # Mock the provider to avoid real API calls
-            with patch.object(tool, "get_model_provider"):
-                # Execute without model parameter and expect protocol error
-                with pytest.raises(ToolExecutionError) as exc_info:
-                    await tool.execute({"prompt": "Test prompt", "working_directory_absolute_path": str(tmp_path)})
+            # Verify _resolve_model_context picks a real model instead of erroring
+            from providers.registry import ModelProviderRegistry
 
-            # Should get error payload mentioning model requirement
-            error_payload = getattr(exc_info.value, "payload", str(exc_info.value))
-            assert "Model" in error_payload
-            assert "auto" in error_payload
+            resolved = ModelProviderRegistry.get_preferred_fallback_model(tool.get_model_category())
+
+            # Should resolve to a real model name, not "auto"
+            assert resolved is not None
+            assert resolved.lower() != "auto"
+            assert len(resolved) > 0
+
+            # The resolved model should be available from a provider
+            provider = ModelProviderRegistry.get_provider_for_model(resolved)
+            assert provider is not None, f"Auto-resolved model '{resolved}' has no provider"
 
         finally:
             # Restore

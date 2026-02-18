@@ -116,14 +116,33 @@
       "max_image_size_mb": 20.0
     },
     {
+      "model_name": "gemini-2.5-flash-lite",
+      "friendly_name": "Gemini (Flash Lite 2.5)",
+      "aliases": [
+        "flashlite",
+        "flash-lite",
+        "flash-lite-2.5"
+      ],
+      "intelligence_score": 8,
+      "description": "Gemini 2.5 Flash Lite (1M context) - Fastest flash model optimized for cost-efficiency",
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": false,
+      "supports_temperature": true
+    },
+    {
       "model_name": "gemini-2.0-flash-lite",
       "friendly_name": "Gemini (Flash Lite 2.0)",
       "aliases": [
-        "flashlite",
-        "flash-lite"
+        "flash-lite-2.0"
       ],
       "intelligence_score": 7,
-      "description": "Gemini 2.0 Flash Lite (1M context) - Lightweight fast model, text-only",
+      "description": "Gemini 2.0 Flash Lite (1M context) - Lightweight fast model, text-only (retiring March 31, 2026)",
       "context_window": 1048576,
       "max_output_tokens": 65536,
       "supports_extended_thinking": false,

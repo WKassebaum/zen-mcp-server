@@ -23,17 +23,39 @@
   },
   "models": [
     {
+      "model_name": "claude-opus-4-6",
+      "friendly_name": "Anthropic (Claude Opus 4.6)",
+      "aliases": [
+        "opus-4.6",
+        "claude-opus",
+        "opus",
+        "claude-opus-4.6",
+        "claude-opus-4-6"
+      ],
+      "intelligence_score": 20,
+      "description": "Claude Opus 4.6 - Most intelligent model with adaptive thinking, 200K context (1M beta), 128K output, best for agents/coding, $5/$25 per 1M tokens",
+      "context_window": 200000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-opus-4-5-20251101",
       "friendly_name": "Anthropic (Claude Opus 4.5)",
       "aliases": [
         "opus-4.5",
-        "claude-opus",
-        "opus",
         "claude-opus-4.5",
         "claude-opus-4-5"
       ],
-      "intelligence_score": 20,
-      "description": "Claude Opus 4.5 - Most intelligent model, best for coding/agents/computer use, 200K context, effort parameter, $5/$25 per 1M tokens",
+      "intelligence_score": 19,
+      "description": "Claude Opus 4.5 - Previous flagship, best for coding/agents/computer use, 200K context, effort parameter, $5/$25 per 1M tokens",
       "context_window": 200000,
       "max_output_tokens": 64000,
       "supports_extended_thinking": true,
@@ -69,17 +91,40 @@
       "max_image_size_mb": 20.0
     },
     {
+      "model_name": "claude-sonnet-4-6",
+      "friendly_name": "Anthropic (Claude Sonnet 4.6)",
+      "aliases": [
+        "sonnet-4.6",
+        "claude-sonnet",
+        "sonnet",
+        "claude-sonnet-4.6",
+        "claude-sonnet-4-6"
+      ],
+      "intelligence_score": 19,
+      "description": "Claude Sonnet 4.6 - Opus-level reasoning at Sonnet pricing, adaptive thinking, 200K context (1M beta), 64K output, $3/$15 per 1M tokens",
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-sonnet-4-5-20250929",
       "friendly_name": "Anthropic (Claude Sonnet 4.5)",
       "aliases": [
         "sonnet-4.5",
         "claude-sonnet-4.5",
         "sonnet4.5",
-        "sonnet",
         "claude-sonnet-4-5"
       ],
-      "intelligence_score": 18,
-      "description": "Claude Sonnet 4.5 - World's best coding model with 30-hour autonomous operation, 200K context, 64K output",
+      "intelligence_score": 17,
+      "description": "Claude Sonnet 4.5 - Previous best coding model with 30-hour autonomous operation, 200K context, 64K output",
       "context_window": 200000,
       "max_output_tokens": 64000,
       "supports_extended_thinking": true,

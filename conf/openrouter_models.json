@@ -25,6 +25,24 @@
   },
   "models": [
     {
+      "model_name": "anthropic/claude-sonnet-4-6",
+      "aliases": [
+        "sonnet",
+        "claude-sonnet",
+        "sonnet-4.6"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "description": "Claude Sonnet 4.6 - Opus-level reasoning at Sonnet pricing, adaptive thinking (via OpenRouter)",
+      "intelligence_score": 19,
+      "allow_code_generation": true
+    },
+    {
       "model_name": "anthropic/claude-sonnet-4.5",
       "aliases": [
         "claude-sonnet-4.5",
@@ -37,25 +55,43 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
-      "description": "Claude Sonnet 4.5 - World's best coding model (via OpenRouter)",
-      "intelligence_score": 18,
+      "description": "Claude Sonnet 4.5 - Previous best coding model (via OpenRouter)",
+      "intelligence_score": 17,
       "allow_code_generation": true
     },
     {
-      "model_name": "anthropic/claude-opus-4.1",
+      "model_name": "anthropic/claude-opus-4-6",
       "aliases": [
         "opus",
-        "claude-opus"
+        "claude-opus",
+        "opus-4.6"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Claude Opus 4.6 - Most intelligent model with adaptive thinking (via OpenRouter)",
+      "intelligence_score": 20
+    },
+    {
+      "model_name": "anthropic/claude-opus-4.5",
+      "aliases": [
+        "opus-4.5"
       ],
       "context_window": 200000,
       "max_output_tokens": 64000,
-      "supports_extended_thinking": false,
-      "supports_json_mode": false,
-      "supports_function_calling": false,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
       "supports_images": true,
-      "max_image_size_mb": 5.0,
-      "description": "Claude Opus 4.1 - Our most capable and intelligent model yet",
-      "intelligence_score": 14
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Claude Opus 4.5 - Previous flagship with extended thinking (via OpenRouter)",
+      "intelligence_score": 18
     },
     {
       "model_name": "anthropic/claude-sonnet-4.1",

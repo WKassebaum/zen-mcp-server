@@ -15,7 +15,6 @@ from tools.analyze import AnalyzeTool
 from tools.chat import ChatTool
 from tools.debug import DebugIssueTool
 from tools.models import ToolModelCategory
-from tools.shared.exceptions import ToolExecutionError
 from tools.thinkdeep import ThinkDeepTool
 
 
@@ -80,9 +79,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-2.5-pro",  # Pro for deep thinking
-                    "FAST_RESPONSE": "gemini-2.5-flash",  # Flash for speed
-                    "BALANCED": "gemini-2.5-flash",  # Flash as balanced
+                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini 3 Pro for deep thinking (highest intelligence)
+                    "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed (alias, sorted highest)
+                    "BALANCED": "gemini-3-pro-preview",  # Gemini 3 Pro as balanced default
                 },
             ),
             # Only OpenAI API available
@@ -94,9 +93,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gpt-5-codex",  # GPT-5-Codex prioritized for coding tasks
-                    "FAST_RESPONSE": "gpt-5",  # Prefer gpt-5 for speed
-                    "BALANCED": "gpt-5",  # Prefer gpt-5 for balanced
+                    "EXTENDED_REASONING": "gpt-5.1-codex",  # GPT-5.1-Codex prioritized for coding/reasoning
+                    "FAST_RESPONSE": "gpt-5.1-instant",  # GPT-5.1 Instant for speed
+                    "BALANCED": "gpt-5.1",  # GPT-5.1 for balanced
                 },
             ),
             # Only X.AI API available
@@ -108,9 +107,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4",  # GROK-4 for reasoning (now preferred)
+                    "EXTENDED_REASONING": "grok-4",  # GROK-4 for reasoning
                     "FAST_RESPONSE": "grok-3-fast",  # GROK-3-fast for speed
-                    "BALANCED": "grok-4",  # GROK-4 as balanced (now preferred)
+                    "BALANCED": "grok-4",  # GROK-4 as balanced
                 },
             ),
             # Both Gemini and OpenAI available - Google comes first in priority
@@ -122,9 +121,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-2.5-pro",  # Gemini comes first in priority
-                    "FAST_RESPONSE": "gemini-2.5-flash",  # Prefer flash for speed
-                    "BALANCED": "gemini-2.5-flash",  # Prefer flash for balanced
+                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini comes first in priority
+                    "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed
+                    "BALANCED": "gemini-3-pro-preview",  # Gemini 3 Pro as balanced
                 },
             ),
             # All native APIs available - Google still comes first
@@ -136,9 +135,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-2.5-pro",  # Gemini comes first in priority
-                    "FAST_RESPONSE": "gemini-2.5-flash",  # Prefer flash for speed
-                    "BALANCED": "gemini-2.5-flash",  # Prefer flash for balanced
+                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini comes first in priority
+                    "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed
+                    "BALANCED": "gemini-3-pro-preview",  # Gemini 3 Pro as balanced
                 },
             ),
         ],
@@ -344,9 +343,8 @@ class TestAutoModeComprehensive:
             # With multiple providers configured, the listmodels tool
             # would show models from all providers when called
 
-    @pytest.mark.asyncio
-    async def test_auto_mode_model_parameter_required_error(self, tmp_path):
-        """Test that auto mode properly requires model parameter and suggests correct model."""
+    def test_auto_mode_resolves_to_appropriate_model_per_category(self):
+        """Test that auto mode resolves to an appropriate model based on tool category."""
 
         provider_config = {
             "GEMINI_API_KEY": "real-key",
@@ -372,29 +370,19 @@ class TestAutoModeComprehensive:
             # Register only Gemini provider
             ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
-            # Test with ChatTool (FAST_RESPONSE category)
+            # ChatTool uses FAST_RESPONSE category - should resolve to a flash model
             chat_tool = ChatTool()
-            workdir = tmp_path / "chat_artifacts"
-            workdir.mkdir(parents=True, exist_ok=True)
-            with pytest.raises(ToolExecutionError) as exc_info:
-                await chat_tool.execute(
-                    {
-                        "prompt": "test",
-                        "working_directory_absolute_path": str(workdir),
-                        # Note: no model parameter provided in auto mode
-                    }
-                )
+            resolved = ModelProviderRegistry.get_preferred_fallback_model(chat_tool.get_model_category())
+            assert resolved is not None
+            assert resolved.lower() != "auto"
+            assert "flash" in resolved.lower(), f"FAST_RESPONSE should resolve to a flash model, got '{resolved}'"
 
-            # Should get error requiring model selection with fallback suggestion
-            import json
-
-            response_data = json.loads(exc_info.value.payload)
-
-            assert response_data["status"] == "error"
-            assert (
-                "Model parameter is required" in response_data["content"] or "Model 'auto'" in response_data["content"]
-            )
-            assert "flash" in response_data["content"]
+            # DebugIssueTool uses EXTENDED_REASONING - should resolve to a pro/reasoning model
+            debug_tool = DebugIssueTool()
+            resolved = ModelProviderRegistry.get_preferred_fallback_model(debug_tool.get_model_category())
+            assert resolved is not None
+            assert resolved.lower() != "auto"
+            assert "pro" in resolved.lower(), f"EXTENDED_REASONING should resolve to a pro model, got '{resolved}'"
 
     def test_model_availability_with_restrictions(self):
         """Test that auto mode respects model restrictions when selecting fallback models."""
