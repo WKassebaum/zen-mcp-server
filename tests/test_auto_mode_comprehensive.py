@@ -79,9 +79,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini 3 Pro for deep thinking (highest intelligence)
+                    "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro for deep thinking (highest intelligence)
                     "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed (alias, sorted highest)
-                    "BALANCED": "gemini-3-pro-preview",  # Gemini 3 Pro as balanced default
+                    "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced default
                 },
             ),
             # Only OpenAI API available
@@ -121,9 +121,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini comes first in priority
+                    "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini comes first in priority
                     "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed
-                    "BALANCED": "gemini-3-pro-preview",  # Gemini 3 Pro as balanced
+                    "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced
                 },
             ),
             # All native APIs available - Google still comes first
@@ -135,9 +135,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3-pro-preview",  # Gemini comes first in priority
+                    "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini comes first in priority
                     "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed
-                    "BALANCED": "gemini-3-pro-preview",  # Gemini 3 Pro as balanced
+                    "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced
                 },
             ),
         ],

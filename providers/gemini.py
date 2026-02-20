@@ -477,7 +477,9 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # For extended reasoning, prefer models with thinking support
-            # Prefer Gemini 3 Pro Preview first (highest intelligence, #1 on LMArena)
+            # Prefer Gemini 3.1 Pro Preview first (highest intelligence)
+            if "gemini-3.1-pro-preview" in allowed_models:
+                return "gemini-3.1-pro-preview"
             if "gemini-3-pro-preview" in allowed_models:
                 return "gemini-3-pro-preview"
 
@@ -509,7 +511,9 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 return find_best(flash_models)
 
         # Default for BALANCED or as fallback
-        # Prefer Gemini 3 Pro Preview for balanced use (best overall capabilities)
+        # Prefer latest Pro model for balanced use (best overall capabilities)
+        if "gemini-3.1-pro-preview" in allowed_models:
+            return "gemini-3.1-pro-preview"
         if "gemini-3-pro-preview" in allowed_models:
             return "gemini-3-pro-preview"
 

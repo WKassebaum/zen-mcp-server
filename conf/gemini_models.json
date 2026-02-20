@@ -26,14 +26,38 @@
   },
   "models": [
     {
-      "model_name": "gemini-3-pro-preview",
-      "friendly_name": "Gemini (Pro 3.0 Preview)",
+      "model_name": "gemini-3.1-pro-preview",
+      "friendly_name": "Gemini (Pro 3.1 Preview)",
       "aliases": [
+        "gemini3.1-pro",
+        "gemini-3.1-pro",
         "gemini3-pro",
         "gemini-3-pro"
       ],
+      "intelligence_score": 20,
+      "description": "Gemini 3.1 Pro Preview (1M context, 64K output) - Most intelligent Gemini, advanced agentic and vibe coding, multimodal, $2/$12 per 1M tokens",
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "max_thinking_tokens": 32768,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 32.0
+    },
+    {
+      "model_name": "gemini-3-pro-preview",
+      "friendly_name": "Gemini (Pro 3.0 Preview)",
+      "aliases": [
+        "gemini3-pro-3.0",
+        "gemini-3-pro-3.0"
+      ],
       "intelligence_score": 19,
-      "description": "Gemini 3 Pro Preview (1M context, 64K output) - State-of-the-art reasoning, ranks #1 on LMArena (1501 Elo), sparse MoE architecture, native multimodal",
+      "description": "Gemini 3 Pro Preview (1M context, 64K output) - Previous flagship, sparse MoE architecture, native multimodal",
       "context_window": 1000000,
       "max_output_tokens": 64000,
       "max_thinking_tokens": 32768,
