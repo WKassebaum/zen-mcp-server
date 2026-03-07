@@ -109,9 +109,26 @@
       "intelligence_score": 10
     },
     {
+      "model_name": "anthropic/claude-haiku-4.5",
+      "aliases": [
+        "haiku",
+        "claude-haiku",
+        "haiku-4.5"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "description": "Claude Haiku 4.5 - Fastest model with near-frontier intelligence, extended thinking, vision (via OpenRouter)",
+      "intelligence_score": 14
+    },
+    {
       "model_name": "anthropic/claude-3.5-haiku",
       "aliases": [
-        "haiku"
+        "haiku-3.5-openrouter"
       ],
       "context_window": 200000,
       "max_output_tokens": 64000,
@@ -120,7 +137,7 @@
       "supports_function_calling": false,
       "supports_images": true,
       "max_image_size_mb": 5.0,
-      "description": "Claude 3 Haiku - Fast and efficient with vision",
+      "description": "Claude 3.5 Haiku - Legacy fast model (via OpenRouter)",
       "intelligence_score": 8
     },
     {
