@@ -182,17 +182,39 @@
       "max_image_size_mb": 20.0
     },
     {
+      "model_name": "claude-haiku-4-5-20251001",
+      "friendly_name": "Anthropic (Claude Haiku 4.5)",
+      "aliases": [
+        "haiku-4.5",
+        "claude-haiku",
+        "haiku",
+        "claude-haiku-4.5",
+        "claude-haiku-4-5"
+      ],
+      "intelligence_score": 14,
+      "description": "Claude Haiku 4.5 - Fastest model with near-frontier intelligence, extended thinking, vision, 200K context, $1/$5 per 1M tokens",
+      "context_window": 200000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": false,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-3-5-haiku-20241022",
       "friendly_name": "Anthropic (Claude 3.5 Haiku)",
       "aliases": [
         "haiku-3.5",
-        "claude-haiku",
-        "haiku",
         "claude-3.5-haiku",
         "claude-3-5-haiku-latest"
       ],
       "intelligence_score": 13,
-      "description": "Claude 3.5 Haiku - Fast and cost-effective, text-only",
+      "description": "Claude 3.5 Haiku - Fast and cost-effective, text-only (superseded by Haiku 4.5)",
       "context_window": 200000,
       "max_output_tokens": 8192,
       "supports_extended_thinking": false,

@@ -98,8 +98,11 @@ class TestAutoModeProviderSelection:
             fast_response = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
             balanced = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.BALANCED)
 
-            # Should select appropriate OpenAI models (5.1 series now preferred over 5.0)
-            assert "codex" in extended_reasoning.lower(), f"Expected a codex model, got '{extended_reasoning}'"
+            # Should select appropriate OpenAI models (5.4 series now preferred for power/coding)
+            assert extended_reasoning in (
+                "gpt-5.4-pro",
+                "gpt-5.4",
+            ), f"Expected GPT-5.4 variant, got '{extended_reasoning}'"
             assert fast_response is not None and fast_response.lower() != "auto"
             assert balanced is not None and balanced.lower() != "auto"
 

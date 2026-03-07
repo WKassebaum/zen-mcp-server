@@ -114,32 +114,35 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Prefer models with extended thinking support
-            # GPT-5.1-Codex first for coding tasks, then GPT-5.1-Thinking for advanced reasoning
+            # Prefer the most capable models for deep reasoning and coding tasks
+            # GPT-5.4-pro is the pinnacle for complex coding/reasoning with xhigh effort
             preferred = find_first(
                 [
-                    "gpt-5.1-codex",
+                    "gpt-5.4-pro",
+                    "gpt-5.4",
+                    "gpt-5.2-thinking",
                     "gpt-5.1-thinking",
+                    "gpt-5.1-codex",
+                    "gpt-5.2",
                     "gpt-5-codex",
-                    "gpt-5.1",
                     "gpt-5-pro",
-                    "o3",
                     "o3-pro",
-                    "gpt-5",
+                    "o3",
                 ]
             )
             return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            # GPT-5.1-Instant first (optimized for low latency), then GPT-5 models
+            # GPT-5.1-Instant first (optimized for low latency), GPT-5.4 as capable fallback
             preferred = find_first(
                 [
                     "gpt-5.1-instant",
-                    "gpt-5",
+                    "gpt-5.4",
+                    "gpt-5.2-instant",
                     "gpt-5.1",
+                    "gpt-5",
                     "gpt-5-mini",
-                    "gpt-5-codex",
                     "o4-mini",
                     "o3-mini",
                 ]
@@ -147,15 +150,16 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
             return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer balanced performance/cost models
-            # GPT-5.1 variants first (enhanced capabilities), then GPT-5 variants
+            # Prefer GPT-5.4 for best all-round performance (1M context, frontier coding)
             preferred = find_first(
                 [
+                    "gpt-5.4",
+                    "gpt-5.4-pro",
+                    "gpt-5.2",
                     "gpt-5.1",
                     "gpt-5.1-codex",
                     "gpt-5",
                     "gpt-5-codex",
-                    "gpt-5-pro",
                     "gpt-5-mini",
                     "o4-mini",
                     "o3-mini",

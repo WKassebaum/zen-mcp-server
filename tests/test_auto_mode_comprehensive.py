@@ -93,9 +93,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gpt-5.1-codex",  # GPT-5.1-Codex prioritized for coding/reasoning
+                    "EXTENDED_REASONING": "gpt-5.4-pro",  # GPT-5.4 Pro for maximum reasoning/coding
                     "FAST_RESPONSE": "gpt-5.1-instant",  # GPT-5.1 Instant for speed
-                    "BALANCED": "gpt-5.1",  # GPT-5.1 for balanced
+                    "BALANCED": "gpt-5.4",  # GPT-5.4 for best all-round performance
                 },
             ),
             # Only X.AI API available
