@@ -24,10 +24,77 @@
   },
   "models": [
     {
+      "model_name": "grok-4.20-beta-0309-reasoning",
+      "friendly_name": "X.AI (Grok 4.20 Beta Reasoning)",
+      "aliases": [
+        "grok",
+        "grok4.20",
+        "grok-4.20",
+        "grok4.20-reasoning",
+        "grok-4.20-reasoning"
+      ],
+      "intelligence_score": 19,
+      "description": "Grok 4.20 Beta Reasoning - Latest xAI flagship with extended reasoning, 2M context, multimodal",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-4.20-beta-0309-non-reasoning",
+      "friendly_name": "X.AI (Grok 4.20 Beta)",
+      "aliases": [
+        "grok4.20-non-reasoning",
+        "grok-4.20-non-reasoning",
+        "grok4.20-fast"
+      ],
+      "intelligence_score": 19,
+      "description": "Grok 4.20 Beta Non-Reasoning - Latest xAI flagship, direct responses without thinking, 2M context, multimodal",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
+      "supports_extended_thinking": false,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-4.20-multi-agent-beta-0309",
+      "friendly_name": "X.AI (Grok 4.20 Multi-Agent Beta)",
+      "aliases": [
+        "grok4.20-agent",
+        "grok-4.20-agent",
+        "grok-multi-agent"
+      ],
+      "intelligence_score": 19,
+      "description": "Grok 4.20 Multi-Agent Beta - Multi-agent orchestration variant, 2M context, multimodal",
+      "context_window": 2000000,
+      "max_output_tokens": 2000000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "grok-4-1-fast-reasoning",
       "friendly_name": "X.AI (Grok 4.1 Fast Reasoning)",
       "aliases": [
-        "grok",
         "grok4.1",
         "grok-4-1",
         "grok4.1-fast",
