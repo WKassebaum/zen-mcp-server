@@ -28,6 +28,7 @@
       "friendly_name": "X.AI (Grok 4.20 Beta Reasoning)",
       "aliases": [
         "grok",
+        "grok4",
         "grok4.20",
         "grok-4.20",
         "grok4.20-reasoning",
@@ -140,7 +141,6 @@
       "model_name": "grok-4",
       "friendly_name": "X.AI (Grok 4)",
       "aliases": [
-        "grok4",
         "grok-4-0709"
       ],
       "intelligence_score": 17,
