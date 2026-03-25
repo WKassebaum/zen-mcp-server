@@ -36,11 +36,11 @@ class ModelProviderRegistry:
     # Provider priority order for model selection
     # Native APIs first, then custom endpoints, then catch-all providers
     PROVIDER_PRIORITY_ORDER = [
+        ProviderType.XAI,  # Direct X.AI GROK access (flagship priority)
         ProviderType.GOOGLE,  # Direct Gemini access
-        ProviderType.OPENAI,  # Direct OpenAI access
         ProviderType.ANTHROPIC,  # Direct Anthropic Claude access
+        ProviderType.OPENAI,  # Direct OpenAI access
         ProviderType.AZURE,  # Azure-hosted OpenAI deployments
-        ProviderType.XAI,  # Direct X.AI GROK access
         ProviderType.DIAL,  # DIAL unified API access
         ProviderType.CUSTOM,  # Local/self-hosted models
         ProviderType.OPENROUTER,  # Catch-all for cloud models

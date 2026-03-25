@@ -34,7 +34,7 @@
         "grok4.20-reasoning",
         "grok-4.20-reasoning"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 20,
       "description": "Grok 4.20 Beta Reasoning - Latest xAI flagship with extended reasoning, 2M context, multimodal",
       "context_window": 2000000,
       "max_output_tokens": 2000000,
