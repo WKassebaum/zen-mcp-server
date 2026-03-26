@@ -102,7 +102,7 @@ class TestImageSupportIntegration:
             turns=[],  # Empty initially
             initial_context={"initial": "context"},
         )
-        mock_client.get.return_value = initial_context.model_dump_json()
+        mock_client.get.return_value = initial_context.model_dump()
 
         success = add_turn(
             thread_id=thread_id,
@@ -133,7 +133,7 @@ class TestImageSupportIntegration:
             ],
             initial_context={"initial": "context"},
         )
-        mock_client.get.return_value = updated_context.model_dump_json()
+        mock_client.get.return_value = updated_context.model_dump()
 
         # Retrieve and verify the thread
         context = get_thread(thread_id)
@@ -335,7 +335,7 @@ class TestImageSupportIntegration:
             turns=[],  # Empty initially
             initial_context={"initial": "context"},
         )
-        mock_client.get.return_value = initial_context.model_dump_json()
+        mock_client.get.return_value = initial_context.model_dump()
 
         # Add turn with images from chat tool
         add_turn(
@@ -391,7 +391,7 @@ class TestImageSupportIntegration:
             ],
             initial_context={"initial": "context"},
         )
-        mock_client.get.return_value = complete_context.model_dump_json()
+        mock_client.get.return_value = complete_context.model_dump()
 
         # Retrieve thread and check image preservation
         context = get_thread(thread_id)
@@ -473,7 +473,7 @@ class TestImageSupportIntegration:
             turns=[],  # Empty initially
             initial_context={"parent": "context"},
         )
-        mock_client.get.return_value = parent_context.model_dump_json()
+        mock_client.get.return_value = parent_context.model_dump()
         add_turn(
             thread_id=parent_thread_id,
             role="user",
@@ -510,7 +510,7 @@ class TestImageSupportIntegration:
             initial_context={"child": "context"},
             parent_thread_id=parent_thread_id,
         )
-        mock_client.get.return_value = child_context.model_dump_json()
+        mock_client.get.return_value = child_context.model_dump()
 
         # Get child thread and verify image collection works across chain
         child_context = get_thread(child_thread_id)

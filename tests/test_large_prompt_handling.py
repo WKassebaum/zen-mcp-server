@@ -144,6 +144,9 @@ class TestLargePromptHandling:
         original_env = {
             "OPENAI_API_KEY": os.environ.get("OPENAI_API_KEY"),
             "DEFAULT_MODEL": os.environ.get("DEFAULT_MODEL"),
+            "GEMINI_API_KEY": os.environ.get("GEMINI_API_KEY"),
+            "XAI_API_KEY": os.environ.get("XAI_API_KEY"),
+            "OPENROUTER_API_KEY": os.environ.get("OPENROUTER_API_KEY"),
         }
 
         try:

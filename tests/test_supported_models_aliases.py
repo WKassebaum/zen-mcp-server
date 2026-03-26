@@ -23,15 +23,15 @@ class TestSupportedModelsAliases:
         assert "pro" in provider.MODEL_CAPABILITIES["gemini-2.5-pro"].aliases
         assert "flash-2.0" in provider.MODEL_CAPABILITIES["gemini-2.0-flash"].aliases
         assert "flash2" in provider.MODEL_CAPABILITIES["gemini-2.0-flash"].aliases
-        assert "flashlite" in provider.MODEL_CAPABILITIES["gemini-2.0-flash-lite"].aliases
-        assert "flash-lite" in provider.MODEL_CAPABILITIES["gemini-2.0-flash-lite"].aliases
+        assert "flashlite" in provider.MODEL_CAPABILITIES["gemini-2.5-flash-lite"].aliases
+        assert "flash-lite" in provider.MODEL_CAPABILITIES["gemini-2.5-flash-lite"].aliases
 
         # Test alias resolution
         assert provider._resolve_model_name("flash") == "gemini-2.5-flash"
         assert provider._resolve_model_name("pro") == "gemini-2.5-pro"
         assert provider._resolve_model_name("flash-2.0") == "gemini-2.0-flash"
         assert provider._resolve_model_name("flash2") == "gemini-2.0-flash"
-        assert provider._resolve_model_name("flashlite") == "gemini-2.0-flash-lite"
+        assert provider._resolve_model_name("flashlite") == "gemini-2.5-flash-lite"
 
         # Test case insensitive resolution
         assert provider._resolve_model_name("Flash") == "gemini-2.5-flash"
@@ -76,21 +76,21 @@ class TestSupportedModelsAliases:
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
         # Test specific aliases
-        assert "grok" in provider.MODEL_CAPABILITIES["grok-4"].aliases
-        assert "grok4" in provider.MODEL_CAPABILITIES["grok-4"].aliases
+        assert "grok" in provider.MODEL_CAPABILITIES["grok-4.20-beta-0309-reasoning"].aliases
+        assert "grok4" in provider.MODEL_CAPABILITIES["grok-4.20-beta-0309-reasoning"].aliases
         assert "grok3" in provider.MODEL_CAPABILITIES["grok-3"].aliases
         assert "grok3fast" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
         assert "grokfast" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
 
         # Test alias resolution
-        assert provider._resolve_model_name("grok") == "grok-4"
-        assert provider._resolve_model_name("grok4") == "grok-4"
+        assert provider._resolve_model_name("grok") == "grok-4.20-beta-0309-reasoning"
+        assert provider._resolve_model_name("grok4") == "grok-4.20-beta-0309-reasoning"
         assert provider._resolve_model_name("grok3") == "grok-3"
         assert provider._resolve_model_name("grok3fast") == "grok-3-fast"
         assert provider._resolve_model_name("grokfast") == "grok-3-fast"
 
         # Test case insensitive resolution
-        assert provider._resolve_model_name("Grok") == "grok-4"
+        assert provider._resolve_model_name("Grok") == "grok-4.20-beta-0309-reasoning"
         assert provider._resolve_model_name("GROKFAST") == "grok-3-fast"
 
     def test_dial_provider_aliases(self):

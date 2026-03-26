@@ -17,7 +17,7 @@ class DummyProcess:
         self.returncode = returncode
         self.stdin_data: bytes | None = None
 
-    async def communicate(self, input_data):
+    async def communicate(self, input_data=None):
         self.stdin_data = input_data
         return self._stdout, self._stderr
 
@@ -79,7 +79,8 @@ async def test_claude_agent_injects_system_prompt(monkeypatch, claude_agent):
     assert "--append-system-prompt" in result.sanitized_command
     idx = result.sanitized_command.index("--append-system-prompt")
     assert result.sanitized_command[idx + 1] == "System prompt"
-    assert process.stdin_data.decode().startswith("Respond with 42")
+    # Claude agent passes prompt as CLI positional arg, not stdin
+    assert "Respond with 42" in result.sanitized_command
 
 
 @pytest.mark.asyncio

@@ -15,7 +15,7 @@ class DummyProcess:
         self._stderr = stderr
         self.returncode = returncode
 
-    async def communicate(self, _input):
+    async def communicate(self, _input=None):
         return self._stdout, self._stderr
 
 

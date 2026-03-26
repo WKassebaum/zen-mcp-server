@@ -260,7 +260,7 @@ class TestVersionCommand:
         result = self.runner.invoke(cli, ["version"])
         assert result.exit_code == 0
         assert "Zen CLI" in result.output
-        assert "v8" in result.output or "v5" in result.output  # Should show version
+        assert "v9" in result.output  # Should show version
 
 
 class TestCLIErrorHandling:

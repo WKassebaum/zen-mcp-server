@@ -85,6 +85,9 @@ echo ""
 echo "🧪 Step 2: Running Complete Unit Test Suite"
 echo "---------------------------------------------"
 
+echo "📦 Installing package in editable mode..."
+$PIP_CMD install -e . -q
+
 echo "🏃 Running unit tests (excluding integration tests)..."
 $PYTHON_CMD -m pytest tests/ -v -x -m "not integration"
 

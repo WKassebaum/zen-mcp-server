@@ -37,11 +37,11 @@ class TestConversationMemory:
         assert thread_id is not None
         assert len(thread_id) == 36  # UUID4 length
 
-        # Verify Redis was called
-        mock_client.setex.assert_called_once()
-        call_args = mock_client.setex.call_args
+        # Verify storage was called
+        mock_client.set.assert_called_once()
+        call_args = mock_client.set.call_args
         assert call_args[0][0] == f"thread:{thread_id}"  # key
-        assert call_args[0][1] == CONVERSATION_TIMEOUT_SECONDS  # TTL from configuration
+        assert call_args[1]["ttl"] == CONVERSATION_TIMEOUT_SECONDS  # TTL from configuration
 
     @patch("utils.conversation_memory.get_storage")
     def test_get_thread_valid(self, mock_storage):
@@ -60,7 +60,7 @@ class TestConversationMemory:
             turns=[],
             initial_context={"prompt": "test"},
         )
-        mock_client.get.return_value = context_obj.model_dump_json()
+        mock_client.get.return_value = context_obj.model_dump()
 
         context = get_thread(test_uuid)
 
@@ -102,14 +102,14 @@ class TestConversationMemory:
             turns=[],
             initial_context={"prompt": "test"},
         )
-        mock_client.get.return_value = context_obj.model_dump_json()
+        mock_client.get.return_value = context_obj.model_dump()
 
         success = add_turn(test_uuid, "user", "Hello there")
 
         assert success is True
-        # Verify Redis get and setex were called
+        # Verify storage get and set were called
         mock_client.get.assert_called_once()
-        mock_client.setex.assert_called_once()
+        mock_client.set.assert_called_once()
 
     @patch("utils.conversation_memory.get_storage")
     def test_add_turn_max_limit(self, mock_storage):
@@ -132,7 +132,7 @@ class TestConversationMemory:
             turns=turns,
             initial_context={"prompt": "test"},
         )
-        mock_client.get.return_value = context_obj.model_dump_json()
+        mock_client.get.return_value = context_obj.model_dump()
 
         success = add_turn(test_uuid, "user", "This should fail")
 
@@ -257,7 +257,7 @@ class TestConversationFlow:
             turns=[],
             initial_context={"prompt": "Analyze this code"},
         )
-        mock_client.get.return_value = initial_context.model_dump_json()
+        mock_client.get.return_value = initial_context.model_dump()
 
         # Add assistant response
         success = add_turn(
@@ -283,7 +283,7 @@ class TestConversationFlow:
             ],
             initial_context={"prompt": "Analyze this code"},
         )
-        mock_client.get.return_value = context_after_1.model_dump_json()
+        mock_client.get.return_value = context_after_1.model_dump()
 
         success = add_turn(thread_id, "user", "Yes, check error handling")
         assert success is True
@@ -313,7 +313,7 @@ class TestConversationFlow:
             ],
             initial_context={"prompt": "Analyze this code"},
         )
-        mock_client.get.return_value = context_after_3.model_dump_json()
+        mock_client.get.return_value = context_after_3.model_dump()
 
         success = add_turn(thread_id, "user", "Yes, check tests")
         assert success is True
@@ -337,7 +337,7 @@ class TestConversationFlow:
             turns=turns_at_limit,
             initial_context={"prompt": "Analyze this code"},
         )
-        mock_client.get.return_value = context_at_limit.model_dump_json()
+        mock_client.get.return_value = context_at_limit.model_dump()
 
         # This should fail - conversation has reached limit
         success = add_turn(thread_id, "user", "This should be rejected")
@@ -469,7 +469,7 @@ class TestConversationFlow:
                 turns=turns,
                 initial_context={"prompt": "Start conversation"},
             )
-            mock_client.get.return_value = context.model_dump_json()
+            mock_client.get.return_value = context.model_dump()
 
             # Should succeed
             success = add_turn(thread_id, "user", f"User turn {turn_num + 1}")
@@ -491,7 +491,7 @@ class TestConversationFlow:
             turns=final_turns,
             initial_context={"prompt": "Start conversation"},
         )
-        mock_client.get.return_value = final_context.model_dump_json()
+        mock_client.get.return_value = final_context.model_dump()
 
         # This should fail - at the limit
         success = add_turn(thread_id, "user", "This should fail")
@@ -523,7 +523,7 @@ class TestConversationFlow:
                 "absolute_file_paths": ["/project/src/"],
             },
         )
-        mock_client.get.return_value = initial_context.model_dump_json()
+        mock_client.get.return_value = initial_context.model_dump()
 
         # Add Gemini's response
         success = add_turn(
@@ -556,7 +556,7 @@ class TestConversationFlow:
             ],
             initial_context={"prompt": "Analyze this codebase", "relevant_files": ["/project/src/"]},
         )
-        mock_client.get.return_value = context_turn_1.model_dump_json()
+        mock_client.get.return_value = context_turn_1.model_dump()
 
         # User responds with test files
         success = add_turn(
@@ -587,7 +587,7 @@ class TestConversationFlow:
             ],
             initial_context={"prompt": "Analyze this codebase", "relevant_files": ["/project/src/"]},
         )
-        mock_client.get.return_value = context_turn_2.model_dump_json()
+        mock_client.get.return_value = context_turn_2.model_dump()
 
         success = add_turn(
             thread_id,
@@ -681,7 +681,7 @@ class TestConversationFlow:
             turns=[],
             initial_context={"prompt": "Think about architecture"},
         )
-        mock_client.get.return_value = initial_context.model_dump_json()
+        mock_client.get.return_value = initial_context.model_dump()
 
         success = add_turn(thread_id, "assistant", "Architecture analysis")
         assert success is True
@@ -701,7 +701,7 @@ class TestConversationFlow:
             ],
             initial_context={"prompt": "Think about architecture"},
         )
-        mock_client.get.return_value = context_from_redis.model_dump_json()
+        mock_client.get.return_value = context_from_redis.model_dump()
 
         # Verify context continuity across "processes"
         retrieved_context = get_thread(thread_id)

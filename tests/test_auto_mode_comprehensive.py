@@ -126,7 +126,7 @@ class TestAutoModeComprehensive:
                     "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced
                 },
             ),
-            # All native APIs available - Google still comes first
+            # All native APIs available - XAI comes first in priority
             (
                 {
                     "GEMINI_API_KEY": "real-key",
@@ -135,9 +135,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini comes first in priority
-                    "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed
-                    "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced
+                    "EXTENDED_REASONING": "grok-4",  # XAI comes first in priority
+                    "FAST_RESPONSE": "grok-3-fast",  # Grok 3 Fast for speed
+                    "BALANCED": "grok-4",  # Grok 4 as balanced
                 },
             ),
         ],

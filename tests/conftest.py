@@ -24,6 +24,10 @@ env_config.reload_env({"ZEN_MCP_FORCE_ENV_OVERRIDE": "false"})
 # This prevents all tests from failing due to missing model parameter
 os.environ["DEFAULT_MODEL"] = "gemini-2.5-flash"
 
+# Force in-memory storage for tests so FileBasedStorage doesn't interfere
+# This must be set before any storage module is imported
+os.environ["ZEN_STORAGE_TYPE"] = "memory"
+
 # Force reload of config module to pick up the env var
 import config  # noqa: E402
 
@@ -95,6 +99,16 @@ def pytest_collection_modifyitems(session, config, items):
     # Always set dummy keys if real keys are missing
     # This ensures tests work in CI even with no_mock_provider marker
     _set_dummy_keys_if_missing()
+
+
+@pytest.fixture(autouse=True)
+def _reset_storage_singleton():
+    """Reset storage singleton between tests to prevent cross-test contamination."""
+    import utils.storage_backend as sb
+
+    sb._storage_instance = None
+    yield
+    sb._storage_instance = None
 
 
 @pytest.fixture(autouse=True)

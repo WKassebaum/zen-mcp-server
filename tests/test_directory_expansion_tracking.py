@@ -135,12 +135,12 @@ def helper_function():
         def mock_get(key):
             return redis_storage.get(key)
 
-        def mock_setex(key, ttl, value):
+        def mock_set(key, value, ttl=None):
             redis_storage[key] = value
             return True
 
         mock_client.get.side_effect = mock_get
-        mock_client.setex.side_effect = mock_setex
+        mock_client.set.side_effect = mock_set
         mock_storage.return_value = mock_client
 
         # Setup mock provider
@@ -208,12 +208,12 @@ def helper_function():
         def mock_get(key):
             return redis_storage.get(key)
 
-        def mock_setex(key, ttl, value):
+        def mock_set(key, value, ttl=None):
             redis_storage[key] = value
             return True
 
         mock_client.get.side_effect = mock_get
-        mock_client.setex.side_effect = mock_setex
+        mock_client.set.side_effect = mock_set
         mock_storage.return_value = mock_client
 
         directory = temp_directory_with_files["directory"]
@@ -249,12 +249,12 @@ def helper_function():
         def mock_get(key):
             return redis_storage.get(key)
 
-        def mock_setex(key, ttl, value):
+        def mock_set(key, value, ttl=None):
             redis_storage[key] = value
             return True
 
         mock_client.get.side_effect = mock_get
-        mock_client.setex.side_effect = mock_setex
+        mock_client.set.side_effect = mock_set
         mock_storage.return_value = mock_client
 
         directory = temp_directory_with_files["directory"]
