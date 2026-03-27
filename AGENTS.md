@@ -11,9 +11,16 @@ Prompt and system context assets stay in `systemprompts/`, while configuration t
 Unit tests sit in `tests/`; simulator-driven scenarios and log utilities are in `simulator_tests/` with the `communication_simulator_test.py` harness. 
 Authoritative documentation and samples live in `docs/`, and runtime diagnostics are rotated in `logs/`.
 
+## First-Time Setup
+```bash
+pip install -e .   # Install CLI and MCP server
+zen setup          # Configure API keys, storage, and MCP registration
+```
+
 ## Build, Test, and Development Commands
+- `pip install -e . && zen setup` – first-time setup (install + configure API keys + register MCP).
 - `source .zen_venv/bin/activate` – activate the managed Python environment.
-- `./run-server.sh` – install dependencies, refresh `.env`, and launch the MCP server locally.
+- `./run-server.sh` – alternative: install dependencies, refresh `.env`, and launch the MCP server locally.
 - `./code_quality_checks.sh` – run Ruff autofix, Black, isort, and the default pytest suite.
 - `python communication_simulator_test.py --quick` – smoke-test orchestration across tools and providers.
 - `./run_integration_tests.sh [--with-simulator]` – exercise provider-dependent flows against remote or Ollama models.

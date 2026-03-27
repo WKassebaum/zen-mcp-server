@@ -435,43 +435,33 @@ Want to use `zen` directly from your terminal without MCP server integration? Fo
 
 #### Installation Steps
 
-**1. Clone the Repository**
+**1. Clone and Install**
 ```bash
 git clone https://github.com/BeehiveInnovations/zen-mcp-server.git
 cd zen-mcp-server
-```
-
-**2. Run Setup Script**
-```bash
-# Sets up Python virtual environment, installs dependencies, creates .env file
-./run-server.sh
-```
-
-**3. Install CLI Tool**
-```bash
-# Activate virtual environment
-source .zen_venv/bin/activate
-
-# Install zen CLI in editable mode
 pip install -e .
 ```
 
-**4. Verify Installation**
+**2. Run Setup Wizard**
 ```bash
-zen --version
-# Output: zen, version 9.1.3
+# Configures API keys, storage, AND registers with Claude Code MCP
+zen setup
+```
 
+**3. Verify Installation**
+```bash
 zen listmodels
 # Shows all available models across configured providers
 ```
 
-#### Configuration
+> **That's it!** `zen setup` handles API keys, storage configuration, and MCP
+> registration with Claude Code. No separate scripts needed.
 
-**After completing the installation steps above**, configure your API keys:
+#### Configuration
 
 **Option 1: Interactive Setup Wizard (Recommended)**
 
-Run the interactive wizard to configure your API keys:
+Run the setup wizard at any time to reconfigure:
 
 ```bash
 # Run the setup wizard

@@ -152,20 +152,23 @@ For best results when using [Codex CLI](https://developers.openai.com/codex/cli)
 
 **2. Install** (choose one):
 
-**Option A: Clone and Automatic Setup** (recommended)
+**Option A: Clone and Setup** (recommended)
 ```bash
 git clone https://github.com/BeehiveInnovations/zen-mcp-server.git
 cd zen-mcp-server
 
-# Handles everything: setup, config, API keys from system environment.
-# Auto-configures Claude Desktop, Claude Code, Gemini CLI, Codex CLI, Qwen CLI
-# Enable / disable additional settings in .env
-./run-server.sh
-
-# To use the zen CLI tool, activate the virtual environment and install in editable mode
-source .zen_venv/bin/activate
+# Install zen CLI and MCP server
 pip install -e .
+
+# Interactive wizard: configures API keys, storage, and registers with Claude Code
+zen setup
+
+# Verify your setup
+zen listmodels
 ```
+
+> **Note:** `zen setup` detects your Claude Code installation and automatically registers
+> the MCP server. It also verifies existing registrations and fixes stale configs (e.g. Docker).
 
 **Option B: Instant Setup with [uvx](https://docs.astral.sh/uv/getting-started/installation/)**
 ```json
@@ -229,19 +232,11 @@ zen --help       # Full command reference
 **Configuration:**
 
 Zen CLI reads API keys from:
-1. System environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, etc.)
-2. `~/.zen/.env` file (created by `./run-server.sh`)
+1. `~/.zen/.env` file (created by `zen setup`)
+2. System environment variables (`GEMINI_API_KEY`, `OPENAI_API_KEY`, etc.)
 3. `.env` file in current directory
 
-**Quick Start Example:**
-```bash
-# Set up API key
-export GEMINI_API_KEY="your-key-here"
-
-# Start using zen CLI
-zen chat "Explain microservices architecture" --model gemini-2.5-pro
-zen analyze -f src/app.py --analysis-type architecture
-```
+Run `zen setup` at any time to reconfigure API keys, storage, or MCP registration.
 
 👉 **[Complete Setup Guide](docs/getting-started.md)** with detailed installation, configuration for Gemini / Codex / Qwen, and troubleshooting
 👉 **[Cursor & VS Code Setup](docs/getting-started.md#ide-clients)** for IDE integration instructions

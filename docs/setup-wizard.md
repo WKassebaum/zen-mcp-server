@@ -2,15 +2,17 @@
 
 ## Overview
 
-The `zen setup` command provides an interactive wizard to configure Zen CLI. It guides you through setting up API keys and storage preferences, creating or updating your `~/.zen/.env` file.
+The `zen setup` command is the **single entry point** for configuring Zen CLI. It handles API keys, storage preferences, and MCP server registration with Claude Code — all in one interactive wizard.
 
 ## Quick Start
 
 ```bash
-zen setup
+pip install -e .   # Install zen CLI (from repo root)
+zen setup          # Configure everything
+zen listmodels     # Verify
 ```
 
-This launches the interactive setup wizard.
+This is the complete setup flow. No other scripts or manual config needed.
 
 ## Features
 
@@ -41,6 +43,13 @@ The wizard walks you through:
    - Host, port, database number
    - Password (optional)
    - Key prefix for namespacing
+
+5. **MCP Registration** (automatic)
+   - Detects Claude Code CLI installation
+   - Checks existing MCP server registration
+   - Registers or updates automatically
+   - Passes API keys as environment variables to the MCP server
+   - Fixes stale configs (e.g. Docker-based registrations)
 
 ## Usage Examples
 
@@ -86,6 +95,12 @@ Save configuration? [Y/n]: Y
 │                                                      │
 │ Test your setup with: zen listmodels                │
 ╰──────────────────────────────────────────────────────╯
+
+═══ MCP Registration ═══
+Checking Claude Code MCP server registration
+
+  ✓ MCP registered: zen-mcp-server
+  ✓ Binary found: /Users/you/.local/bin/zen-mcp-server
 
 Configured Providers:
   ✓ Google Gemini
@@ -179,9 +194,9 @@ When displaying existing keys:
 
 ### 1. Run Setup After Installation
 ```bash
-pip install zen-cli
-zen setup  # Configure before first use
-zen listmodels  # Verify configuration
+pip install -e .   # Or: pip install zen-mcp-server
+zen setup          # Configures API keys, storage, AND MCP registration
+zen listmodels     # Verify configuration
 ```
 
 ### 2. Update Keys Regularly

@@ -2,6 +2,16 @@
 
 This file contains essential commands and workflows for developing and maintaining the Zen MCP Server when working with Claude. Use these instructions to efficiently run quality checks, manage the server, check logs, and run tests.
 
+## First-Time Setup
+
+```bash
+pip install -e .   # Install zen CLI and MCP server
+zen setup          # Interactive wizard: API keys, storage, MCP registration
+zen listmodels     # Verify everything works
+```
+
+`zen setup` is the single setup command. It configures API keys, storage backend, and registers zen as an MCP server with Claude Code. Run it again anytime to update configuration.
+
 ## Quick Reference Commands
 
 ### Code Quality Checks
@@ -10,7 +20,7 @@ Before making any changes or submitting PRs, always run the comprehensive qualit
 
 ```bash
 # Activate virtual environment first
-source venv/bin/activate
+source .zen_venv/bin/activate
 
 # Run all quality checks (linting, formatting, tests)
 ./code_quality_checks.sh
@@ -34,18 +44,14 @@ This script automatically runs:
 
 ### Server Management
 
-#### Setup/Update the Server
+#### Setup/Update Configuration
 ```bash
-# Run setup script (handles everything)
+# Interactive setup wizard (API keys, storage, MCP registration)
+zen setup
+
+# Alternative: full dev environment setup script
 ./run-server.sh
 ```
-
-This script will:
-- Set up Python virtual environment
-- Install all dependencies
-- Create/update .env file
-- Configure MCP with Claude
-- Verify API keys
 
 #### View Logs
 ```bash
@@ -237,9 +243,10 @@ python -m pytest tests/ -v
 ### Development Workflow
 
 #### Before Making Changes
-1. Ensure virtual environment is activated: `source .zen_venv/bin/activate`
-2. Run quality checks: `./code_quality_checks.sh`
-3. Check logs to ensure server is healthy: `tail -n 50 logs/mcp_server.log`
+1. Ensure setup is complete: `pip install -e . && zen setup` (first time only)
+2. Activate virtual environment: `source .zen_venv/bin/activate`
+3. Run quality checks: `./code_quality_checks.sh`
+4. Check logs to ensure server is healthy: `tail -n 50 logs/mcp_server.log`
 
 #### After Making Changes
 1. Run quality checks again: `./code_quality_checks.sh`
