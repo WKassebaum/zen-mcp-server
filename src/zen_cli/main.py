@@ -552,7 +552,6 @@ def _setup_mcp_registration(console, config: dict):
 
     # 3. Read current MCP configuration
     current_config = None
-    needs_update = False
     update_reason = None
 
     # Check user-scope settings (~/.config/claude-code/settings.json)
@@ -571,7 +570,6 @@ def _setup_mcp_registration(console, config: dict):
         args = current_config.get("args", [])
 
         if cmd == "docker":
-            needs_update = True
             update_reason = "currently points to Docker (stale)"
         elif cmd == "zen-mcp-server" and not args:
             # Correct configuration — verify binary still exists at expected path
@@ -584,7 +582,6 @@ def _setup_mcp_registration(console, config: dict):
                 console.print(f"  [green]✓[/green] MCP registered: [cyan]{cmd}[/cyan]")
                 return
             else:
-                needs_update = True
                 update_reason = f"binary not found at {cmd}"
         elif cmd == "python" or cmd.endswith("/python") or cmd.endswith("/python3"):
             # Old-style registration via python server.py — check if server.py path is valid
@@ -594,13 +591,10 @@ def _setup_mcp_registration(console, config: dict):
                 console.print("  [dim]Tip: Can simplify to 'zen-mcp-server' (run zen setup again to update)[/dim]")
                 return
             else:
-                needs_update = True
                 update_reason = f"server.py not found at {server_path}"
         else:
-            needs_update = True
             update_reason = f"unexpected command: {cmd}"
     else:
-        needs_update = True
         update_reason = "not registered"
 
     # 5. Register or update
@@ -662,7 +656,7 @@ def _setup_mcp_registration(console, config: dict):
             _write_mcp_config_directly(console, settings_path, [], config)
         except Exception as e:
             console.print(f"  [red]✗[/red] Registration failed: {e}")
-            console.print(f"  [dim]Manual: claude mcp add zen -s user -- zen-mcp-server[/dim]")
+            console.print("  [dim]Manual: claude mcp add zen -s user -- zen-mcp-server[/dim]")
 
 
 def _write_mcp_config_directly(console, settings_path: Path, env_args: list, config: dict):

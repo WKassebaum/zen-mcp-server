@@ -28,6 +28,9 @@ os.environ["DEFAULT_MODEL"] = "gemini-2.5-flash"
 # This must be set before any storage module is imported
 os.environ["ZEN_STORAGE_TYPE"] = "memory"
 
+# Pin MAX_CONVERSATION_TURNS so tests pass regardless of user's .env
+os.environ["MAX_CONVERSATION_TURNS"] = "50"
+
 # Force reload of config module to pick up the env var
 import config  # noqa: E402
 
