@@ -200,7 +200,7 @@ class TestConsensusCommand:
             self.runner.invoke(cli, ["consensus", "Should we use microservices?", "--models", "gemini-pro,o3"])
 
             call_args = mock_execute.call_args[0][0]
-            assert call_args["prompt"] == "Should we use microservices?"
+            assert call_args["step"] == "Should we use microservices?"
             assert "models" in call_args
             # Models should be parsed into list of dicts
             assert isinstance(call_args["models"], list)

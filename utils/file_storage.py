@@ -155,6 +155,15 @@ class FileBasedStorage(StorageBackend):
                     pass  # Skip corrupted files
             return keys
 
+    def clear(self):
+        """Clear all stored conversations (for testing)."""
+        with self._lock:
+            for file_path in self.conversations_dir.glob("*.json"):
+                try:
+                    file_path.unlink()
+                except Exception:
+                    pass
+
     def list_active_conversations(self) -> list[tuple[str, dict]]:
         """List all active (non-expired) conversation keys with metadata"""
         active_conversations = []

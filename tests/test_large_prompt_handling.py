@@ -25,12 +25,46 @@ from tools.shared.exceptions import ToolExecutionError
 class TestLargePromptHandling:
     """Test suite for large prompt handling across all tools."""
 
-    def teardown_method(self):
-        """Clean up after each test to prevent state pollution."""
-        # Clear provider registry singleton
+    def setup_method(self):
+        """Save state before each test."""
+        import importlib
+
+        import config
+
         from providers.registry import ModelProviderRegistry
 
-        ModelProviderRegistry._instance = None
+        self._saved_env = {
+            k: os.environ.get(k)
+            for k in ["OPENAI_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY", "OPENROUTER_API_KEY", "DEFAULT_MODEL"]
+        }
+        self._saved_registry = ModelProviderRegistry()
+        self._saved_providers = self._saved_registry._providers.copy()
+        self._saved_initialized = self._saved_registry._initialized_providers.copy()
+
+    def teardown_method(self):
+        """Restore state after each test to prevent cross-test pollution."""
+        import importlib
+
+        import config
+
+        from providers.registry import ModelProviderRegistry
+
+        # Restore environment
+        for key, value in self._saved_env.items():
+            if value is not None:
+                os.environ[key] = value
+            else:
+                os.environ.pop(key, None)
+
+        # Reload config to pick up restored env
+        importlib.reload(config)
+
+        # Restore registry
+        registry = ModelProviderRegistry()
+        registry._providers.clear()
+        registry._initialized_providers.clear()
+        registry._providers.update(self._saved_providers)
+        registry._initialized_providers.update(self._saved_initialized)
 
     @pytest.fixture
     def large_prompt(self):
