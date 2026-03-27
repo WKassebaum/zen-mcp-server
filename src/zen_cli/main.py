@@ -527,13 +527,190 @@ def version(ctx):
     console.print("Based on Zen MCP Server v9.0.0")
 
 
+def _setup_mcp_registration(console, config: dict):
+    """Detect, verify, and update MCP registration with Claude Code."""
+    import json
+    import shutil
+
+    console.print("\n[bold cyan]═══ MCP Registration ═══[/bold cyan]")
+    console.print("[dim]Checking Claude Code MCP server registration[/dim]\n")
+
+    # 1. Check if claude CLI is available
+    claude_cmd = shutil.which("claude")
+    if not claude_cmd:
+        console.print("  [yellow]⚠[/yellow] Claude Code CLI not found in PATH")
+        console.print("  [dim]Install Claude Code to enable MCP integration[/dim]")
+        console.print("  [dim]Manual registration: claude mcp add zen -s user -- zen-mcp-server[/dim]")
+        return
+
+    # 2. Check if zen-mcp-server binary is available
+    zen_server_cmd = shutil.which("zen-mcp-server")
+    if not zen_server_cmd:
+        console.print("  [yellow]⚠[/yellow] zen-mcp-server not found in PATH")
+        console.print("  [dim]Run: pip install -e . (from the zen-mcp-server repo)[/dim]")
+        return
+
+    # 3. Read current MCP configuration
+    current_config = None
+    needs_update = False
+    update_reason = None
+
+    # Check user-scope settings (~/.config/claude-code/settings.json)
+    settings_path = Path.home() / ".config" / "claude-code" / "settings.json"
+    if settings_path.exists():
+        try:
+            with open(settings_path) as f:
+                settings = json.load(f)
+            current_config = settings.get("mcpServers", {}).get("zen")
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # 4. Verify current registration
+    if current_config:
+        cmd = current_config.get("command", "")
+        args = current_config.get("args", [])
+
+        if cmd == "docker":
+            needs_update = True
+            update_reason = "currently points to Docker (stale)"
+        elif cmd == "zen-mcp-server" and not args:
+            # Correct configuration — verify binary still exists at expected path
+            console.print(f"  [green]✓[/green] MCP registered: [cyan]{cmd}[/cyan]")
+            console.print(f"  [green]✓[/green] Binary found: [dim]{zen_server_cmd}[/dim]")
+            return
+        elif cmd and Path(cmd).name == "zen-mcp-server":
+            # Points to a specific path — verify it exists
+            if Path(cmd).exists():
+                console.print(f"  [green]✓[/green] MCP registered: [cyan]{cmd}[/cyan]")
+                return
+            else:
+                needs_update = True
+                update_reason = f"binary not found at {cmd}"
+        elif cmd == "python" or cmd.endswith("/python") or cmd.endswith("/python3"):
+            # Old-style registration via python server.py — check if server.py path is valid
+            server_path = args[-1] if args else ""
+            if server_path and Path(server_path).exists():
+                console.print(f"  [green]✓[/green] MCP registered: [cyan]{cmd} {' '.join(args)}[/cyan]")
+                console.print("  [dim]Tip: Can simplify to 'zen-mcp-server' (run zen setup again to update)[/dim]")
+                return
+            else:
+                needs_update = True
+                update_reason = f"server.py not found at {server_path}"
+        else:
+            needs_update = True
+            update_reason = f"unexpected command: {cmd}"
+    else:
+        needs_update = True
+        update_reason = "not registered"
+
+    # 5. Register or update
+    from rich.prompt import Confirm
+
+    if current_config:
+        console.print(f"  [yellow]⚠[/yellow] MCP registration needs update ({update_reason})")
+    else:
+        console.print("  [dim]Zen is not registered as an MCP server with Claude Code[/dim]")
+
+    if Confirm.ask("  Register zen with Claude Code?", default=True):
+        try:
+            import subprocess
+
+            # Build env args from configured API keys
+            env_args = []
+            env_key_map = {
+                "GEMINI_API_KEY": "GEMINI_API_KEY",
+                "OPENAI_API_KEY": "OPENAI_API_KEY",
+                "ANTHROPIC_API_KEY": "ANTHROPIC_API_KEY",
+                "XAI_API_KEY": "XAI_API_KEY",
+                "OPENROUTER_API_KEY": "OPENROUTER_API_KEY",
+            }
+            for config_key, env_name in env_key_map.items():
+                value = config.get(config_key, "")
+                if value:
+                    env_args.extend(["-e", f"{env_name}={value}"])
+
+            # Remove existing registration first (ignore errors if not present)
+            subprocess.run(
+                [claude_cmd, "mcp", "remove", "zen", "-s", "user"],
+                capture_output=True,
+                timeout=15,
+            )
+
+            # Register with claude mcp add
+            cmd_parts = [claude_cmd, "mcp", "add", "zen", "-s", "user"]
+            cmd_parts.extend(env_args)
+            cmd_parts.extend(["--", "zen-mcp-server"])
+
+            result = subprocess.run(
+                cmd_parts,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+
+            if result.returncode == 0:
+                console.print("  [green]✓[/green] Registered zen with Claude Code")
+                console.print(f"  [dim]Binary: {zen_server_cmd}[/dim]")
+            else:
+                # Fallback: write directly to settings.json
+                console.print(f"  [yellow]⚠[/yellow] claude mcp add returned: {result.stderr.strip()}")
+                console.print("  [dim]Attempting direct config update...[/dim]")
+                _write_mcp_config_directly(console, settings_path, env_args, config)
+
+        except subprocess.TimeoutExpired:
+            console.print("  [yellow]⚠[/yellow] claude mcp add timed out, writing config directly...")
+            _write_mcp_config_directly(console, settings_path, [], config)
+        except Exception as e:
+            console.print(f"  [red]✗[/red] Registration failed: {e}")
+            console.print(f"  [dim]Manual: claude mcp add zen -s user -- zen-mcp-server[/dim]")
+
+
+def _write_mcp_config_directly(console, settings_path: Path, env_args: list, config: dict):
+    """Fallback: write MCP config directly to settings.json."""
+    import json
+
+    try:
+        settings = {}
+        if settings_path.exists():
+            with open(settings_path) as f:
+                settings = json.load(f)
+
+        if "mcpServers" not in settings:
+            settings["mcpServers"] = {}
+
+        zen_entry = {"command": "zen-mcp-server"}
+
+        # Add env vars if any API keys configured
+        env_vars = {}
+        for key in ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY", "XAI_API_KEY", "OPENROUTER_API_KEY"]:
+            value = config.get(key, "")
+            if value:
+                env_vars[key] = value
+
+        if env_vars:
+            zen_entry["env"] = env_vars
+
+        settings["mcpServers"]["zen"] = zen_entry
+
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(settings_path, "w") as f:
+            json.dump(settings, f, indent=2)
+            f.write("\n")
+
+        console.print("  [green]✓[/green] Updated MCP config directly")
+        console.print(f"  [dim]{settings_path}[/dim]")
+    except Exception as e:
+        console.print(f"  [red]✗[/red] Direct config update failed: {e}")
+        console.print("  [dim]Manual: claude mcp add zen -s user -- zen-mcp-server[/dim]")
+
+
 @cli.command()
 @click.pass_context
 def setup(ctx):
     """Interactive setup wizard for Zen CLI configuration
 
-    Guides you through configuring API keys and storage settings.
-    Creates or updates ~/.zen/.env file with your preferences.
+    Guides you through configuring API keys, storage settings,
+    and MCP registration with Claude Code.
     """
 
     from rich.panel import Panel
@@ -719,6 +896,9 @@ def setup(ctx):
                     border_style="green",
                 )
             )
+
+            # MCP Registration
+            _setup_mcp_registration(console, final_config)
 
             # Show summary of configured providers
             console.print("\n[bold]Configured Providers:[/bold]")
