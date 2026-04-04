@@ -27,9 +27,6 @@ class TestLargePromptHandling:
 
     def setup_method(self):
         """Save state before each test."""
-        import importlib
-
-        import config
 
         from providers.registry import ModelProviderRegistry
 
@@ -46,7 +43,6 @@ class TestLargePromptHandling:
         import importlib
 
         import config
-
         from providers.registry import ModelProviderRegistry
 
         # Restore environment

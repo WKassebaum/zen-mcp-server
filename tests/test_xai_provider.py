@@ -323,7 +323,9 @@ class TestXAIProvider:
 
         # Call generate_content with alias 'grok'
         result = provider.generate_content(
-            prompt="Test prompt", model_name="grok", temperature=0.7  # This should be resolved to "grok-4.20-beta-0309-reasoning"
+            prompt="Test prompt",
+            model_name="grok",
+            temperature=0.7,  # This should be resolved to "grok-4.20-beta-0309-reasoning"
         )
 
         # Verify the API was called with the RESOLVED model name
@@ -331,7 +333,9 @@ class TestXAIProvider:
         call_kwargs = mock_client.chat.completions.create.call_args[1]
 
         # CRITICAL ASSERTION: The API should receive "grok-4.20-beta-0309-reasoning", not "grok"
-        assert call_kwargs["model"] == "grok-4.20-beta-0309-reasoning", f"Expected 'grok-4.20-beta-0309-reasoning' but API received '{call_kwargs['model']}'"
+        assert (
+            call_kwargs["model"] == "grok-4.20-beta-0309-reasoning"
+        ), f"Expected 'grok-4.20-beta-0309-reasoning' but API received '{call_kwargs['model']}'"
 
         # Verify other parameters
         assert call_kwargs["temperature"] == 0.7

@@ -68,7 +68,9 @@ class TestIntelligentFallback:
         ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         fallback_model = ModelProviderRegistry.get_preferred_fallback_model()
-        assert fallback_model == "gemini-3.1-pro-preview"  # Google has priority over OpenAI (based on PROVIDER_PRIORITY_ORDER)
+        assert (
+            fallback_model == "gemini-3.1-pro-preview"
+        )  # Google has priority over OpenAI (based on PROVIDER_PRIORITY_ORDER)
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "", "GEMINI_API_KEY": ""}, clear=False)
     def test_fallback_when_no_keys_available(self):
