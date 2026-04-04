@@ -126,7 +126,27 @@ class CustomModelRegistryBase:
                 return {"models": []}
 
         data = read_json_file(str(self.config_path))
-        return data or {"models": []}
+        data = data or {"models": []}
+
+        # Merge local overrides (e.g. custom_models.local.json) if present
+        local_path = self.config_path.with_suffix(".local.json")
+        if local_path.exists():
+            local_data = read_json_file(str(local_path))
+            if local_data and "models" in local_data:
+                existing_names = {m["model_name"] for m in data.get("models", []) if isinstance(m, dict)}
+                for model in local_data["models"]:
+                    if isinstance(model, dict) and model.get("model_name") not in existing_names:
+                        data["models"].append(model)
+                    elif isinstance(model, dict):
+                        # Local entry overrides the default entry
+                        data["models"] = [
+                            m for m in data["models"]
+                            if not (isinstance(m, dict) and m.get("model_name") == model["model_name"])
+                        ]
+                        data["models"].append(model)
+                logger.info("Merged %d model(s) from %s", len(local_data["models"]), local_path.name)
+
+        return data
 
     @property
     def use_resources(self) -> bool:

@@ -2,7 +2,7 @@
   "_README": {
     "description": "Model metadata for local/self-hosted OpenAI-compatible endpoints (Custom provider).",
     "documentation": "https://github.com/BeehiveInnovations/zen-mcp-server/blob/main/docs/custom_models.md",
-    "usage": "Each entry will be advertised by the Custom provider. Aliases are case-insensitive.",
+    "usage": "Each entry will be advertised by the Custom provider. Aliases are case-insensitive. Create custom_models.local.json alongside this file to add your own models without modifying the tracked config.",
     "field_notes": "Matches providers/shared/model_capabilities.py.",
     "field_descriptions": {
       "model_name": "The model identifier e.g., 'llama3.2'",
