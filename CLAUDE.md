@@ -12,6 +12,23 @@ zen listmodels     # Verify everything works
 
 `zen setup` is the single setup command. It configures API keys, storage backend, and registers zen as an MCP server with Claude Code. Run it again anytime to update configuration.
 
+## Bundled Claude Code Skill
+
+This repo ships an authoritative `zen-skill` for Claude Code at `.claude/skills/zen-skill/`. It auto-loads for any Claude Code session opened inside this repo — no install step required.
+
+To make it available **globally** (in every project), copy or symlink it into your user skills directory:
+
+```bash
+# Symlink (recommended — repo updates flow through automatically)
+ln -sfn "$(pwd)/.claude/skills/zen-skill" ~/.claude/skills/zen-skill
+
+# Or one-time copy
+mkdir -p ~/.claude/skills/zen-skill
+cp .claude/skills/zen-skill/{SKILL.md,examples.md} ~/.claude/skills/zen-skill/
+```
+
+See `.claude/skills/zen-skill/README.md` for details. The skill covers all 19 `zen` subcommands, the multi-step `--session/--continue` workflow pattern, model selection, and sub-agent routing for context efficiency.
+
 ## Quick Reference Commands
 
 ### Code Quality Checks
