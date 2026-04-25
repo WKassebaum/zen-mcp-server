@@ -26,14 +26,60 @@
   },
   "models": [
     {
+      "model_name": "gpt-5.5-pro",
+      "friendly_name": "OpenAI (GPT-5.5 Pro)",
+      "aliases": [
+        "gpt5.5-pro",
+        "gpt-5-5-pro"
+      ],
+      "intelligence_score": 20,
+      "description": "GPT-5.5 Pro (1.05M context, 128K output) - First fully retrained base model since GPT-4.5, highest reasoning, async/Batch API, $30/$180 per 1M tokens",
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "max_image_size_mb": 20.0,
+      "use_openai_response_api": true,
+      "default_reasoning_effort": "high",
+      "allow_code_generation": true,
+      "temperature_constraint": "fixed"
+    },
+    {
+      "model_name": "gpt-5.5",
+      "friendly_name": "OpenAI (GPT-5.5)",
+      "aliases": [
+        "gpt5.5",
+        "gpt-5-5"
+      ],
+      "intelligence_score": 20,
+      "description": "GPT-5.5 (1.05M context, 128K output) - First fully retrained base model since GPT-4.5, reasoning.effort none/low/medium/high/xhigh, $5/$30 per 1M tokens",
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "temperature_constraint": "fixed"
+    },
+    {
       "model_name": "gpt-5.4-pro",
       "friendly_name": "OpenAI (GPT-5.4 Pro)",
       "aliases": [
         "gpt5.4-pro",
         "gpt-5-4-pro"
       ],
-      "intelligence_score": 20,
-      "description": "GPT-5.4 Pro (1.05M context, 128K output) - Maximum intelligence with xhigh reasoning, 33% fewer errors vs GPT-5.2, $30/$180 per 1M tokens",
+      "intelligence_score": 19,
+      "description": "GPT-5.4 Pro (1.05M context, 128K output) - Previous flagship with xhigh reasoning, 33% fewer errors vs GPT-5.2, $30/$180 per 1M tokens",
       "context_window": 1050000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
@@ -324,8 +370,8 @@
         "gpt5.2-thinking",
         "gpt-5-2-thinking"
       ],
-      "intelligence_score": 20,
-      "description": "GPT-5.2 Thinking (400K context, 272K output) - State-of-the-art reasoning with 100% AIME 2025, 92.4% GPQA Diamond",
+      "intelligence_score": 19,
+      "description": "GPT-5.2 Thinking (400K context, 272K output) - Previous SOTA reasoning, 100% AIME 2025, 92.4% GPQA Diamond (superseded by GPT-5.5)",
       "context_window": 400000,
       "max_output_tokens": 272000,
       "supports_extended_thinking": true,

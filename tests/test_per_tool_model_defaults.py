@@ -98,8 +98,8 @@ class TestModelSelection:
             ModelProviderRegistry.register_provider(ProviderType.OPENAI, OpenAIModelProvider)
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
-            # OpenAI prefers GPT-5.4-pro for extended reasoning (coding tasks)
-            assert model == "gpt-5.4-pro"
+            # OpenAI prefers GPT-5.5-pro for extended reasoning (first fully retrained base since GPT-4.5)
+            assert model == "gpt-5.5-pro"
 
     def test_extended_reasoning_with_gemini_only(self):
         """Test EXTENDED_REASONING prefers pro when only Gemini is available."""
@@ -166,8 +166,8 @@ class TestModelSelection:
             ModelProviderRegistry.register_provider(ProviderType.OPENAI, OpenAIModelProvider)
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.BALANCED)
-            # OpenAI prefers gpt-5.4 for balanced
-            assert model == "gpt-5.4"
+            # OpenAI prefers gpt-5.5 for balanced (top of new flagship line)
+            assert model == "gpt-5.5"
 
     def test_no_category_uses_balanced_logic(self):
         """Test that no category specified uses balanced logic."""
@@ -199,7 +199,7 @@ class TestFlexibleModelSelection:
                 "env": {"OPENAI_API_KEY": "test-key"},
                 "provider_type": ProviderType.OPENAI,
                 "category": ToolModelCategory.EXTENDED_REASONING,
-                "expected": "gpt-5.4-pro",  # GPT-5.4-pro prioritized for reasoning/coding tasks
+                "expected": "gpt-5.5-pro",  # GPT-5.5-pro is the new flagship for reasoning/coding
             },
             # Case 2: Gemini provider for fast response
             {

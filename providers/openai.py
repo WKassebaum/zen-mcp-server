@@ -115,9 +115,11 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer the most capable models for deep reasoning and coding tasks
-            # GPT-5.4-pro is the pinnacle for complex coding/reasoning with xhigh effort
+            # GPT-5.5-pro is the pinnacle (first fully retrained base since GPT-4.5, highest reasoning)
             preferred = find_first(
                 [
+                    "gpt-5.5-pro",
+                    "gpt-5.5",
                     "gpt-5.4-pro",
                     "gpt-5.4",
                     "gpt-5.2-thinking",
@@ -150,9 +152,10 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
             return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer GPT-5.4 for best all-round performance (1M context, frontier coding)
+            # Prefer GPT-5.5 for best all-round performance (1.05M context, frontier reasoning)
             preferred = find_first(
                 [
+                    "gpt-5.5",
                     "gpt-5.4",
                     "gpt-5.4-pro",
                     "gpt-5.2",

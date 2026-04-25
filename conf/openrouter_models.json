@@ -60,10 +60,26 @@
       "allow_code_generation": true
     },
     {
-      "model_name": "anthropic/claude-opus-4-6",
+      "model_name": "anthropic/claude-opus-4-7",
       "aliases": [
         "opus",
         "claude-opus",
+        "opus-4.7"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Claude Opus 4.7 - Flagship with advanced software engineering, xhigh thinking effort (via OpenRouter)",
+      "intelligence_score": 20
+    },
+    {
+      "model_name": "anthropic/claude-opus-4-6",
+      "aliases": [
         "opus-4.6"
       ],
       "context_window": 200000,
@@ -74,8 +90,8 @@
       "supports_images": true,
       "max_image_size_mb": 20.0,
       "allow_code_generation": true,
-      "description": "Claude Opus 4.6 - Most intelligent model with adaptive thinking (via OpenRouter)",
-      "intelligence_score": 20
+      "description": "Claude Opus 4.6 - Previous flagship with adaptive thinking (via OpenRouter)",
+      "intelligence_score": 19
     },
     {
       "model_name": "anthropic/claude-opus-4.5",
@@ -352,6 +368,46 @@
       "temperature_constraint": "fixed",
       "description": "OpenAI's o4-mini model - optimized for shorter contexts with rapid reasoning and vision",
       "intelligence_score": 11
+    },
+    {
+      "model_name": "openai/gpt-5.5-pro",
+      "aliases": [
+        "gpt5.5-pro",
+        "gpt-5-5-pro"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "use_openai_response_api": true,
+      "default_reasoning_effort": "high",
+      "allow_code_generation": true,
+      "description": "GPT-5.5 Pro - First fully retrained base model since GPT-4.5, highest reasoning (via OpenRouter)",
+      "intelligence_score": 20
+    },
+    {
+      "model_name": "openai/gpt-5.5",
+      "aliases": [
+        "gpt5.5",
+        "gpt-5-5"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "allow_code_generation": true,
+      "description": "GPT-5.5 (1.05M context) - First fully retrained base model since GPT-4.5, reasoning effort low→xhigh (via OpenRouter)",
+      "intelligence_score": 20
     },
     {
       "model_name": "openai/gpt-5",

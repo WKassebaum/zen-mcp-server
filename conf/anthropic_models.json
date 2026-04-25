@@ -23,17 +23,39 @@
   },
   "models": [
     {
+      "model_name": "claude-opus-4-7",
+      "friendly_name": "Anthropic (Claude Opus 4.7)",
+      "aliases": [
+        "opus-4.7",
+        "claude-opus",
+        "opus",
+        "claude-opus-4.7",
+        "claude-opus-4-7"
+      ],
+      "intelligence_score": 20,
+      "description": "Claude Opus 4.7 - Flagship model with advanced software engineering, xhigh thinking effort, 200K context (1M beta), 128K output, $5/$25 per 1M tokens",
+      "context_window": 200000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-opus-4-6",
       "friendly_name": "Anthropic (Claude Opus 4.6)",
       "aliases": [
         "opus-4.6",
-        "claude-opus",
-        "opus",
         "claude-opus-4.6",
         "claude-opus-4-6"
       ],
-      "intelligence_score": 20,
-      "description": "Claude Opus 4.6 - Most intelligent model with adaptive thinking, 200K context (1M beta), 128K output, best for agents/coding, $5/$25 per 1M tokens",
+      "intelligence_score": 19,
+      "description": "Claude Opus 4.6 - Previous flagship with adaptive thinking, 200K context (1M beta), 128K output, $5/$25 per 1M tokens",
       "context_window": 200000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,

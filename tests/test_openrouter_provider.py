@@ -79,7 +79,7 @@ class TestOpenRouterProvider:
         provider = OpenRouterProvider(api_key="test-key")
 
         # Test alias resolution
-        assert provider._resolve_model_name("opus") == "anthropic/claude-opus-4-6"
+        assert provider._resolve_model_name("opus") == "anthropic/claude-opus-4-7"
         assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-4-6"
         assert provider._resolve_model_name("sonnet4.1") == "anthropic/claude-sonnet-4.1"
         assert provider._resolve_model_name("o3") == "openai/o3"
@@ -96,7 +96,7 @@ class TestOpenRouterProvider:
         assert provider._resolve_model_name("r1") == "deepseek/deepseek-r1-0528"
 
         # Test case-insensitive
-        assert provider._resolve_model_name("OPUS") == "anthropic/claude-opus-4-6"
+        assert provider._resolve_model_name("OPUS") == "anthropic/claude-opus-4-7"
         assert provider._resolve_model_name("SONNET") == "anthropic/claude-sonnet-4-6"
         assert provider._resolve_model_name("O3") == "openai/o3"
         assert provider._resolve_model_name("Mistral") == "mistralai/mistral-large-2512"
@@ -308,7 +308,7 @@ class TestOpenRouterRegistry:
         # Test known model
         caps = registry.get_capabilities("opus")
         assert caps is not None
-        assert caps.model_name == "anthropic/claude-opus-4-6"
+        assert caps.model_name == "anthropic/claude-opus-4-7"
         assert caps.context_window == 200000  # Claude's context window
 
         # Test using full model name
