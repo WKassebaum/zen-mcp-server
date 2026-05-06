@@ -107,9 +107,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4",  # GROK-4 for reasoning
-                    "FAST_RESPONSE": "grok-3-fast",  # GROK-3-fast for speed
-                    "BALANCED": "grok-4",  # GROK-4 as balanced
+                    "EXTENDED_REASONING": "grok-4.3",  # Grok 4.3 SOTA flagship for reasoning
+                    "FAST_RESPONSE": "grok-4-fast-non-reasoning",  # Grok 4 Fast (non-reasoning) for speed
+                    "BALANCED": "grok-4.3",  # Grok 4.3 as balanced
                 },
             ),
             # Both Gemini and OpenAI available - Google comes first in priority
@@ -135,9 +135,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4",  # XAI comes first in priority
-                    "FAST_RESPONSE": "grok-3-fast",  # Grok 3 Fast for speed
-                    "BALANCED": "grok-4",  # Grok 4 as balanced
+                    "EXTENDED_REASONING": "grok-4.3",  # XAI comes first in priority; Grok 4.3 SOTA
+                    "FAST_RESPONSE": "grok-4-fast-non-reasoning",  # Grok 4 Fast (non-reasoning) for speed
+                    "BALANCED": "grok-4.3",  # Grok 4.3 as balanced
                 },
             ),
         ],

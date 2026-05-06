@@ -24,18 +24,39 @@
   },
   "models": [
     {
-      "model_name": "grok-4.20-beta-0309-reasoning",
-      "friendly_name": "X.AI (Grok 4.20 Beta Reasoning)",
+      "model_name": "grok-4.3",
+      "friendly_name": "X.AI (Grok 4.3)",
       "aliases": [
         "grok",
         "grok4",
+        "grok4.3",
+        "grok-4-3"
+      ],
+      "intelligence_score": 20,
+      "description": "Grok 4.3 - xAI flagship with always-on reasoning, 1M context, vision, $1.25/$2.50 per 1M tokens",
+      "context_window": 1000000,
+      "max_output_tokens": 1000000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-4.20-beta-0309-reasoning",
+      "friendly_name": "X.AI (Grok 4.20 Beta Reasoning)",
+      "aliases": [
         "grok4.20",
         "grok-4.20",
         "grok4.20-reasoning",
         "grok-4.20-reasoning"
       ],
-      "intelligence_score": 20,
-      "description": "Grok 4.20 Beta Reasoning - Latest xAI flagship with extended reasoning, 2M context, multimodal",
+      "intelligence_score": 19,
+      "description": "Grok 4.20 Beta Reasoning - Previous xAI flagship with extended reasoning, 2M context, multimodal",
       "context_window": 2000000,
       "max_output_tokens": 2000000,
       "supports_extended_thinking": true,
