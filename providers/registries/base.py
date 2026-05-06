@@ -140,7 +140,8 @@ class CustomModelRegistryBase:
                     elif isinstance(model, dict):
                         # Local entry overrides the default entry
                         data["models"] = [
-                            m for m in data["models"]
+                            m
+                            for m in data["models"]
                             if not (isinstance(m, dict) and m.get("model_name") == model["model_name"])
                         ]
                         data["models"].append(model)
