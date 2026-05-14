@@ -108,7 +108,7 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "grok-4.3",  # Grok 4.3 SOTA flagship for reasoning
-                    "FAST_RESPONSE": "grok-4-fast-non-reasoning",  # Grok 4 Fast (non-reasoning) for speed
+                    "FAST_RESPONSE": "grok-4.3",  # Grok 4.3 with reasoning_effort=none for speed (grok-4-fast-* retired 2026-05-15)
                     "BALANCED": "grok-4.3",  # Grok 4.3 as balanced
                 },
             ),
@@ -136,7 +136,7 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "grok-4.3",  # XAI comes first in priority; Grok 4.3 SOTA
-                    "FAST_RESPONSE": "grok-4-fast-non-reasoning",  # Grok 4 Fast (non-reasoning) for speed
+                    "FAST_RESPONSE": "grok-4.3",  # Grok 4.3 with reasoning_effort=none for speed (grok-4-fast-* retired 2026-05-15)
                     "BALANCED": "grok-4.3",  # Grok 4.3 as balanced
                 },
             ),

@@ -502,7 +502,9 @@
         "grok",
         "grok4",
         "grok-4.3",
-        "grok4.3"
+        "grok4.3",
+        "grok-4",
+        "grok-4-0709"
       ],
       "context_window": 1000000,
       "max_output_tokens": 1000000,
@@ -513,27 +515,9 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
       "temperature_constraint": "range",
-      "description": "Grok 4.3 - xAI flagship with always-on reasoning, 1M context, vision, $1.25/$2.50 per 1M tokens (via OpenRouter)",
+      "description": "Grok 4.3 - xAI flagship with configurable reasoning effort (none/low/medium/high), 1M context, vision, $1.25/$2.50 per 1M tokens (via OpenRouter). Retired grok-4-0709/grok-4 slugs auto-redirect here upstream.",
       "intelligence_score": 20,
       "allow_code_generation": true
-    },
-    {
-      "model_name": "x-ai/grok-4",
-      "aliases": [
-        "grok-4",
-        "grok-4-0709"
-      ],
-      "context_window": 256000,
-      "max_output_tokens": 256000,
-      "supports_extended_thinking": true,
-      "supports_json_mode": true,
-      "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "xAI's Grok 4 via OpenRouter with vision and advanced reasoning",
-      "intelligence_score": 15
     }
   ]
 }

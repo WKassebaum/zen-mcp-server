@@ -61,42 +61,34 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Grok 4.3 is the new SOTA flagship (always-on reasoning, 1M context)
+            # Grok 4.3 is the SOTA flagship with configurable reasoning effort, 1M context.
             preferred = find_first(
                 [
                     "grok-4.3",
                     "grok-4.20-beta-0309-reasoning",
-                    "grok-4.1-fast-reasoning",
-                    "grok-4-fast-reasoning",
-                    "grok-4",
-                    "grok-3",
+                    "grok-3-fast",
                 ]
             )
             return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer non-reasoning fast variants, fall back to grok-4.3 if needed
+            # Grok 4.3 (current SOTA) supports reasoning_effort=none for latency-sensitive use cases.
+            # Callers should pass reasoning_effort=none to skip thinking.
             preferred = find_first(
                 [
-                    "grok-4-fast-non-reasoning",
-                    "grok-4.1-fast-non-reasoning",
+                    "grok-4.3",
                     "grok-4.20-beta-0309-non-reasoning",
                     "grok-3-fast",
-                    "grok-4.3",
-                    "grok-4",
+                    "grok-3-mini-fast",
                 ]
             )
             return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
-            # Grok 4.3 is the best all-around choice
             preferred = find_first(
                 [
                     "grok-4.3",
                     "grok-4.20-beta-0309-reasoning",
-                    "grok-4.1-fast-reasoning",
-                    "grok-4",
-                    "grok-3",
                     "grok-3-fast",
                 ]
             )
