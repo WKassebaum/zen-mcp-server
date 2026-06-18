@@ -27,8 +27,8 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
 
     # Canonical model identifiers used for category routing.
-    PRIMARY_MODEL = "grok-4-1-fast-reasoning"
-    FALLBACK_MODEL = "grok-4"
+    PRIMARY_MODEL = "grok-4.3"
+    FALLBACK_MODEL = "grok-4-1-fast-reasoning"
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize X.AI provider with API key."""
@@ -57,41 +57,49 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
         if not allowed_models:
             return None
 
-        if category == ToolModelCategory.EXTENDED_REASONING:
-            # Prefer Grok 4.1 Fast Reasoning for advanced tasks
-            if self.PRIMARY_MODEL in allowed_models:
-                return self.PRIMARY_MODEL
-            if self.FALLBACK_MODEL in allowed_models:
-                return self.FALLBACK_MODEL
-            # Fall back to older grok variants
-            for model in ["grok-4", "grok-3"]:
+        # Helper to find first available from preference list
+        def find_first(preferences: list[str]) -> Optional[str]:
+            for model in preferences:
                 if model in allowed_models:
                     return model
-            return allowed_models[0]
+            return None
+
+        if category == ToolModelCategory.EXTENDED_REASONING:
+            # Grok 4.3 is the SOTA flagship with configurable reasoning effort, 1M context.
+            preferred = find_first(
+                [
+                    "grok-4.3",
+                    "grok-4.20-beta-0309-reasoning",
+                    "grok-4-1-fast-reasoning",
+                    "grok-3-fast",
+                ]
+            )
+            return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer Grok 4.1 Fast Reasoning for speed as well (latest fast SKU).
-            if self.PRIMARY_MODEL in allowed_models:
-                return self.PRIMARY_MODEL
-            if self.FALLBACK_MODEL in allowed_models:
-                return self.FALLBACK_MODEL
-            # Fall back to fast variants
-            for model in ["grok-3-fast", "grok-4"]:
-                if model in allowed_models:
-                    return model
-            return allowed_models[0]
+            # Grok 4.3 (current SOTA) supports reasoning_effort=none for latency-sensitive use cases.
+            # Callers should pass reasoning_effort=none to skip thinking.
+            preferred = find_first(
+                [
+                    "grok-4.3",
+                    "grok-4.20-beta-0309-non-reasoning",
+                    "grok-4-1-fast-reasoning",
+                    "grok-3-fast",
+                    "grok-3-mini-fast",
+                ]
+            )
+            return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer Grok 4.1 Fast Reasoning for balanced use.
-            if self.PRIMARY_MODEL in allowed_models:
-                return self.PRIMARY_MODEL
-            if self.FALLBACK_MODEL in allowed_models:
-                return self.FALLBACK_MODEL
-            # Fall back to older grok variants
-            for model in ["grok-4", "grok-3"]:
-                if model in allowed_models:
-                    return model
-            return allowed_models[0]
+            preferred = find_first(
+                [
+                    "grok-4.3",
+                    "grok-4.20-beta-0309-reasoning",
+                    "grok-4-1-fast-reasoning",
+                    "grok-3-fast",
+                ]
+            )
+            return preferred if preferred else allowed_models[0]
 
 
 # Load registry data at import time

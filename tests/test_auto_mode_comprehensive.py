@@ -80,7 +80,7 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro for deep thinking (highest intelligence)
-                    "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed (alias, sorted highest)
+                    "FAST_RESPONSE": "gemini3.5-flash",  # Gemini 3.5 Flash GA for speed (alias, sorted highest post-2026-05-19)
                     "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced default
                 },
             ),
@@ -107,9 +107,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4-1-fast-reasoning",  # Latest Grok 4.1 Fast Reasoning
-                    "FAST_RESPONSE": "grok-4-1-fast-reasoning",  # Latest fast SKU
-                    "BALANCED": "grok-4-1-fast-reasoning",  # Latest balanced default
+                    "EXTENDED_REASONING": "grok-4.3",  # Grok 4.3 SOTA flagship for reasoning
+                    "FAST_RESPONSE": "grok-4.3",  # Grok 4.3 with reasoning_effort=none for speed (grok-4-fast-* retired 2026-05-15)
+                    "BALANCED": "grok-4.3",  # Grok 4.3 as balanced
                 },
             ),
             # Both Gemini and OpenAI available - Google comes first in priority
@@ -122,7 +122,7 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini comes first in priority
-                    "FAST_RESPONSE": "gemini3-flash",  # Gemini 3 Flash for speed
+                    "FAST_RESPONSE": "gemini3.5-flash",  # Gemini 3.5 Flash GA for speed (post-2026-05-19)
                     "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced
                 },
             ),
@@ -135,9 +135,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4-1-fast-reasoning",  # XAI comes first in priority
-                    "FAST_RESPONSE": "grok-4-1-fast-reasoning",  # Grok 4.1 Fast for speed
-                    "BALANCED": "grok-4-1-fast-reasoning",  # Grok 4.1 Fast as balanced
+                    "EXTENDED_REASONING": "grok-4.3",  # XAI comes first in priority; Grok 4.3 SOTA
+                    "FAST_RESPONSE": "grok-4.3",  # Grok 4.3 with reasoning_effort=none for speed (grok-4-fast-* retired 2026-05-15)
+                    "BALANCED": "grok-4.3",  # Grok 4.3 as balanced
                 },
             ),
         ],

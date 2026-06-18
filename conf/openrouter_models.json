@@ -25,6 +25,39 @@
   },
   "models": [
     {
+      "model_name": "anthropic/claude-fable-5",
+      "aliases": [
+        "or-fable",
+        "or-fable5"
+      ],
+      "intelligence_score": 22,
+      "description": "Claude Fable 5 via OpenRouter - Mythos-class frontier model, 80.3% SWE-Bench Pro, 1M context",
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "anthropic/claude-opus-4-8",
+      "aliases": [
+        "or-opus4.8"
+      ],
+      "intelligence_score": 21,
+      "description": "Claude Opus 4.8 via OpenRouter - 69.2% SWE-Bench Pro, 1M context",
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true
+    },
+    {
       "model_name": "anthropic/claude-sonnet-4-6",
       "aliases": [
         "sonnet",
@@ -602,32 +635,52 @@
       "intelligence_score": 16
     },
     {
-      "model_name": "x-ai/grok-4",
+      "model_name": "deepseek/deepseek-v4-pro",
       "aliases": [
-        "grok-4",
-        "grok4",
-        "grok"
+        "deepseek-v4",
+        "deepseek-v4-pro",
+        "dsv4"
       ],
-      "context_window": 256000,
-      "max_output_tokens": 256000,
-      "supports_extended_thinking": true,
+      "intelligence_score": 16,
+      "description": "DeepSeek V4 Pro via OpenRouter - frontier open-weights, 1M context, $0.435/$0.87 per MTok. Released April 24 2026.",
+      "context_window": 1000000,
+      "max_output_tokens": 8192,
+      "supports_extended_thinking": false,
       "supports_json_mode": true,
       "supports_function_calling": true,
-      "supports_images": true,
-      "max_image_size_mb": 20.0,
-      "supports_temperature": true,
-      "temperature_constraint": "range",
-      "description": "xAI's Grok 4 via OpenRouter with vision and advanced reasoning",
-      "intelligence_score": 15
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "allow_code_generation": true
     },
     {
-      "model_name": "x-ai/grok-4.1-fast",
+      "model_name": "deepseek/deepseek-v4-flash",
       "aliases": [
-        "grok-4.1-fast-openrouter",
-        "grok-4.1-openrouter"
+        "deepseek-v4-flash",
+        "dsv4-flash"
       ],
-      "context_window": 2000000,
-      "max_output_tokens": 2000000,
+      "intelligence_score": 14,
+      "description": "DeepSeek V4 Flash via OpenRouter - fast frontier open-weights, 1M context. Released April 24 2026.",
+      "context_window": 1000000,
+      "max_output_tokens": 8192,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": false,
+      "max_image_size_mb": 0.0,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "x-ai/grok-4.3",
+      "aliases": [
+        "grok",
+        "grok4",
+        "grok-4.3",
+        "grok4.3",
+        "grok-4",
+        "grok-4-0709"
+      ],
+      "context_window": 1000000,
+      "max_output_tokens": 1000000,
       "supports_extended_thinking": true,
       "supports_json_mode": true,
       "supports_function_calling": true,
@@ -635,8 +688,9 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
       "temperature_constraint": "range",
-      "description": "xAI's Grok 4.1 Fast Reasoning via OpenRouter (2M context) with vision and advanced reasoning",
-      "intelligence_score": 15
+      "description": "Grok 4.3 - xAI flagship with configurable reasoning effort (none/low/medium/high), 1M context, vision, $1.25/$2.50 per 1M tokens (via OpenRouter). Retired grok-4-0709/grok-4 slugs auto-redirect here upstream.",
+      "intelligence_score": 20,
+      "allow_code_generation": true
     }
   ]
 }

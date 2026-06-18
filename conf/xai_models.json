@@ -5,7 +5,7 @@
     "usage": "Models listed here are exposed directly through the X.AI provider. Aliases are case-insensitive.",
     "field_notes": "Matches providers/shared/model_capabilities.py.",
     "field_descriptions": {
-      "model_name": "The model identifier (e.g., 'grok-4', 'grok-4.1-fast')",
+      "model_name": "The model identifier (e.g., 'grok-4.3', 'grok-3-fast')",
       "aliases": "Array of short names users can type instead of the full model name",
       "context_window": "Total number of tokens the model can process (input + output combined)",
       "max_output_tokens": "Maximum number of tokens the model can generate in a single response",
@@ -22,22 +22,48 @@
       "description": "Human-readable description of the model",
       "intelligence_score": "1-20 human rating used as the primary signal for auto-mode model ordering",
       "allow_code_generation": "Whether this model can generate and suggest fully working code"
-    }
+    },
+    "retirement_2026_05_15": "xAI retired grok-4-1-fast-reasoning, grok-4-1-fast-non-reasoning, grok-4-fast-reasoning, grok-4-fast-non-reasoning, grok-4-0709 (grok-4), grok-code-fast-1, grok-3, grok-imagine-image-pro effective 2026-05-15. Requests to retired reasoning slugs auto-redirect to grok-4.3 with low reasoning effort; non-reasoning slugs redirect to grok-4.3 with reasoning effort=none. All billed at grok-4.3 rates ($1.25/$2.50 per 1M tokens)."
   },
   "models": [
+    {
+      "model_name": "grok-4.3",
+      "friendly_name": "X.AI (Grok 4.3)",
+      "aliases": [
+        "grok",
+        "grok4",
+        "grok4.3",
+        "grok-4-3",
+        "grok-4",
+        "grok-4-0709",
+        "grok-code",
+        "grokcode"
+      ],
+      "intelligence_score": 20,
+      "description": "Grok 4.3 - xAI flagship with configurable reasoning effort (none/low/medium/high), 1M context, vision, $1.25/$2.50 per 1M tokens. Industry-leading agentic tool calling and instruction following.",
+      "context_window": 1000000,
+      "max_output_tokens": 1000000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
     {
       "model_name": "grok-4.20-beta-0309-reasoning",
       "friendly_name": "X.AI (Grok 4.20 Beta Reasoning)",
       "aliases": [
-        "grok",
-        "grok4",
         "grok4.20",
         "grok-4.20",
         "grok4.20-reasoning",
         "grok-4.20-reasoning"
       ],
-      "intelligence_score": 20,
-      "description": "Grok 4.20 Beta Reasoning - Latest xAI flagship with extended reasoning, 2M context, multimodal",
+      "intelligence_score": 19,
+      "description": "Grok 4.20 Beta Reasoning - Previous xAI flagship with extended reasoning, 2M context, multimodal",
       "context_window": 2000000,
       "max_output_tokens": 2000000,
       "supports_extended_thinking": true,
@@ -59,7 +85,7 @@
         "grok4.20-fast"
       ],
       "intelligence_score": 19,
-      "description": "Grok 4.20 Beta Non-Reasoning - Latest xAI flagship, direct responses without thinking, 2M context, multimodal",
+      "description": "Grok 4.20 Beta Non-Reasoning - Direct responses without thinking, 2M context, multimodal",
       "context_window": 2000000,
       "max_output_tokens": 2000000,
       "supports_extended_thinking": false,
@@ -101,7 +127,9 @@
         "grok4.1",
         "grok-4-1",
         "grok4.1-fast",
-        "grok-4-1-fast"
+        "grok-4-1-fast",
+        "grok-4.1-fast",
+        "grok-4.1-fast-reasoning"
       ],
       "intelligence_score": 18,
       "description": "Grok 4.1 Fast Reasoning - Latest flagship with Agent Tools API, ranks #1 on LMArena (1483 Elo), 2M context, multimodal, 3x less hallucination",
@@ -130,26 +158,6 @@
       "context_window": 2000000,
       "max_output_tokens": 2000000,
       "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
-    },
-    {
-      "model_name": "grok-4",
-      "friendly_name": "X.AI (Grok 4)",
-      "aliases": [
-        "grok-4-0709"
-      ],
-      "intelligence_score": 17,
-      "description": "Grok 4 - Flagship model with 256K context, advanced reasoning and structured outputs",
-      "context_window": 256000,
-      "max_output_tokens": 256000,
-      "supports_extended_thinking": true,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
@@ -202,75 +210,17 @@
       "max_image_size_mb": 20.0
     },
     {
-      "model_name": "grok-code-fast-1",
-      "friendly_name": "X.AI (Grok Code Fast 1)",
-      "aliases": [
-        "grok-code",
-        "grokcode",
-        "grok-code-fast"
-      ],
-      "intelligence_score": 16,
-      "description": "Grok Code Fast 1 - Purpose-built coding assistant with low latency, function calling, and reasoning traces",
-      "context_window": 256000,
-      "max_output_tokens": 256000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": false,
-      "supports_temperature": true,
-      "allow_code_generation": true
-    },
-    {
-      "model_name": "grok-3",
-      "friendly_name": "X.AI (Grok 3)",
-      "aliases": [
-        "grok3",
-        "grok-3-base"
-      ],
-      "intelligence_score": 13,
-      "description": "Grok 3 (131K context) - Advanced reasoning model, excellent for complex analysis",
-      "context_window": 131072,
-      "max_output_tokens": 131072,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": false,
-      "supports_temperature": true,
-      "allow_code_generation": true
-    },
-    {
-      "model_name": "grok-3-latest",
-      "friendly_name": "X.AI (Grok 3 Latest)",
-      "aliases": [
-        "grok3-latest"
-      ],
-      "intelligence_score": 13,
-      "description": "Grok 3 Latest - Always points to the newest Grok 3 version",
-      "context_window": 131072,
-      "max_output_tokens": 131072,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": false,
-      "supports_temperature": true,
-      "allow_code_generation": true
-    },
-    {
       "model_name": "grok-3-fast",
       "friendly_name": "X.AI (Grok 3 Fast)",
       "aliases": [
         "grok3fast",
         "grokfast",
-        "grok3-fast"
+        "grok3-fast",
+        "grok3",
+        "grok-3"
       ],
       "intelligence_score": 12,
-      "description": "Grok 3 Fast (131K context) - Speed-optimized variant, faster processing",
+      "description": "Grok 3 Fast (131K context) - Speed-optimized legacy model. Note: bare 'grok-3' slug retired 2026-05-15; this entry remains as the surviving Grok 3 family member.",
       "context_window": 131072,
       "max_output_tokens": 131072,
       "supports_extended_thinking": false,

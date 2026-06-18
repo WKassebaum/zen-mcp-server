@@ -1,7 +1,10 @@
 """Anthropic Claude model provider implementation."""
 
 import logging
-from typing import ClassVar, Optional
+from typing import TYPE_CHECKING, ClassVar, Optional
+
+if TYPE_CHECKING:
+    from tools.models import ToolModelCategory
 
 from anthropic import Anthropic
 
@@ -184,6 +187,45 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             Approximate token count
         """
         return len(text) // 4
+
+    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+        """Get Anthropic's preferred model for a given category from allowed models."""
+        from tools.models import ToolModelCategory
+
+        if not allowed_models:
+            return None
+
+        def find_first(preferences: list[str]) -> Optional[str]:
+            for model in preferences:
+                if model in allowed_models:
+                    return model
+            return None
+
+        if category == ToolModelCategory.EXTENDED_REASONING:
+            # Fable 5 is the Mythos-class frontier model for deep reasoning tasks.
+            return find_first([
+                "claude-fable-5",
+                "claude-opus-4-8",
+                "claude-opus-4-7",
+                "claude-opus-4-6",
+                "claude-sonnet-4-6",
+            ]) or allowed_models[0]
+
+        elif category == ToolModelCategory.FAST_RESPONSE:
+            # Haiku models are purpose-built for speed.
+            return find_first([
+                "claude-haiku-4-5-20251001",
+                "claude-3-5-haiku-20241022",
+                "claude-sonnet-4-6",
+            ]) or allowed_models[0]
+
+        else:  # BALANCED
+            return find_first([
+                "claude-opus-4-8",
+                "claude-fable-5",
+                "claude-opus-4-7",
+                "claude-sonnet-4-6",
+            ]) or allowed_models[0]
 
     def supports_thinking_mode(self, model_name: str) -> bool:
         """Check if the model supports extended thinking mode.

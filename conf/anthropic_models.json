@@ -23,12 +23,62 @@
   },
   "models": [
     {
+      "model_name": "claude-fable-5",
+      "friendly_name": "Anthropic (Claude Fable 5)",
+      "aliases": [
+        "fable",
+        "fable5",
+        "fable-5",
+        "claude-fable",
+        "claude-fable5"
+      ],
+      "intelligence_score": 22,
+      "description": "Claude Fable 5 - Mythos-class frontier model, 80.3% SWE-Bench Pro, 29.3% FrontierCode, 1M context. Released June 9 2026.",
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "supports_thinking": true,
+      "thinking_budget_max": 32768,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0,
+      "pricing": {"input_per_million": 10.00, "output_per_million": 50.00}
+    },
+    {
+      "model_name": "claude-opus-4-8",
+      "friendly_name": "Anthropic (Claude Opus 4.8)",
+      "aliases": [
+        "opus",
+        "opus4.8",
+        "opus-4.8",
+        "claude-opus",
+        "claude-opus-4.8"
+      ],
+      "intelligence_score": 21,
+      "description": "Claude Opus 4.8 - 69.2% SWE-Bench Pro, 13.4% FrontierCode, 1M context. Released May 28 2026.",
+      "context_window": 1000000,
+      "max_output_tokens": 64000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0,
+      "pricing": {"input_per_million": 5.00, "output_per_million": 25.00}
+    },
+    {
       "model_name": "claude-opus-4-7",
       "friendly_name": "Anthropic (Claude Opus 4.7)",
       "aliases": [
         "opus-4.7",
-        "claude-opus",
-        "opus",
         "claude-opus-4.7",
         "claude-opus-4-7"
       ],
