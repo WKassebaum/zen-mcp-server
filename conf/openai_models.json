@@ -1,7 +1,7 @@
 {
   "_README": {
     "description": "Model metadata for native OpenAI API access.",
-    "documentation": "https://github.com/BeehiveInnovations/pal-mcp-server/blob/main/docs/custom_models.md",
+    "documentation": "https://github.com/BeehiveInnovations/zen-mcp-server/blob/main/docs/custom_models.md",
     "usage": "Models listed here are exposed directly through the OpenAI provider. Aliases are case-insensitive.",
     "field_notes": "Matches providers/shared/model_capabilities.py.",
     "field_descriptions": {
@@ -145,7 +145,8 @@
         "gpt5.2-pro",
         "gpt5.2pro",
         "gpt5pro",
-        "gpt5-pro"
+        "gpt5-pro",
+        "gpt-5-pro"
       ],
       "intelligence_score": 18,
       "description": "GPT-5.2 Pro (400K context, 272K output) - Very advanced, reasoning model",
@@ -277,73 +278,6 @@
       "temperature_constraint": "fixed"
     },
     {
-      "model_name": "gpt-5.1-codex",
-      "friendly_name": "OpenAI (GPT-5.1 Codex)",
-      "aliases": [
-        "gpt5.1-codex",
-        "gpt-5-1-codex"
-      ],
-      "intelligence_score": 18,
-      "description": "GPT-5.1 Codex (400K context, 128K output) - Enhanced coding specialist with improved code generation and refactoring",
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "use_openai_response_api": true,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "gpt-5.1-codex-mini",
-      "friendly_name": "OpenAI (GPT-5.1 Codex Mini)",
-      "aliases": [
-        "gpt5.1-codex-mini",
-        "gpt-5-1-codex-mini"
-      ],
-      "intelligence_score": 17,
-      "description": "GPT-5.1 Codex Mini (400K context, 64K output) - Efficient coding assistant balancing speed and capability",
-      "context_window": 400000,
-      "max_output_tokens": 64000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "gpt-5.2",
-      "friendly_name": "OpenAI (GPT-5.2)",
-      "aliases": [
-        "gpt5.2",
-        "gpt-5-2"
-      ],
-      "intelligence_score": 18,
-      "description": "GPT-5.2 (400K context, 128K output) - Most capable frontier model for professional work and long-running agents",
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "temperature_constraint": "fixed"
-    },
-    {
       "model_name": "gpt-5.2-instant",
       "friendly_name": "OpenAI (GPT-5.2 Instant)",
       "aliases": [
@@ -404,7 +338,8 @@
       "supports_images": true,
       "supports_temperature": false,
       "max_image_size_mb": 20.0,
-      "temperature_constraint": "fixed"
+      "temperature_constraint": "fixed",
+      "aliases": []
     },
     {
       "model_name": "o3-mini",
@@ -513,6 +448,7 @@
       "friendly_name": "OpenAI (GPT-5.2)",
       "aliases": [
         "gpt5.2",
+        "gpt-5-2",
         "gpt-5.2",
         "5.2"
       ],
@@ -537,6 +473,7 @@
       "friendly_name": "OpenAI (GPT-5.1 Codex)",
       "aliases": [
         "gpt5.1-codex",
+        "gpt-5-1-codex",
         "gpt-5.1-codex",
         "gpt5.1code",
         "gpt-5.1-code",
@@ -564,6 +501,7 @@
       "friendly_name": "OpenAI (GPT-5.1 Codex mini)",
       "aliases": [
         "gpt5.1-codex-mini",
+        "gpt-5-1-codex-mini",
         "gpt-5.1-codex-mini",
         "codex-mini",
         "5.1-codex-mini"

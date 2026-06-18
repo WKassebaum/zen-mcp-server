@@ -182,7 +182,7 @@ conf/*.local.json
 .claude/settings.local.json
 
 # Standalone mode files
-.pal_venv/
+.zen_venv/
 .docker_cleaned
 logs/
 *.backup
@@ -192,3 +192,6 @@ logs/
 /worktrees/
 test_simulation_files/
 .mcp.json
+
+# Recall session state
+.recall-*

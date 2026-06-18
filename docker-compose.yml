@@ -1,18 +1,18 @@
 services:
-  pal-mcp:
+  zen-mcp:
     build:
       context: .
       dockerfile: Dockerfile
       target: runtime
-    image: pal-mcp-server:latest
-    container_name: pal-mcp-server
+    image: zen-mcp-server:latest
+    container_name: zen-mcp-server
     
     # Container labels for traceability
     labels:
-      - "com.pal-mcp.service=pal-mcp-server"
-      - "com.pal-mcp.version=1.0.0"
-      - "com.pal-mcp.environment=production"
-      - "com.pal-mcp.description=AI-powered Model Context Protocol server"
+      - "com.zen-mcp.service=zen-mcp-server"
+      - "com.zen-mcp.version=1.0.0"
+      - "com.zen-mcp.environment=production"
+      - "com.zen-mcp.description=AI-powered Model Context Protocol server"
     
     # Environment variables
     environment:
@@ -51,12 +51,12 @@ services:
     # Volumes for persistent data
     volumes:
       - ./logs:/app/logs
-      - pal-mcp-config:/app/conf
+      - zen-mcp-config:/app/conf
       - /etc/localtime:/etc/localtime:ro
     
     # Network configuration
     networks:
-      - pal-network
+      - zen-network
     
     # Resource limits
     deploy:
@@ -89,12 +89,12 @@ services:
 
 # Named volumes
 volumes:
-  pal-mcp-config:
+  zen-mcp-config:
     driver: local
 
 # Networks
 networks:
-  pal-network:
+  zen-network:
     driver: bridge
     ipam:
       config:

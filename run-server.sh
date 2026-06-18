@@ -1671,7 +1671,7 @@ EOF
 # Check and update Gemini CLI configuration
 check_gemini_cli_integration() {
     local script_dir="$1"
-    local pal_wrapper="$script_dir/zen-mcp-server-wrapper"
+    local zen_wrapper="$script_dir/zen-mcp-server-wrapper"
 
     # Check if Gemini settings file exists
     local gemini_config="$HOME/.gemini/settings.json"
@@ -1686,7 +1686,7 @@ check_gemini_cli_integration() {
 
     local gemini_status
     gemini_status=$(
-        ZEN_LEGACY_NAMES="$legacy_names_csv" ZEN_WRAPPER="$pal_wrapper" ZEN_GEMINI_CONFIG="$gemini_config" python3 - <<'PY' 2>/dev/null
+        ZEN_LEGACY_NAMES="$legacy_names_csv" ZEN_WRAPPER="$zen_wrapper" ZEN_GEMINI_CONFIG="$gemini_config" python3 - <<'PY' 2>/dev/null
 import json
 import os
 import pathlib
@@ -1756,16 +1756,16 @@ PY
     fi
 
     # Ensure wrapper script exists
-    if [[ ! -f "$pal_wrapper" ]]; then
+    if [[ ! -f "$zen_wrapper" ]]; then
         print_info "Creating wrapper script for Gemini CLI..."
-        cat > "$pal_wrapper" << 'EOF'
+        cat > "$zen_wrapper" << 'EOF'
 #!/bin/bash
 # Wrapper script for Gemini CLI compatibility
 DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$DIR"
 exec .zen_venv/bin/python server.py "$@"
 EOF
-        chmod +x "$pal_wrapper"
+        chmod +x "$zen_wrapper"
         print_success "Created zen-mcp-server wrapper script"
     fi
 
@@ -1791,7 +1791,7 @@ try:
 
     # Add zen server
     config['mcpServers']['zen'] = {
-        'command': '$pal_wrapper'
+        'command': '$zen_wrapper'
     }
 
     with open('$temp_file', 'w') as f:
@@ -1814,7 +1814,7 @@ except Exception as e:
 {
   "mcpServers": {
     "zen": {
-      "command": "$pal_wrapper"
+      "command": "$zen_wrapper"
     }
   }
 }
@@ -2108,7 +2108,7 @@ print_qwen_manual_instructions() {
         cat << EOF
 {
   "mcpServers": {
-    "pal": {
+    "zen": {
       "command": "$python_cmd",
       "args": ["$server_path"],
       "cwd": "$script_dir",
@@ -2121,7 +2121,7 @@ EOF
         cat << EOF
 {
   "mcpServers": {
-    "pal": {
+    "zen": {
       "command": "$python_cmd",
       "args": ["$server_path"],
       "cwd": "$script_dir"
@@ -2165,14 +2165,14 @@ check_qwen_cli_integration() {
     legacy_names_csv=$(IFS=,; echo "${LEGACY_MCP_NAMES[*]}")
 
     if [[ -f "$qwen_config" ]]; then
-        PAL_QWEN_LEGACY="$legacy_names_csv" PAL_QWEN_CONFIG="$qwen_config" python3 - <<'PYCLEANCONF' 2>/dev/null || true
+        ZEN_QWEN_LEGACY="$legacy_names_csv" ZEN_QWEN_CONFIG="$qwen_config" python3 - <<'PYCLEANCONF' 2>/dev/null || true
 import json
 import os
 import pathlib
 import sys
 
-config_path = pathlib.Path(os.environ.get("PAL_QWEN_CONFIG", ""))
-legacy = [n for n in os.environ.get("PAL_QWEN_LEGACY", "").split(",") if n]
+config_path = pathlib.Path(os.environ.get("ZEN_QWEN_CONFIG", ""))
+legacy = [n for n in os.environ.get("ZEN_QWEN_LEGACY", "").split(",") if n]
 
 if not config_path.exists():
     sys.exit(0)
@@ -2217,7 +2217,7 @@ servers = data.get('mcpServers')
 if not isinstance(servers, dict):
     sys.exit(3)
 
-config = servers.get('pal')
+config = servers.get('zen')
 if not isinstance(config, dict):
     sys.exit(3)
 
@@ -2248,14 +2248,14 @@ PYCONF
     echo ""
 
     if [[ $config_status -eq 4 ]]; then
-        print_warning "Found existing Qwen CLI pal configuration with different settings."
+        print_warning "Found existing Qwen CLI zen configuration with different settings."
     elif [[ $config_status -eq 5 ]]; then
         print_warning "Unable to parse Qwen CLI settings; replacing with a fresh entry may help."
     fi
 
-    local prompt="Configure PAL for Qwen CLI? (Y/n): "
+    local prompt="Configure ZEN for Qwen CLI? (Y/n): "
     if [[ $config_status -eq 4 || $config_status -eq 5 ]]; then
-        prompt="Update Qwen CLI pal configuration? (Y/n): "
+        prompt="Update Qwen CLI zen configuration? (Y/n): "
     fi
 
     read -p "$prompt" -n 1 -r
@@ -2273,17 +2273,17 @@ PYCONF
 
     local update_output
     local update_status=0
-    update_output=$(PAL_QWEN_ENV="$env_lines" PAL_QWEN_CMD="$python_cmd" PAL_QWEN_ARG="$server_path" PAL_QWEN_CWD="$script_dir" python3 - "$qwen_config" <<'PYUPDATE'
+    update_output=$(ZEN_QWEN_ENV="$env_lines" ZEN_QWEN_CMD="$python_cmd" ZEN_QWEN_ARG="$server_path" ZEN_QWEN_CWD="$script_dir" python3 - "$qwen_config" <<'PYUPDATE'
 import json
 import os
 import pathlib
 import sys
 
 config_path = pathlib.Path(sys.argv[1])
-cmd = os.environ['PAL_QWEN_CMD']
-arg = os.environ['PAL_QWEN_ARG']
-cwd = os.environ['PAL_QWEN_CWD']
-env_lines = os.environ.get('PAL_QWEN_ENV', '').splitlines()
+cmd = os.environ['ZEN_QWEN_CMD']
+arg = os.environ['ZEN_QWEN_ARG']
+cwd = os.environ['ZEN_QWEN_CWD']
+env_lines = os.environ.get('ZEN_QWEN_ENV', '').splitlines()
 
 env_map = {}
 for line in env_lines:
@@ -2310,16 +2310,16 @@ if not isinstance(servers, dict):
     servers = {}
     data['mcpServers'] = servers
 
-pal_config = {
+zen_config = {
     'command': cmd,
     'args': [arg],
     'cwd': cwd,
 }
 
 if env_map:
-    pal_config['env'] = env_map
+    zen_config['env'] = env_map
 
-servers['pal'] = pal_config
+servers['zen'] = zen_config
 
 config_path.parent.mkdir(parents=True, exist_ok=True)
 tmp_path = config_path.with_suffix(config_path.suffix + '.tmp')
@@ -2333,7 +2333,7 @@ PYUPDATE
     if [[ $update_status -eq 0 ]]; then
         print_success "Successfully configured Qwen CLI"
         echo "  Config: $qwen_config"
-        echo "  Restart Qwen CLI to use PAL MCP Server"
+        echo "  Restart Qwen CLI to use Zen MCP Server"
     else
         print_error "Failed to update Qwen CLI config"
         if [[ -n "$update_output" ]]; then
@@ -2421,11 +2421,11 @@ display_config_instructions() {
     local script_dir=$(dirname "$server_path")
 
     echo ""
-    local config_header="PAL MCP SERVER CONFIGURATION"
+    local config_header="ZEN MCP SERVER CONFIGURATION"
     echo "===== $config_header ====="
     printf '%*s\n' "$((${#config_header} + 12))" | tr ' ' '='
     echo ""
-    echo "To use PAL MCP Server with your CLI clients:"
+    echo "To use Zen MCP Server with your CLI clients:"
     echo ""
 
     print_info "1. For Claude Code (CLI):"
@@ -2439,7 +2439,7 @@ display_config_instructions() {
             fi
         done <<< "$env_vars"
     fi
-    echo -e "   ${GREEN}claude mcp add pal -s user$env_args -- $python_cmd $server_path${NC}"
+    echo -e "   ${GREEN}claude mcp add zen -s user$env_args -- $python_cmd $server_path${NC}"
     echo ""
 
     print_info "2. For Claude Desktop:"
@@ -2470,7 +2470,7 @@ display_config_instructions() {
         cat << EOF
    {
      "mcpServers": {
-       "pal": {
+       "zen": {
          "command": "$python_cmd",
          "args": ["$server_path"],
          "cwd": "$script_dir",
@@ -2485,7 +2485,7 @@ EOF
         cat << EOF
    {
      "mcpServers": {
-       "pal": {
+       "zen": {
          "command": "$python_cmd",
          "args": ["$server_path"],
          "cwd": "$script_dir"
@@ -2513,8 +2513,8 @@ EOF
     cat << EOF
    {
      "mcpServers": {
-       "pal": {
-         "command": "$script_dir/pal-mcp-server"
+       "zen": {
+         "command": "$script_dir/zen-mcp-server"
        }
      }
    }
@@ -2528,7 +2528,7 @@ EOF
         cat << EOF
    {
      "mcpServers": {
-       "pal": {
+       "zen": {
          "command": "$python_cmd",
          "args": ["$server_path"],
          "cwd": "$script_dir",
@@ -2543,7 +2543,7 @@ EOF
         cat << EOF
    {
      "mcpServers": {
-       "pal": {
+       "zen": {
          "command": "$python_cmd",
          "args": ["$server_path"],
          "cwd": "$script_dir"
@@ -2558,11 +2558,11 @@ EOF
     echo "   Add this configuration to ~/.codex/config.toml:"
     echo ""
     cat << EOF
-   [mcp_servers.pal]
+   [mcp_servers.zen]
    command = "bash"
-   args = ["-c", "for p in \$(which uvx 2>/dev/null) \$HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \\\"\$p\\\" ] && exec \\\"\$p\\\" --from git+https://github.com/BeehiveInnovations/pal-mcp-server.git pal-mcp-server; done; echo 'uvx not found' >&2; exit 1"]
+   args = ["-c", "for p in \$(which uvx 2>/dev/null) \$HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \\\"\$p\\\" ] && exec \\\"\$p\\\" --from git+https://github.com/BeehiveInnovations/zen-mcp-server.git zen-mcp-server; done; echo 'uvx not found' >&2; exit 1"]
 
-   [mcp_servers.pal.env]
+   [mcp_servers.zen.env]
    PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin"
    GEMINI_API_KEY = "your_gemini_api_key_here"
 EOF
@@ -2579,7 +2579,7 @@ display_setup_instructions() {
     echo "===== $setup_header ====="
     printf '%*s\n' "$((${#setup_header} + 12))" | tr ' ' '='
     echo ""
-    print_success "PAL is ready to use!"
+    print_success "ZEN is ready to use!"
     
     # Display enabled/disabled tools if DISABLED_TOOLS is configured
     if [[ -n "${DISABLED_TOOLS:-}" ]]; then
@@ -2659,7 +2659,7 @@ display_setup_instructions() {
 # Show help message
 show_help() {
     local version=$(get_version)
-    local header="🤖 PAL MCP Server v$version"
+    local header="🤖 Zen MCP Server v$version"
     echo "$header"
     printf '%*s\n' "${#header}" | tr ' ' '='
     echo ""
@@ -2680,7 +2680,7 @@ show_help() {
     echo "  $0 --clear-cache Clear Python cache (fixes import issues)"
     echo ""
     echo "For more information, visit:"
-    echo "  https://github.com/BeehiveInnovations/pal-mcp-server"
+    echo "  https://github.com/BeehiveInnovations/zen-mcp-server"
 }
 
 # Show version only
@@ -2755,7 +2755,7 @@ main() {
     esac
 
     # Display header
-    local main_header="🤖 PAL MCP Server"
+    local main_header="🤖 Zen MCP Server"
     echo "$main_header"
     printf '%*s\n' "${#main_header}" | tr ' ' '='
 

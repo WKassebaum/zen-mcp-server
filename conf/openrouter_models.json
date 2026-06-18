@@ -1,7 +1,7 @@
 {
   "_README": {
     "description": "Model metadata for OpenRouter-backed providers.",
-    "documentation": "https://github.com/BeehiveInnovations/pal-mcp-server/blob/main/docs/custom_models.md",
+    "documentation": "https://github.com/BeehiveInnovations/zen-mcp-server/blob/main/docs/custom_models.md",
     "usage": "Models listed here are exposed through OpenRouter. Aliases are case-insensitive.",
     "field_notes": "Matches providers/shared/model_capabilities.py.",
     "field_descriptions": {
@@ -473,7 +473,7 @@
       "supports_temperature": false,
       "temperature_constraint": "fixed",
       "allow_code_generation": true,
-      "description": "GPT-5.5 (1.05M context) - First fully retrained base model since GPT-4.5, reasoning effort low→xhigh (via OpenRouter)",
+      "description": "GPT-5.5 (1.05M context) - First fully retrained base model since GPT-4.5, reasoning effort low\u2192xhigh (via OpenRouter)",
       "intelligence_score": 20
     },
     {
@@ -498,7 +498,8 @@
       "aliases": [
         "gpt5.2-pro",
         "gpt5.2pro",
-        "gpt5pro"
+        "gpt5pro",
+        "gpt-5-pro"
       ],
       "context_window": 400000,
       "max_output_tokens": 272000,

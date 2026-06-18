@@ -1,6 +1,6 @@
-# Claude Development Guide for PAL MCP Server
+# Claude Development Guide for Zen MCP Server
 
-This file contains essential commands and workflows for developing and maintaining the PAL MCP Server when working with Claude. Use these instructions to efficiently run quality checks, manage the server, check logs, and run tests.
+This file contains essential commands and workflows for developing and maintaining the Zen MCP Server when working with Claude. Use these instructions to efficiently run quality checks, manage the server, check logs, and run tests.
 
 ## First-Time Setup
 
@@ -341,4 +341,4 @@ isort --check-only .
 - All dependencies from `requirements.txt` installed
 - Proper API keys configured in `.env` file
 
-This guide provides everything needed to efficiently work with the PAL MCP Server codebase using Claude. Always run quality checks before and after making changes to ensure code integrity.
+This guide provides everything needed to efficiently work with the Zen MCP Server codebase using Claude. Always run quality checks before and after making changes to ensure code integrity.

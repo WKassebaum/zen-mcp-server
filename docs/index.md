@@ -1,6 +1,6 @@
-# PAL MCP Server Documentation
+# Zen MCP Server Documentation
 
-_Formerly known as PAL MCP. See the short [name change note](name-change.md) for context._
+_Formerly known as ZEN MCP. See the short [name change note](name-change.md) for context._
 
 | Document | Description |
 |----------|-------------|

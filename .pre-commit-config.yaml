@@ -28,7 +28,7 @@ exclude: |
     \.git/|
     \.venv/|
     venv/|
-    \.pal_venv/|
+    \.zen_venv/|
     __pycache__/|
     \.pytest_cache/|
     logs/|
