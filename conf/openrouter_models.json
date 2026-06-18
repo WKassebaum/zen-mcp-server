@@ -497,9 +497,7 @@
       "model_name": "openai/gpt-5.2-pro",
       "aliases": [
         "gpt5.2-pro",
-        "gpt5.2pro",
-        "gpt5pro",
-        "gpt-5-pro"
+        "gpt5.2pro"
       ],
       "context_window": 400000,
       "max_output_tokens": 272000,
@@ -514,6 +512,26 @@
       "default_reasoning_effort": "high",
       "allow_code_generation": true,
       "description": "GPT-5.2 Pro - Advanced reasoning model with highest quality responses (text+image input, text output only)",
+      "intelligence_score": 18
+    },
+    {
+      "model_name": "openai/gpt-5-pro",
+      "aliases": [
+        "gpt5pro"
+      ],
+      "context_window": 400000,
+      "max_output_tokens": 272000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "use_openai_response_api": true,
+      "default_reasoning_effort": "high",
+      "allow_code_generation": true,
+      "description": "GPT-5 Pro - Advanced reasoning model with highest quality responses (text+image input, text output only)",
       "intelligence_score": 18
     },
     {

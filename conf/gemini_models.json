@@ -100,6 +100,32 @@
       "max_image_size_mb": 32.0
     },
     {
+      "model_name": "gemini-3.5-flash",
+      "friendly_name": "Gemini (Flash 3.5)",
+      "aliases": [
+        "gemini3.5",
+        "gemini-3.5",
+        "gemini3.5-flash",
+        "gemini-3.5-flash",
+        "flash3.5",
+        "flash-3.5"
+      ],
+      "intelligence_score": 19,
+      "description": "Gemini 3.5 Flash GA (1M context, 64K output) - Frontier agentic + coding at Flash speed (~4x faster than peers), beats Gemini 3.1 Pro on MCP Atlas 83.6% / CharXiv 84.2% / Terminal-Bench 76.2%, dynamic thinking on by default, $1.50/$9.00 per 1M tokens ($0.15 cached). Text+image+audio+video input.",
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "max_thinking_tokens": 32768,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 32.0
+    },
+    {
       "model_name": "gemini-3-flash-preview",
       "friendly_name": "Gemini (Flash 3.0 Preview)",
       "aliases": [
