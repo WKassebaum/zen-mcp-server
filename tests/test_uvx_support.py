@@ -33,7 +33,7 @@ class TestUvxEnvironmentHandling:
 
             with tempfile.NamedTemporaryFile("w", delete=False) as tmp_env:
                 temp_env_path = Path(tmp_env.name)
-                tmp_env.write("ZEN_MCP_FORCE_ENV_OVERRIDE=false\n")
+                tmp_env.write("PAL_MCP_FORCE_ENV_OVERRIDE=false\n")
 
             try:
                 importlib.reload(env_config)
@@ -82,7 +82,7 @@ class TestUvxEnvironmentHandling:
     def test_environment_variables_still_work_without_dotenv(self):
         """Test that environment variables work even when dotenv is not available."""
         # Set a test environment variable
-        test_key = "TEST_ZEN_MCP_VAR"
+        test_key = "TEST_PAL_MCP_VAR"
         test_value = "test_value_123"
 
         with mock.patch.dict(os.environ, {test_key: test_value}):

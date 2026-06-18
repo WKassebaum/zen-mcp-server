@@ -5,7 +5,7 @@ See `requirements.txt` and `requirements-dev.txt`
 Also read CLAUDE.md and CLAUDE.local.md if available.
 
 ## Project Structure & Module Organization
-Zen MCP Server centers on `server.py`, which exposes MCP entrypoints and coordinates multi-model workflows. 
+PAL MCP Server centers on `server.py`, which exposes MCP entrypoints and coordinates multi-model workflows. 
 Feature-specific tools live in `tools/`, provider integrations in `providers/`, and shared helpers in `utils/`. 
 Prompt and system context assets stay in `systemprompts/`, while configuration templates and automation scripts live under `conf/`, `scripts/`, and `docker/`. 
 Unit tests sit in `tests/`; simulator-driven scenarios and log utilities are in `simulator_tests/` with the `communication_simulator_test.py` harness. 

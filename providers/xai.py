@@ -26,6 +26,10 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
     REGISTRY_CLASS = XAIModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
 
+    # Canonical model identifiers used for category routing.
+    PRIMARY_MODEL = "grok-4-1-fast-reasoning"
+    FALLBACK_MODEL = "grok-4"
+
     def __init__(self, api_key: str, **kwargs):
         """Initialize X.AI provider with API key."""
         # Set X.AI base URL
@@ -54,40 +58,39 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Prefer GROK-4.1 variants for advanced reasoning with thinking mode
-            if "grok-4.1-thinking" in allowed_models:
-                return "grok-4.1-thinking"
-            elif "grok-4.1" in allowed_models:
-                return "grok-4.1"
-            elif "grok-4" in allowed_models:
-                return "grok-4"
-            elif "grok-3" in allowed_models:
-                return "grok-3"
-            # Fall back to any available model
+            # Prefer Grok 4.1 Fast Reasoning for advanced tasks
+            if self.PRIMARY_MODEL in allowed_models:
+                return self.PRIMARY_MODEL
+            if self.FALLBACK_MODEL in allowed_models:
+                return self.FALLBACK_MODEL
+            # Fall back to older grok variants
+            for model in ["grok-4", "grok-3"]:
+                if model in allowed_models:
+                    return model
             return allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer GROK-3-Fast for speed, then newer GROK-4 variants
-            if "grok-3-fast" in allowed_models:
-                return "grok-3-fast"
-            elif "grok-4.1" in allowed_models:
-                return "grok-4.1"
-            elif "grok-4" in allowed_models:
-                return "grok-4"
-            # Fall back to any available model
+            # Prefer Grok 4.1 Fast Reasoning for speed as well (latest fast SKU).
+            if self.PRIMARY_MODEL in allowed_models:
+                return self.PRIMARY_MODEL
+            if self.FALLBACK_MODEL in allowed_models:
+                return self.FALLBACK_MODEL
+            # Fall back to fast variants
+            for model in ["grok-3-fast", "grok-4"]:
+                if model in allowed_models:
+                    return model
             return allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer GROK-4.1 for balanced use (best overall capabilities)
-            if "grok-4.1" in allowed_models:
-                return "grok-4.1"
-            elif "grok-4" in allowed_models:
-                return "grok-4"
-            elif "grok-3" in allowed_models:
-                return "grok-3"
-            elif "grok-3-fast" in allowed_models:
-                return "grok-3-fast"
-            # Fall back to any available model
+            # Prefer Grok 4.1 Fast Reasoning for balanced use.
+            if self.PRIMARY_MODEL in allowed_models:
+                return self.PRIMARY_MODEL
+            if self.FALLBACK_MODEL in allowed_models:
+                return self.FALLBACK_MODEL
+            # Fall back to older grok variants
+            for model in ["grok-4", "grok-3"]:
+                if model in allowed_models:
+                    return model
             return allowed_models[0]
 
 

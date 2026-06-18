@@ -80,6 +80,8 @@ class TestOpenRouterProvider:
 
         # Test alias resolution
         assert provider._resolve_model_name("opus") == "anthropic/claude-opus-4-7"
+        assert provider._resolve_model_name("opus4.5") == "anthropic/claude-opus-4.5"
+        assert provider._resolve_model_name("opus4.1") == "anthropic/claude-opus-4.1"
         assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-4-6"
         assert provider._resolve_model_name("sonnet4.1") == "anthropic/claude-sonnet-4.1"
         assert provider._resolve_model_name("o3") == "openai/o3"
@@ -305,7 +307,7 @@ class TestOpenRouterRegistry:
 
         registry = OpenRouterModelRegistry()
 
-        # Test known model
+        # Test known model (opus alias now points to 4.5)
         caps = registry.get_capabilities("opus")
         assert caps is not None
         assert caps.model_name == "anthropic/claude-opus-4-7"
@@ -315,6 +317,21 @@ class TestOpenRouterRegistry:
         caps = registry.get_capabilities("anthropic/claude-opus-4-6")
         assert caps is not None
         assert caps.model_name == "anthropic/claude-opus-4-6"
+
+        # Test opus4.5 alias
+        caps = registry.get_capabilities("opus4.5")
+        assert caps is not None
+        assert caps.model_name == "anthropic/claude-opus-4.5"
+
+        # Test using full model name for 4.1
+        caps = registry.get_capabilities("anthropic/claude-opus-4.1")
+        assert caps is not None
+        assert caps.model_name == "anthropic/claude-opus-4.1"
+
+        # Test opus4.1 alias still works
+        caps = registry.get_capabilities("opus4.1")
+        assert caps is not None
+        assert caps.model_name == "anthropic/claude-opus-4.1"
 
         # Test unknown model
         caps = registry.get_capabilities("non-existent-model")
@@ -364,7 +381,7 @@ class TestOpenRouterFunctionality:
         # Check default headers
         assert "HTTP-Referer" in provider.DEFAULT_HEADERS
         assert "X-Title" in provider.DEFAULT_HEADERS
-        assert provider.DEFAULT_HEADERS["X-Title"] == "Zen MCP Server"
+        assert provider.DEFAULT_HEADERS["X-Title"] == "PAL MCP Server"
 
     def test_openrouter_model_registry_initialized(self):
         """Test that model registry is properly initialized."""
