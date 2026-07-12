@@ -505,6 +505,45 @@ Application: FastAPI REST API with PostgreSQL""",
 - ✅ Appropriate threat level set
 - ✅ Uses o3 for security precision
 
+## Example 11: Context Offload & Subscription Agents via clink
+
+### Scenario
+Mid-session, you need a full code review of a large module — but running it inline would consume 50K+ tokens of your current context. Offload it to an external CLI agent that returns only the final report. Bonus: `claude` and `grok` clink clients run on your Claude/Grok *subscription logins*, so the work doesn't bill against API keys.
+
+### MCP Version (when server enabled)
+
+```python
+mcp__zen__clink(
+    prompt="Review the payments module for race conditions, error-handling gaps, and transaction-safety issues. Return a prioritized findings list.",
+    cli_name="grok",           # or "claude" (Claude Pro/Max login), "gemini" (1M ctx + web search), "codex"
+    role="codereviewer",       # planner | codereviewer | default
+    files=["/abs/path/src/payments/"]
+)
+```
+
+### CLI Version (always available)
+
+```bash
+# Offload a review to Grok Build on your Grok subscription login
+zen clink "Review the payments module for race conditions and transaction-safety issues" \
+    --cli-name grok --role codereviewer -f src/payments/
+
+# Use Gemini's 1M context + web search for a huge codebase question
+zen clink "Map all cross-module dependencies and flag circular imports" \
+    --cli-name gemini -f src/
+
+# Planning on your Claude subscription instead of API tokens
+zen clink "Break the auth migration into reviewable phases" \
+    --cli-name claude --role planner
+```
+
+**Why This Works:**
+- ✅ Heavy work runs in a fresh context; only the conclusion returns to your session
+- ✅ Sub-CLI brings its own tools (web search, file access, shell) — a real agent, not a single model reply
+- ✅ `claude`/`grok` clients use sanctioned subscription auth (login tokens) — no API key burn
+- ✅ Role presets (`planner`/`codereviewer`) apply tuned system prompts automatically
+- ⚠️ Target CLI must be installed and logged in first (`claude`, `grok login`, `gemini`)
+
 ## Common Anti-Patterns to Avoid
 
 ### ❌ Anti-Pattern 1: Insufficient Context
