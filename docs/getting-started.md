@@ -25,11 +25,11 @@ You need at least one API key. Choose based on your needs:
 **Gemini (Google):**
 - Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
 - Generate an API key
-- **Note**: For Gemini 2.5 Pro, use a paid API key (free tier has limited access)
+- **Note**: For Gemini 3.0 / 2.5 Pro, use a paid API key (free tier has limited access)
 
 **OpenAI:**
 - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-- Generate an API key for O3, GPT-5 access
+- Generate an API key for GPT-5.2, GPT-5.1-Codex, GPT-5, O3 access
 
 **X.AI (Grok):**
 - Visit [X.AI Console](https://console.x.ai/)
@@ -148,7 +148,7 @@ PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:$HOME/.local/bin:$HOME/.c
 GEMINI_API_KEY = "your_api_key_here"
 ```
 
-Enable Codex's built-in web-search tool so Zen's `apilookup` instructions can execute successfully:
+Enable Codex's built-in web-search tool so ZEN's `apilookup` instructions can execute successfully:
 
 ```toml
 [tools]
@@ -209,7 +209,7 @@ Add any other API keys you rely on (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, etc.
 
 #### IDE Clients (Cursor & VS Code)
 
-Zen works in GUI IDEs that speak MCP. The configuration mirrors the CLI examples above—point the client at the `uvx` launcher and set any required environment variables.
+ZEN works in GUI IDEs that speak MCP. The configuration mirrors the CLI examples above—point the client at the `uvx` launcher and set any required environment variables.
 
 **Cursor IDE**
 
@@ -287,7 +287,7 @@ Add your API keys (at least one required):
 ```env
 # Choose your providers (at least one required)
 GEMINI_API_KEY=your-gemini-api-key-here      # For Gemini models  
-OPENAI_API_KEY=your-openai-api-key-here      # For O3, GPT-5
+OPENAI_API_KEY=your-openai-api-key-here      # For GPT-5.2, GPT-5.1-Codex, O3
 XAI_API_KEY=your-xai-api-key-here            # For Grok models
 OPENROUTER_API_KEY=your-openrouter-key       # For multiple models
 
@@ -305,7 +305,7 @@ CUSTOM_MODEL_NAME=llama3.2                   # Default model name
 
 ## Prevent Client Timeouts
 
-Some MCP clients default to short timeouts and can disconnect from Zen during long tool runs. Configure each client with a generous ceiling (we recommend at least five minutes); the Zen setup script now writes a 20-minute tool timeout for Codex so upstream providers contacted by the server have time to respond.
+Some MCP clients default to short timeouts and can disconnect from ZEN during long tool runs. Configure each client with a generous ceiling (we recommend at least five minutes); the ZEN setup script now writes a 20-minute tool timeout for Codex so upstream providers contacted by the server have time to respond.
 
 ### Claude Code & Claude Desktop
 
@@ -320,7 +320,7 @@ Claude reads MCP-related environment variables either from your shell or from `~
 }
 ```
 
-You can scope this block at the top level of `settings.json` (applies to every session) or under a specific `mcpServers.<name>.env` entry if you only want it for Zen. The values are in milliseconds. Note: Claude’s SSE transport still enforces an internal ceiling of roughly five minutes; long-running HTTP/SSE servers may need retries until Anthropic ships their fix.
+You can scope this block at the top level of `settings.json` (applies to every session) or under a specific `mcpServers.<name>.env` entry if you only want it for ZEN (the server name may still be `zen` while configurations catch up). The values are in milliseconds. Note: Claude’s SSE transport still enforces an internal ceiling of roughly five minutes; long-running HTTP/SSE servers may need retries until Anthropic ships their fix.
 
 ### Codex CLI
 
@@ -372,7 +372,7 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 3. Try: `"Use zen to chat about Python best practices"`
 
 ### For Gemini CLI:
-**Note**: While Zen MCP connects to Gemini CLI, tool invocation isn't working correctly yet. See [Gemini CLI Setup](gemini-setup.md) for updates.
+**Note**: While ZEN MCP connects to Gemini CLI, tool invocation isn't working correctly yet. See [Gemini CLI Setup](gemini-setup.md) for updates.
 
 ### For Qwen Code CLI:
 1. Restart the Qwen Code CLI if it's running (`qwen exit`).
@@ -399,7 +399,7 @@ Versions 0.2.1 and newer currently ignore values above ~60 seconds for some tran
 
 **Note**: Codex CLI provides excellent MCP integration with automatic environment variable configuration when using the setup script.
 
-## Step 5: Start Using Zen
+## Step 5: Start Using ZEN
 
 ### Via MCP (Claude Code, Cursor, IDE clients)
 
@@ -704,7 +704,7 @@ DEFAULT_MODEL=auto
 GEMINI_API_KEY=your-key
 OPENAI_API_KEY=your-key
 GOOGLE_ALLOWED_MODELS=flash,pro
-OPENAI_ALLOWED_MODELS=o4-mini,o3-mini
+OPENAI_ALLOWED_MODELS=gpt-5.1-codex-mini,gpt-5-mini,o4-mini
 ```
 
 ### Cost-Optimized Setup
@@ -720,7 +720,7 @@ DEFAULT_MODEL=auto
 GEMINI_API_KEY=your-key
 OPENAI_API_KEY=your-key
 GOOGLE_ALLOWED_MODELS=pro
-OPENAI_ALLOWED_MODELS=o3
+OPENAI_ALLOWED_MODELS=gpt-5.1-codex,gpt-5.2
 ```
 
 ### Local-First Setup

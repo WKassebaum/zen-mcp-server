@@ -572,7 +572,8 @@ def configure_providers():
         try:
             registry = ModelProviderRegistry()
             if hasattr(registry, "_initialized_providers"):
-                for provider in list(registry._initialized_providers.items()):
+                # Iterate over provider instances (values), not (type, instance) tuples
+                for provider in list(registry._initialized_providers.values()):
                     try:
                         if provider and hasattr(provider, "close"):
                             provider.close()
@@ -1486,7 +1487,7 @@ async def main():
     if IS_AUTO_MODE:
         handshake_instructions = (
             "When the user names a specific model (e.g. 'use chat with gpt5'), send that exact model in the tool call. "
-            "When no model is mentioned, first use the `listmodels` tool from zen to obtain available models to choose the best one from."
+            "When no model is mentioned, first use the `listmodels` tool from ZEN to obtain available models to choose the best one from."
         )
     else:
         handshake_instructions = (

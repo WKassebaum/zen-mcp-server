@@ -1,5 +1,7 @@
 # Zen MCP Server Documentation
 
+_Formerly known as ZEN MCP. See the short [name change note](name-change.md) for context._
+
 | Document | Description |
 |----------|-------------|
 | [Getting Started](getting-started.md) | Installation paths, prerequisite setup, and first-run guidance. |

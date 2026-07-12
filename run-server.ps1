@@ -1,9 +1,9 @@
 ﻿<#
 .SYNOPSIS
-    Installation, configuration, and launch script for Zen MCP server on Windows.
+    Installation, configuration, and launch script for ZEN MCP server on Windows.
 
 .DESCRIPTION
-    This PowerShell script prepares the environment for the Zen MCP server:
+    This PowerShell script prepares the environment for the ZEN MCP server:
     - Installs and checks Python 3.10+ (with venv or uv if available)
     - Installs required Python dependencies
     - Configures environment files (.env)
@@ -17,7 +17,7 @@
     Shows script help.
 
 .PARAMETER Version
-    Shows Zen MCP server version.
+    Shows ZEN MCP server version.
 
 .PARAMETER Follow
     Follows server logs in real time.
@@ -48,7 +48,7 @@
 
 .EXAMPLE
     .\run-server.ps1
-    Prepares the environment and starts the Zen MCP server.
+    Prepares the environment and starts the ZEN MCP server.
 
     .\run-server.ps1 -Follow
     Follows server logs in real time.
@@ -111,6 +111,7 @@ $script:DOCKER_CLEANED_FLAG = ".docker_cleaned"
 $script:DESKTOP_CONFIG_FLAG = ".desktop_configured"
 $script:LOG_DIR = "logs"
 $script:LOG_FILE = "mcp_server.log"
+$script:LegacyServerNames = @("zen", "zen-mcp", "zen-mcp-server", "zen_mcp", "zen_mcp_server")
 
 # ----------------------------------------------------------------------------
 # Utility Functions
@@ -207,6 +208,31 @@ function Remove-LockedDirectory {
         # If all methods fail, return false
         return $false
     }
+}
+
+# Remove legacy MCP server entries from a hash/dictionary or PSObject
+function Remove-LegacyServerKeys {
+    param([object]$Container)
+
+    $removed = $false
+    if ($null -eq $Container) {
+        return $false
+    }
+
+    foreach ($legacy in $script:LegacyServerNames) {
+        if ($Container -is [System.Collections.IDictionary]) {
+            if ($Container.Contains($legacy)) {
+                $Container.Remove($legacy) | Out-Null
+                $removed = $true
+            }
+        }
+        elseif ($Container.PSObject -and $Container.PSObject.Properties[$legacy]) {
+            $Container.PSObject.Properties.Remove($legacy)
+            $removed = $true
+        }
+    }
+
+    return $removed
 }
 
 # Manage configuration file backups with maximum 3 files retention
@@ -1154,7 +1180,7 @@ function Get-ExistingMcpConfigType {
             return @{
                 Exists  = $false
                 Type    = "None"
-                Details = "Zen configuration not found"
+                Details = "ZEN configuration not found"
             }
         }
         
@@ -1337,7 +1363,7 @@ function Configure-McpClient {
     $newConfigType = if ($UseDocker) { "Docker" } else { "Python" }
     
     if ($existingConfig.Exists) {
-        Write-Info "Found existing Zen MCP configuration in $($Client.Name)"
+        Write-Info "Found existing ZEN MCP configuration in $($Client.Name)"
         Write-Info "  Current: $($existingConfig.Details)"
         Write-Info "  New: $newConfigType configuration"
         
@@ -1360,7 +1386,7 @@ function Configure-McpClient {
     }
     else {
         # User confirmation for new installation
-        $response = Read-Host "`nConfigure Zen MCP for $($Client.Name) (mode: $newConfigType)? (y/N)"
+        $response = Read-Host "`nConfigure ZEN MCP for $($Client.Name) (mode: $newConfigType)? (y/N)"
         if ($response -ne 'y' -and $response -ne 'Y') {
             Write-Info "Skipping $($Client.Name) integration"
             return
@@ -1440,6 +1466,12 @@ function Configure-McpClient {
             $targetObject = $targetObject.$key
         }
 
+        # Remove legacy zen entries to avoid duplicate or broken MCP servers
+        $legacyRemoved = Remove-LegacyServerKeys $targetObject
+        if ($legacyRemoved) {
+            Write-Info "Removed legacy MCP entries (zen → zen)"
+        }
+
         $targetObject | Add-Member -MemberType NoteProperty -Name $zenKey -Value $serverConfig -Force
 
         # Write config
@@ -1487,6 +1519,10 @@ function Test-ClaudeCliIntegration {
     }
     
     Write-Info "Claude CLI detected - checking configuration..."
+
+    foreach ($legacy in $script:LegacyServerNames) {
+        try { claude mcp remove -s user $legacy 2>$null | Out-Null } catch {}
+    }
     
     try {
         $claudeConfig = claude mcp list 2>$null
@@ -1514,16 +1550,58 @@ function Test-GeminiCliIntegration {
     if (!(Test-Path $geminiConfig)) {
         return
     }
-    
-    # Check if zen is already configured
+
+    # Load existing config
+    $config = @{}
     $configContent = Get-Content $geminiConfig -Raw -ErrorAction SilentlyContinue
-    if ($configContent -and $configContent -match '"zen"') {
+    if ($configContent) {
+        try { $config = $configContent | ConvertFrom-Json -ErrorAction Stop } catch { $config = @{} }
+    }
+    if ($null -eq $config -or $config -isnot [System.Collections.IDictionary]) {
+        $config = @{}
+    }
+
+    if (-not $config.mcpServers -or $config.mcpServers -isnot [System.Collections.IDictionary]) {
+        $config.mcpServers = [ordered]@{}
+    }
+
+    $legacyRemoved = Remove-LegacyServerKeys $config.mcpServers
+    $zenConfig = $config.mcpServers.zen
+    $needsWrite = $legacyRemoved
+
+    if ($zenConfig) {
+        if ($zenConfig.command -ne $zenWrapper) {
+            $zenConfig.command = $zenWrapper
+            $needsWrite = $true
+        }
+
+        if (!(Test-Path $zenWrapper)) {
+            Write-Info "Creating wrapper script for Gemini CLI..."
+            @"
+@echo off
+cd /d "%~dp0"
+if exist ".zen_venv\Scripts\python.exe" (
+    .zen_venv\Scripts\python.exe server.py %*
+) else (
+    python server.py %*
+)
+"@ | Out-File -FilePath $zenWrapper -Encoding ASCII
+            Write-Success "Created zen-mcp-server.cmd wrapper script"
+        }
+
+        if ($needsWrite) {
+            Manage-ConfigBackups -ConfigFilePath $geminiConfig | Out-Null
+            $config | ConvertTo-Json -Depth 10 | Out-File $geminiConfig -Encoding UTF8
+            Write-Success "Updated Gemini CLI configuration (cleaned legacy entries)"
+            Write-Host "  Config: $geminiConfig" -ForegroundColor Gray
+            Write-Host "  Restart Gemini CLI to use Zen MCP Server" -ForegroundColor Gray
+        }
         return
     }
-    
-    # Ask user if they want to add Zen to Gemini CLI
+
+    # Ask user if they want to add ZEN to Gemini CLI
     Write-Host ""
-    $response = Read-Host "Configure Zen for Gemini CLI? (y/N)"
+    $response = Read-Host "Configure ZEN for Gemini CLI? (y/N)"
     if ($response -ne 'y' -and $response -ne 'Y') {
         Write-Info "Skipping Gemini CLI integration"
         return
@@ -1552,15 +1630,9 @@ if exist ".zen_venv\Scripts\python.exe" (
         # Create backup with retention management
         $backupPath = Manage-ConfigBackups $geminiConfig
         
-        # Read existing config or create new one
-        $config = @{}
-        if (Test-Path $geminiConfig) {
-            $config = Get-Content $geminiConfig -Raw | ConvertFrom-Json
-        }
-        
         # Ensure mcpServers exists
-        if (!$config.mcpServers) {
-            $config | Add-Member -MemberType NoteProperty -Name "mcpServers" -Value @{} -Force
+        if (-not $config.mcpServers -or $config.mcpServers -isnot [System.Collections.IDictionary]) {
+            $config.mcpServers = [ordered]@{}
         }
         
         # Add zen server
@@ -1653,6 +1725,8 @@ function Test-QwenCliIntegration {
     $scriptDir = Split-Path $ServerPath -Parent
 
     $configStatus = "missing"
+    $legacyRemoved = $false
+    $skipPrompt = $false
     $config = @{}
 
     if (Test-Path $configPath) {
@@ -1668,6 +1742,7 @@ function Test-QwenCliIntegration {
 
             if ($config.ContainsKey('mcpServers') -and $config['mcpServers'] -is [System.Collections.IDictionary]) {
                 $servers = $config['mcpServers']
+                $legacyRemoved = (Remove-LegacyServerKeys $servers) -or $legacyRemoved
                 if ($servers.Contains('zen') -and $servers['zen'] -is [System.Collections.IDictionary]) {
                     $zenConfig = $servers['zen']
                     $commandMatches = ($zenConfig['command'] -eq $PythonPath)
@@ -1689,12 +1764,12 @@ function Test-QwenCliIntegration {
                     $cwdMatches = ([string]::IsNullOrEmpty($cwdValue) -or $cwdValue -eq $scriptDir)
 
                     if ($commandMatches -and $argsMatches -and $cwdMatches) {
-                        Write-Success "Qwen CLI already configured for zen server"
-                        return
+                        $configStatus = $legacyRemoved ? "cleanup" : "match"
                     }
-
-                    $configStatus = "mismatch"
-                    Write-Warning "Existing Qwen CLI configuration differs from the current setup."
+                    else {
+                        $configStatus = "mismatch"
+                        Write-Warning "Existing Qwen CLI configuration differs from the current setup."
+                    }
                 }
             }
         }
@@ -1747,16 +1822,31 @@ function Test-QwenCliIntegration {
         }
     }
 
-    $prompt = "Configure Zen for Qwen CLI? (y/N)"
-    if ($configStatus -eq "mismatch" -or $configStatus -eq "invalid") {
+    if ($configStatus -eq "match") {
+        Write-Success "Qwen CLI already configured for zen server"
+        return
+    }
+
+    if ($configStatus -eq "cleanup") {
+        Write-Info "Removing legacy Qwen MCP entries from previous zen configuration..."
+        $skipPrompt = $true
+    }
+
+    $prompt = "Configure ZEN for Qwen CLI? (y/N)"
+    if ($configStatus -eq "cleanup") {
+        $prompt = "Remove legacy Qwen MCP entries and refresh configuration? (Y/n)"
+    }
+    elseif ($configStatus -eq "mismatch" -or $configStatus -eq "invalid") {
         $prompt = "Update Qwen CLI zen configuration? (y/N)"
     }
 
-    $response = Read-Host $prompt
-    if ($response -ne 'y' -and $response -ne 'Y') {
-        Write-Info "Skipping Qwen CLI integration"
-        Show-QwenManualConfig $PythonPath $ServerPath $scriptDir $configPath $envMap
-        return
+    if (-not $skipPrompt) {
+        $response = Read-Host $prompt
+        if ($response -ne 'y' -and $response -ne 'Y') {
+            Write-Info "Skipping Qwen CLI integration"
+            Show-QwenManualConfig $PythonPath $ServerPath $scriptDir $configPath $envMap
+            return
+        }
     }
 
     if (!(Test-Path $configDir)) {

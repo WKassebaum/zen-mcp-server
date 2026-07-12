@@ -37,7 +37,7 @@ class TestIntelligentFallback:
 
     @patch.dict(os.environ, {"OPENAI_API_KEY": "sk-test-key", "GEMINI_API_KEY": ""}, clear=False)
     def test_prefers_openai_o3_mini_when_available(self):
-        """Test that gpt-5 is preferred when OpenAI API key is available (based on new preference order)"""
+        """Test that gpt-5.2 is preferred when OpenAI API key is available (based on new preference order)"""
         # Register only OpenAI provider for this test
         from providers.openai import OpenAIModelProvider
 

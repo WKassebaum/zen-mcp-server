@@ -1,5 +1,5 @@
 name: 🛠️ New Gemini Tool Proposal
-description: Propose a new Zen MCP tool (e.g., `summarize`, `fixer`, `refactor`)
+description: Propose a new ZEN MCP tool (e.g., `summarize`, `fixer`, `refactor`)
 labels: ["enhancement", "new-tool"]
 body:
   - type: input
@@ -15,7 +15,7 @@ body:
     id: purpose
     attributes:
       label: What is the primary purpose of this tool?
-      description: "Explain the tool's core function and the value it provides to developers using Claude + Zen."
+      description: "Explain the tool's core function and the value it provides to developers using Claude + ZEN."
       placeholder: "This tool will automatically generate comprehensive documentation from code, extracting class and function signatures, docstrings, and creating usage examples."
     validations:
       required: true

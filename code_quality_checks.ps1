@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Code quality checks script for Zen MCP server on Windows.
+    Code quality checks script for ZEN MCP server on Windows.
 
 .DESCRIPTION
-    This PowerShell script performs code quality checks for the Zen MCP server project:
+    This PowerShell script performs code quality checks for the ZEN MCP server project:
     - Runs static analysis and linting tools on the codebase
     - Ensures code style compliance and detects potential issues
     - Can be integrated into CI/CD pipelines or used locally before commits

@@ -27,6 +27,8 @@
       "friendly_name": "Anthropic (Claude Fable 5)",
       "aliases": [
         "fable",
+        "claude-fable5",
+        "fable5",
         "claude-fable",
         "fable-5",
         "claude-fable-5"
@@ -51,6 +53,7 @@
       "friendly_name": "Anthropic (Claude Opus 4.8)",
       "aliases": [
         "opus-4.8",
+        "opus4.8",
         "claude-opus",
         "opus",
         "claude-opus-4.8",

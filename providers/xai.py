@@ -26,6 +26,10 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
     REGISTRY_CLASS = XAIModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
 
+    # Canonical model identifiers used for category routing.
+    PRIMARY_MODEL = "grok-4.3"
+    FALLBACK_MODEL = "grok-4-1-fast-reasoning"
+
     def __init__(self, api_key: str, **kwargs):
         """Initialize X.AI provider with API key."""
         # Set X.AI base URL
@@ -66,6 +70,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                 [
                     "grok-4.3",
                     "grok-4.20-beta-0309-reasoning",
+                    "grok-4-1-fast-reasoning",
                     "grok-3-fast",
                 ]
             )
@@ -78,6 +83,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                 [
                     "grok-4.3",
                     "grok-4.20-beta-0309-non-reasoning",
+                    "grok-4-1-fast-reasoning",
                     "grok-3-fast",
                     "grok-3-mini-fast",
                 ]
@@ -89,6 +95,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                 [
                     "grok-4.3",
                     "grok-4.20-beta-0309-reasoning",
+                    "grok-4-1-fast-reasoning",
                     "grok-3-fast",
                 ]
             )

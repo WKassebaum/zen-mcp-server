@@ -6,9 +6,17 @@ import asyncio
 import importlib
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
+
+# On macOS, the default pytest temp dir is typically under /var (e.g. /private/var/folders/...).
+# If /var is considered a dangerous system path, tests must use a safe temp root (like /tmp).
+if sys.platform == "darwin":
+    os.environ["TMPDIR"] = "/tmp"
+    # tempfile caches the temp dir after first lookup; clear it so pytest fixtures pick up TMPDIR.
+    tempfile.tempdir = None
 
 # Ensure the parent directory is in the Python path for imports
 parent_dir = Path(__file__).resolve().parent.parent
@@ -210,12 +218,17 @@ def disable_force_env_override(monkeypatch):
     monkeypatch.setenv("MAX_CONVERSATION_TURNS", "50")
 
     import importlib
+    import sys
 
     import config
     import utils.conversation_memory as conversation_memory
 
     importlib.reload(config)
     importlib.reload(conversation_memory)
+
+    test_conversation_module = sys.modules.get("tests.test_conversation_memory")
+    if test_conversation_module is not None:
+        test_conversation_module.MAX_CONVERSATION_TURNS = conversation_memory.MAX_CONVERSATION_TURNS
 
     try:
         yield

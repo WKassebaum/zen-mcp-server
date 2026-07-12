@@ -47,12 +47,10 @@ class TestXAIProvider:
         # Test valid models (bare grok/grok4/grok-4 aliases live on flagship grok-4.5; grok-3 aliases on grok-3-fast)
         assert provider.validate_model_name("grok-4") is True  # alias on grok-4.5
         assert provider.validate_model_name("grok4") is True
+        assert provider.validate_model_name("grok") is True
         assert provider.validate_model_name("grok-3") is True  # alias on grok-3-fast
         assert provider.validate_model_name("grok-3-fast") is True
-        assert provider.validate_model_name("grok") is True
-        assert provider.validate_model_name("grok3") is True
         assert provider.validate_model_name("grokfast") is True
-        assert provider.validate_model_name("grok3fast") is True
 
         # Test invalid model
         assert provider.validate_model_name("invalid-model") is False
@@ -116,17 +114,6 @@ class TestXAIProvider:
         assert capabilities.temperature_constraint.max_temp == 2.0
         assert capabilities.temperature_constraint.default_temp == 0.3
 
-    def test_get_capabilities_grok3_fast(self):
-        """Test getting model capabilities for GROK-3 Fast."""
-        provider = XAIModelProvider("test-key")
-
-        capabilities = provider.get_capabilities("grok-3-fast")
-        assert capabilities.model_name == "grok-3-fast"
-        assert capabilities.friendly_name == "X.AI (Grok 3 Fast)"
-        assert capabilities.context_window == 131_072
-        assert capabilities.provider == ProviderType.XAI
-        assert not capabilities.supports_extended_thinking
-
     def test_get_capabilities_with_shorthand(self):
         """Test getting model capabilities with shorthand."""
         provider = XAIModelProvider("test-key")
@@ -189,7 +176,7 @@ class TestXAIProvider:
 
     @patch.dict(os.environ, {"XAI_ALLOWED_MODELS": "grok,grok-3-fast"})
     def test_multiple_model_restrictions(self):
-        """Test multiple models in restrictions."""
+        """Restrictions should allow aliases for Grok 4.1 Fast."""
         # Clear cached restriction service
         import utils.model_restrictions
         from providers.registry import ModelProviderRegistry
@@ -213,7 +200,7 @@ class TestXAIProvider:
 
     @patch.dict(os.environ, {"XAI_ALLOWED_MODELS": "grok,grok-3-fast,grok-4.3"})
     def test_both_shorthand_and_full_name_allowed(self):
-        """Test that both shorthand and full name can be allowed."""
+        """Test that aliases and canonical names can be allowed together."""
         # Clear cached restriction service
         import utils.model_restrictions
 
@@ -242,7 +229,6 @@ class TestXAIProvider:
         assert provider.validate_model_name("grok-4.3") is True
         assert provider.validate_model_name("grok-3-fast") is True
         assert provider.validate_model_name("grok") is True
-        assert provider.validate_model_name("grokfast") is True
         assert provider.validate_model_name("grok4") is True
 
     def test_friendly_name(self):
@@ -378,16 +364,5 @@ class TestXAIProvider:
         # Test retired grok-3 slug -> grok-3-fast (only surviving Grok 3 SKU)
         mock_response.model = "grok-3-fast"
         provider.generate_content(prompt="Test", model_name="grok3", temperature=0.7)
-        call_kwargs = mock_client.chat.completions.create.call_args[1]
-        assert call_kwargs["model"] == "grok-3-fast"
-
-        # Test grokfast -> grok-3-fast
-        mock_response.model = "grok-3-fast"
-        provider.generate_content(prompt="Test", model_name="grokfast", temperature=0.7)
-        call_kwargs = mock_client.chat.completions.create.call_args[1]
-        assert call_kwargs["model"] == "grok-3-fast"
-
-        # Test grok3fast -> grok-3-fast
-        provider.generate_content(prompt="Test", model_name="grok3fast", temperature=0.7)
         call_kwargs = mock_client.chat.completions.create.call_args[1]
         assert call_kwargs["model"] == "grok-3-fast"

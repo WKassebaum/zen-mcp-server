@@ -27,7 +27,7 @@ The following is a hypothetical example designed to demonstrate how one consensu
 
 <div style="center">
   
-  [Zen Consensus Debate](https://github.com/user-attachments/assets/76a23dd5-887a-4382-9cf0-642f5cf6219e)
+  [ZEN Consensus Debate](https://github.com/user-attachments/assets/76a23dd5-887a-4382-9cf0-642f5cf6219e)
   
 </div>
 

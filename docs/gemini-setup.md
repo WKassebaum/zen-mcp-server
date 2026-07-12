@@ -25,7 +25,7 @@ This guide explains how to configure Zen MCP Server to work with [Gemini CLI](ht
 }
 ```
 
-2. Replace `/path/to/zen-mcp-server` with your actual Zen installation path.
+2. Replace `/path/to/zen-mcp-server` with your actual ZEN MCP installation path (the folder name may still be `zen-mcp-server`).
 
 3. If the `zen-mcp-server` wrapper script doesn't exist, create it:
 
@@ -40,4 +40,4 @@ Then make it executable: `chmod +x zen-mcp-server`
 
 4. Restart Gemini CLI.
 
-All 15 Zen tools are now available in your Gemini CLI session.
+All 15 ZEN tools are now available in your Gemini CLI session.

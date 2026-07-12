@@ -34,7 +34,7 @@ The planner tool enables step-by-step thinking with session continuity:
 
 #### Pro Tip
 Claude supports `sub-tasks` where it will spawn and run separate background tasks. You can ask Claude to 
-run Zen's planner with two separate ideas. Then when it's done, use Zen's `consensus` tool to pass the entire
+run ZEN's planner with two separate ideas. Then when it's done, use ZEN's `consensus` tool to pass the entire
 plan and get expert perspective from two powerful AI models on which one to work on first! Like performing **AB** testing
 in one-go without the wait!
 
@@ -88,7 +88,7 @@ Develop a plan using zen for implementing CI/CD pipelines across our development
 
 ## Continue With a New Plan
 
-Like all other tools in Zen, you can `continue` with a new plan using the output from a previous plan by simply saying
+Like all other tools in ZEN, you can `continue` with a new plan using the output from a previous plan by simply saying
 
 ```
 Continue with zen's consensus tool and find out what o3:for and flash:against think of the plan

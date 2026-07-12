@@ -186,8 +186,12 @@ conf/*.local.json
 .docker_cleaned
 logs/
 *.backup
+*.backup-*.json
 /.desktop_configured
 
 /worktrees/
 test_simulation_files/
 .mcp.json
+
+# Recall session state
+.recall-*

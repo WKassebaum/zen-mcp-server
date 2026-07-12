@@ -90,6 +90,9 @@ class TestOpenRouterModelRegistry:
         test_cases = [
             ("opus", "anthropic/claude-opus-4-8"),
             ("OPUS", "anthropic/claude-opus-4-8"),  # Case insensitive
+            ("claude-opus", "anthropic/claude-opus-4-8"),
+            ("opus4.5", "anthropic/claude-opus-4.5"),
+            ("opus4.1", "anthropic/claude-opus-4.1"),  # 4.1 still accessible
             ("sonnet", "anthropic/claude-sonnet-5"),
             ("o3", "openai/o3"),
             ("deepseek", "deepseek/deepseek-r1-0528"),
@@ -131,6 +134,7 @@ class TestOpenRouterModelRegistry:
         assert config is not None
 
         # Registry now returns ModelCapabilities objects directly
+        # opus alias now points to 4.5
         assert config.provider == ProviderType.OPENROUTER
         assert config.model_name == "anthropic/claude-opus-4-8"
         assert config.friendly_name == "OpenRouter (anthropic/claude-opus-4-8)"

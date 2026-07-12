@@ -335,7 +335,7 @@ Pour plus de détails sur chaque problème identifié, consultez les recommandat
 - [ ] Exécuter les tests de régression
 
 ---
-*Analyse générée automatiquement par MCP Zen* 🤖
+*Analyse générée automatiquement par MCP ZEN* 🤖
 """,
             "metadata": {
                 "tool_name": "analyze",
@@ -465,7 +465,7 @@ def main():
     try:
         run_utf8_integration_tests()
         print("\n🎉 SUCCESS: All UTF-8 integration tests passed!")
-        print("🚀 Zen MCP server fully supports French localization!")
+        print("🚀 Zen MCP Server fully supports French localization!")
         return 0
 
     except AssertionError as e:

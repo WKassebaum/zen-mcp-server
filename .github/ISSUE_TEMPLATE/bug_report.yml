@@ -12,7 +12,7 @@ body:
     attributes:
       label: Project Version
       description: "Which version are you using? (To see version: ./run-server.sh -v)"
-      placeholder: "e.g., 5.1.0"
+      placeholder: "e.g., 9.4.1"
     validations:
       required: true
 

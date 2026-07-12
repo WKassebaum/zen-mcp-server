@@ -1,6 +1,6 @@
 # Custom Models & API Setup
 
-This guide covers setting up multiple AI model providers including OpenRouter, custom API endpoints, and local model servers. The Zen MCP server supports a unified configuration for all these providers through a single model registry.
+This guide covers setting up multiple AI model providers including OpenRouter, custom API endpoints, and local model servers. The ZEN MCP server supports a unified configuration for all these providers through a single model registry.
 
 ## Supported Providers
 
@@ -35,7 +35,7 @@ This guide covers setting up multiple AI model providers including OpenRouter, c
 
 ## Model Aliases
 
-Zen ships multiple registries:
+ZEN ships multiple registries:
 
 - `conf/openai_models.json` – native OpenAI catalogue (override with `OPENAI_MODELS_CONFIG_PATH`)
 - `conf/gemini_models.json` – native Google Gemini catalogue (`GEMINI_MODELS_CONFIG_PATH`)
@@ -61,6 +61,9 @@ The curated defaults in `conf/openrouter_models.json` include popular entries su
 | `llama3` | `meta-llama/llama-3-70b` | Large open-weight text model |
 | `deepseek-r1` | `deepseek/deepseek-r1-0528` | DeepSeek reasoning model |
 | `perplexity` | `perplexity/llama-3-sonar-large-32k-online` | Search-augmented model |
+| `gpt5.2`, `gpt-5.2`, `5.2` | `openai/gpt-5.2` | Flagship GPT-5.2 with reasoning and vision |
+| `gpt5.1-codex`, `codex-5.1` | `openai/gpt-5.1-codex` | Agentic coding specialization (Responses API) |
+| `codex-mini`, `gpt5.1-codex-mini` | `openai/gpt-5.1-codex-mini` | Cost-efficient Codex variant with streaming |
 
 Consult the JSON file for the full list, aliases, and capability flags. Add new entries as OpenRouter releases additional models.
 
@@ -74,9 +77,21 @@ View the baseline OpenRouter catalogue in [`conf/openrouter_models.json`](conf/o
 
 Native catalogues (`conf/openai_models.json`, `conf/gemini_models.json`, `conf/xai_models.json`, `conf/dial_models.json`) follow the same schema. Updating those files lets you:
 
-- Expose new aliases (e.g., map `enterprise-pro` to `gpt-5-pro`)
+- Expose new aliases (e.g., map `enterprise-pro` to `gpt-5.2-pro`)
 - Advertise support for JSON mode or vision if the upstream provider adds it
 - Adjust token limits when providers increase context windows
+
+### Latest OpenAI releases
+
+OpenAI's November 13, 2025 drop introduced `gpt-5.1-codex` and `gpt-5.1-codex-mini`, while the flagship base model is now `gpt-5.2`. All of these ship in `conf/openai_models.json`:
+
+| Model | Highlights | Notes |
+|-------|------------|-------|
+| `gpt-5.2` | 400K context, 128K output, multimodal IO, configurable reasoning effort | Streaming enabled; use for balanced agent/coding flows |
+| `gpt-5.1-codex` | Responses-only agentic coding version of GPT-5.1 | Streaming disabled; `use_openai_response_api=true`; `allow_code_generation=true` |
+| `gpt-5.1-codex-mini` | Cost-efficient Codex variant | Streaming enabled, retains 400K context and code-generation flag |
+
+These entries include pricing-friendly aliases (`gpt5.2`, `codex-5.1`, `codex-mini`) plus updated capability flags (`supports_extended_thinking`, `allow_code_generation`). Copy the manifest if you operate custom deployment names so downstream providers inherit the same metadata.
 
 Because providers load the manifests on import, you can tweak capabilities without touching Python. Restart the server after editing the JSON files so changes are picked up.
 
@@ -133,7 +148,7 @@ CUSTOM_MODEL_NAME=llama3.2                          # Default model to use
 
 **Local Model Connection**
 
-The Zen MCP server runs natively, so you can use standard localhost URLs to connect to local models:
+The ZEN MCP server runs natively, so you can use standard localhost URLs to connect to local models:
 
 ```bash
 # For Ollama, vLLM, LM Studio, etc. running on your machine

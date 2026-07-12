@@ -34,6 +34,7 @@ readonly DOCKER_CLEANED_FLAG=".docker_cleaned"
 readonly DESKTOP_CONFIG_FLAG=".desktop_configured"
 readonly LOG_DIR="logs"
 readonly LOG_FILE="mcp_server.log"
+readonly LEGACY_MCP_NAMES=("zen" "zen-mcp" "zen-mcp-server" "zen_mcp" "zen_mcp_server")
 
 # Determine portable arguments for sed -i (GNU vs BSD)
 declare -a SED_INPLACE_ARGS
@@ -1231,22 +1232,29 @@ check_claude_cli_integration() {
     local server_path="$2"
     local claude_cmd=""
 
-    # Try multiple common locations for Claude CLI
-    if command -v claude &> /dev/null; then
-        # Found in PATH
-        claude_cmd="claude"
-    elif [[ -x "$HOME/.claude/local/claude" ]]; then
-        # Found in standard Claude CLI location (wrapper script)
-        claude_cmd="$HOME/.claude/local/claude"
-    elif [[ -x "$HOME/.claude/local/node_modules/.bin/claude" ]]; then
-        # Found in npm modules location (actual binary)
-        claude_cmd="$HOME/.claude/local/node_modules/.bin/claude"
-    elif [[ -x "/usr/local/bin/claude" ]]; then
-        # Found in global installation
-        claude_cmd="/usr/local/bin/claude"
+    # Check for native installed Claude CLI (not in PATH by default)
+    # Native installs:
+    #   - curl https://claude.ai/install.sh | bash -> ~/.local/bin/claude
+    #   - brew install --cask claude-code -> /opt/homebrew/bin/claude (Apple Silicon) or /usr/local/bin/claude (Intel)
+    if ! command -v claude &> /dev/null; then
+        local claude_paths=(
+            "$HOME/.local/bin"
+            "/opt/homebrew/bin"
+            "/usr/local/bin"
+            "$HOME/.claude/local"
+            "$HOME/.claude/local/node_modules/.bin"
+        )
+        for dir in "${claude_paths[@]}"; do
+            if [[ -x "$dir/claude" ]]; then
+                print_info "Found native installed Claude CLI at $dir/claude"
+                export PATH="$dir:$PATH"
+                print_success "Added $dir to PATH"
+                break
+            fi
+        done
     fi
 
-    if [[ -z "$claude_cmd" ]]; then
+    if ! command -v claude &> /dev/null; then
         echo ""
         print_warning "Claude CLI not detected"
         echo ""
@@ -1305,15 +1313,15 @@ check_claude_cli_integration() {
     fi
 
     # Verify the command actually works
-    if ! $claude_cmd --version &> /dev/null; then
-        print_warning "Found Claude CLI at $claude_cmd but it doesn't execute correctly"
+    if ! claude --version &> /dev/null; then
+        print_warning "Found Claude CLI but it doesn't execute correctly"
         return 1
     fi
 
-    print_success "Found Claude CLI at: $claude_cmd"
+    print_success "Found Claude CLI"
 
     # Check if zen is registered
-    local mcp_list=$($claude_cmd mcp list 2>/dev/null)
+    local mcp_list=$(claude mcp list 2>/dev/null)
     if echo "$mcp_list" | grep -q "zen"; then
         # Check if it's using the old Docker command
         if echo "$mcp_list" | grep -E "zen.*docker|zen.*compose" &>/dev/null; then
@@ -1333,14 +1341,14 @@ check_claude_cli_integration() {
                 done <<< "$env_vars"
             fi
 
-            local mcp_add_cmd="$claude_cmd mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
+            local mcp_add_cmd="claude mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
             if eval "$mcp_add_cmd" 2>/dev/null; then
                 print_success "Updated Zen to become a standalone script with environment variables"
                 return 0
             else
                 echo ""
                 echo "Failed to update MCP registration. Please run manually:"
-                echo "  $claude_cmd mcp remove zen -s user"
+                echo "  claude mcp remove zen -s user"
                 echo "  $mcp_add_cmd"
                 return 1
             fi
@@ -1351,7 +1359,7 @@ check_claude_cli_integration() {
                 return 0
             else
                 print_warning "Zen registered with different path, updating..."
-                $claude_cmd mcp remove zen -s user 2>/dev/null || true
+                claude mcp remove zen -s user 2>/dev/null || true
 
                 # Re-add with current path and environment variables
                 local env_vars=$(parse_env_variables)
@@ -1366,14 +1374,14 @@ check_claude_cli_integration() {
                     done <<< "$env_vars"
                 fi
 
-                local mcp_add_cmd="$claude_cmd mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
+                local mcp_add_cmd="claude mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
                 if eval "$mcp_add_cmd" 2>/dev/null; then
                     print_success "Updated Zen with current path and environment variables"
                     return 0
                 else
                     echo ""
                     echo "Failed to update MCP registration. Please run manually:"
-                    echo "  $claude_cmd mcp remove zen -s user"
+                    echo "  claude mcp remove zen -s user"
                     echo "  $mcp_add_cmd"
                     return 1
                 fi
@@ -1398,7 +1406,7 @@ check_claude_cli_integration() {
             fi
 
             print_info "To add manually later, run:"
-            echo "  $claude_cmd mcp add zen -s user$env_args -- $python_cmd $server_path"
+            echo "  claude mcp add zen -s user$env_args -- $python_cmd $server_path"
             return 0
         fi
 
@@ -1417,7 +1425,7 @@ check_claude_cli_integration() {
             done <<< "$env_vars"
         fi
 
-        local mcp_add_cmd="$claude_cmd mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
+        local mcp_add_cmd="claude mcp add zen -s user$env_args -- \"$python_cmd\" \"$server_path\""
         if eval "$mcp_add_cmd" 2>/dev/null; then
             print_success "Successfully added Zen to Claude Code with environment variables"
             return 0
@@ -1445,6 +1453,10 @@ check_claude_desktop_integration() {
         print_warning "Unable to determine Claude Desktop config path for this platform"
         return 0
     fi
+
+    # Legacy MCP server names to clean out from previous releases
+    local legacy_names_csv
+    legacy_names_csv=$(IFS=,; echo "${LEGACY_MCP_NAMES[*]}")
 
     echo ""
     read -p "Configure Zen for Claude Desktop? (Y/n): " -n 1 -r
@@ -1479,7 +1491,7 @@ try:
     with open('$config_path', 'r') as f:
         config = json.load(f)
 
-    # Remove zen from mcpServers if it exists
+    # Remove old zen docker config from mcpServers if it exists
     if 'mcpServers' in config and 'zen' in config['mcpServers']:
         del config['mcpServers']['zen']
         print('Removed old zen MCP configuration')
@@ -1503,19 +1515,32 @@ except Exception as e:
             echo "$env_vars" > "$env_file"
         fi
         
-        python3 -c "
+        ZEN_LEGACY_NAMES="$legacy_names_csv" python3 -c "
 import json
+import os
 import sys
+
+legacy_keys = [k for k in os.environ.get('ZEN_LEGACY_NAMES', '').split(',') if k]
 
 try:
     with open('$config_path', 'r') as f:
         config = json.load(f)
-except:
+except Exception:
+    config = {}
+
+if not isinstance(config, dict):
     config = {}
 
 # Ensure mcpServers exists
-if 'mcpServers' not in config:
+if 'mcpServers' not in config or not isinstance(config.get('mcpServers'), dict):
     config['mcpServers'] = {}
+
+# Remove legacy entries from any known server blocks
+for container in ('mcpServers', 'servers'):
+    servers = config.get(container)
+    if isinstance(servers, dict):
+        for key in legacy_keys:
+            servers.pop(key, None)
 
 # Add zen server
 zen_config = {
@@ -1532,7 +1557,7 @@ try:
             if '=' in line and line:
                 key, value = line.split('=', 1)
                 env_dict[key] = value
-except:
+except Exception:
     pass
 
 if env_dict:
@@ -1543,23 +1568,23 @@ config['mcpServers']['zen'] = zen_config
 with open('$temp_file', 'w') as f:
     json.dump(config, f, indent=2)
 " && mv "$temp_file" "$config_path"
-        
+
         # Clean up temporary env file
         rm -f "$env_file" 2>/dev/null || true
 
     else
         print_info "Creating new Claude Desktop config..."
-        
+
         # Create new config with environment variables
         local env_vars=$(parse_env_variables)
         local temp_file=$(mktemp)
         local env_file=$(mktemp)
-        
+
         # Write environment variables to a temporary file for Python to read
         if [[ -n "$env_vars" ]]; then
             echo "$env_vars" > "$env_file"
         fi
-        
+
         python3 -c "
 import json
 import sys
@@ -1646,7 +1671,7 @@ EOF
 # Check and update Gemini CLI configuration
 check_gemini_cli_integration() {
     local script_dir="$1"
-    local zen_wrapper="$script_dir/zen-mcp-server"
+    local zen_wrapper="$script_dir/zen-mcp-server-wrapper"
 
     # Check if Gemini settings file exists
     local gemini_config="$HOME/.gemini/settings.json"
@@ -1655,9 +1680,69 @@ check_gemini_cli_integration() {
         return 0
     fi
 
-    # Check if zen is already configured
-    if grep -q '"zen"' "$gemini_config" 2>/dev/null; then
-        # Already configured
+    # Clean up legacy zen entries and detect existing zen configuration
+    local legacy_names_csv
+    legacy_names_csv=$(IFS=,; echo "${LEGACY_MCP_NAMES[*]}")
+
+    local gemini_status
+    gemini_status=$(
+        ZEN_LEGACY_NAMES="$legacy_names_csv" ZEN_WRAPPER="$zen_wrapper" ZEN_GEMINI_CONFIG="$gemini_config" python3 - <<'PY' 2>/dev/null
+import json
+import os
+import pathlib
+import sys
+
+config_path = pathlib.Path(os.environ["ZEN_GEMINI_CONFIG"])
+legacy = [n for n in os.environ.get("ZEN_LEGACY_NAMES", "").split(",") if n]
+wrapper = os.environ["ZEN_WRAPPER"]
+
+changed = False
+has_zen = False
+
+try:
+    data = json.loads(config_path.read_text())
+except Exception:
+    data = {}
+
+if not isinstance(data, dict):
+    data = {}
+
+servers = data.get("mcpServers")
+if not isinstance(servers, dict):
+    servers = {}
+    data["mcpServers"] = servers
+
+for key in legacy:
+    if servers.pop(key, None) is not None:
+        changed = True
+
+zen_cfg = servers.get("zen")
+if isinstance(zen_cfg, dict):
+    has_zen = True
+    if zen_cfg.get("command") != wrapper:
+        zen_cfg["command"] = wrapper
+        servers["zen"] = zen_cfg
+        changed = True
+
+if changed:
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(data, indent=2))
+
+status = ("CHANGED" if changed else "UNCHANGED") + ":" + ("HAS_ZEN" if has_zen else "NO_ZEN")
+sys.stdout.write(status)
+sys.exit(0)
+PY
+    ) || true
+
+    local gemini_changed=false
+    local gemini_has_zen=false
+    [[ "$gemini_status" == CHANGED:* ]] && gemini_changed=true
+    [[ "$gemini_status" == *:HAS_ZEN ]] && gemini_has_zen=true
+
+    if [[ "$gemini_has_zen" == true ]]; then
+        if [[ "$gemini_changed" == true ]]; then
+            print_success "Removed legacy Gemini MCP entries"
+        fi
         return 0
     fi
 
@@ -1739,79 +1824,160 @@ EOF
 
 # Check and update Codex CLI configuration
 check_codex_cli_integration() {
-    # Check if Codex is installed
     if ! command -v codex &> /dev/null; then
-        # Codex CLI not installed
         return 0
     fi
 
     local codex_config="$HOME/.codex/config.toml"
-    
-    # Check if zen is already configured
-    if [[ -f "$codex_config" ]] && grep -q '\[mcp_servers\.zen\]' "$codex_config" 2>/dev/null; then
-        # Already configured
-        return 0
-    fi
+    local legacy_names_csv
+    legacy_names_csv=$(IFS=,; echo "${LEGACY_MCP_NAMES[*]}")
 
-    # Ask user if they want to add Zen to Codex CLI
-    echo ""
-    read -p "Configure Zen for Codex CLI? (Y/n): " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Nn]$ ]]; then
-        print_info "Skipping Codex CLI integration"
-        return 0
-    fi
-
-    print_info "Updating Codex CLI configuration..."
-
-    # Create config directory if it doesn't exist
-    mkdir -p "$(dirname "$codex_config")" 2>/dev/null || true
-
-    # Create backup if config exists
     if [[ -f "$codex_config" ]]; then
-        cp "$codex_config" "${codex_config}.backup_$(date +%Y%m%d_%H%M%S)"
+        local codex_cleanup_status
+        codex_cleanup_status=$(
+            ZEN_LEGACY_NAMES="$legacy_names_csv" ZEN_CODEX_CONFIG="$codex_config" python3 - <<'PY' 2>/dev/null
+import os
+import pathlib
+import re
+import sys
+
+config_path = pathlib.Path(os.environ["ZEN_CODEX_CONFIG"])
+legacy = [n for n in os.environ.get("ZEN_LEGACY_NAMES", "").split(",") if n]
+
+if not config_path.exists():
+    sys.exit(0)
+
+lines = config_path.read_text().splitlines()
+output = []
+skip = False
+removed = False
+section_re = re.compile(r"\s*\[([^\]]+)\]")
+
+for line in lines:
+    match = section_re.match(line)
+    if match:
+        header = match.group(1).strip()
+        parts = header.split(".")
+        is_legacy = False
+        if len(parts) >= 2 and parts[0] == "mcp_servers":
+            section_key = ".".join(parts[1:])
+            for name in legacy:
+                if section_key == name or section_key.startswith(name + "."):
+                    is_legacy = True
+                    break
+        skip = is_legacy
+        if is_legacy:
+            removed = True
+            continue
+    if not skip:
+        output.append(line)
+
+if removed:
+    config_path.write_text("\n".join(output).rstrip() + ("\n" if output else ""))
+    sys.stdout.write("REMOVED")
+else:
+    sys.stdout.write("UNCHANGED")
+sys.exit(0)
+PY
+        ) || true
+
+        if [[ "$codex_cleanup_status" == "REMOVED" ]]; then
+            print_success "Removed legacy Codex MCP entries"
+        fi
     fi
 
-    # Get environment variables using shared function
-    local env_vars=$(parse_env_variables)
+    local codex_has_zen=false
+    if [[ -f "$codex_config" ]] && grep -q '\[mcp_servers\.zen\]' "$codex_config" 2>/dev/null; then
+        codex_has_zen=true
+    fi
 
-    # Write zen configuration to config.toml
-    {
+    if [[ "$codex_has_zen" == false ]]; then
         echo ""
-        echo "[mcp_servers.zen]"
-        echo "command = \"bash\""
-        echo "args = [\"-c\", \"for p in \$(which uvx 2>/dev/null) \$HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \\\"\$p\\\" ] && exec \\\"\$p\\\" --from git+https://github.com/BeehiveInnovations/zen-mcp-server.git zen-mcp-server; done; echo 'uvx not found' >&2; exit 1\"]"
-        echo "tool_timeout_sec = 1200"
+        read -p "Configure Zen for Codex CLI? (Y/n): " -n 1 -r
         echo ""
-        echo "[mcp_servers.zen.env]"
-        echo "PATH = \"/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin\""
-        if [[ -n "$env_vars" ]]; then
-            # Convert KEY=VALUE format to TOML KEY = "VALUE" format
-            while IFS= read -r line; do
-                if [[ -n "$line" && "$line" =~ ^([^=]+)=(.*)$ ]]; then
-                    local key="${BASH_REMATCH[1]}"
-                    local value="${BASH_REMATCH[2]}"
-                    # Escape backslashes first, then double quotes for TOML compatibility
-                    local escaped_value
-                    escaped_value=$(echo "$value" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-                    echo "$key = \"$escaped_value\""
-                fi
-            done <<< "$env_vars"
+        if [[ $REPLY =~ ^[Nn]$ ]]; then
+            print_info "Skipping Codex CLI integration"
+            return 0
         fi
-    } >> "$codex_config"
 
-    if [[ $? -eq 0 ]]; then
+        print_info "Updating Codex CLI configuration..."
+
+        mkdir -p "$(dirname "$codex_config")" 2>/dev/null || true
+
+        if [[ -f "$codex_config" ]]; then
+            cp "$codex_config" "${codex_config}.backup_$(date +%Y%m%d_%H%M%S)"
+        fi
+
+        local env_vars=$(parse_env_variables)
+
+        {
+            echo ""
+            echo "[mcp_servers.zen]"
+            echo "command = \"bash\""
+            echo "args = [\"-c\", \"for p in \$(which uvx 2>/dev/null) \$HOME/.local/bin/uvx /opt/homebrew/bin/uvx /usr/local/bin/uvx uvx; do [ -x \\\"\$p\\\" ] && exec \\\"\$p\\\" --from git+https://github.com/WKassebaum/zen-mcp-server.git zen-mcp-server; done; echo 'uvx not found' >&2; exit 1\"]"
+            echo "tool_timeout_sec = 1200"
+            echo ""
+            echo "[mcp_servers.zen.env]"
+            echo "PATH = \"/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin\""
+            if [[ -n "$env_vars" ]]; then
+                while IFS= read -r line; do
+                    if [[ -n "$line" && "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                        local key="${BASH_REMATCH[1]}"
+                        local value="${BASH_REMATCH[2]}"
+                        local escaped_value
+                        escaped_value=$(echo "$value" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
+                        echo "$key = \"$escaped_value\""
+                    fi
+                done <<< "$env_vars"
+            fi
+        } >> "$codex_config"
+
+        if [[ $? -ne 0 ]]; then
+            print_error "Failed to update Codex CLI config"
+            echo "Manual config location: $codex_config"
+            echo "Add this configuration:"
+cat <<'CODExEOF'
+[mcp_servers.zen]
+command = "sh"
+args = ["-c", "exec \$(which uvx 2>/dev/null || echo uvx) --from git+https://github.com/WKassebaum/zen-mcp-server.git zen-mcp-server"]
+tool_timeout_sec = 1200
+
+[mcp_servers.zen.env]
+PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin"
+
+[features]
+web_search_request = true
+CODExEOF
+
+            if [[ -n "$env_vars" ]]; then
+                while IFS= read -r line; do
+                    if [[ -n "$line" && "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                        local key="${BASH_REMATCH[1]}"
+                        echo "${key} = \"your_$(echo "${key}" | tr '[:upper:]' '[:lower:]')\""
+                    fi
+                done <<< "$env_vars"
+            else
+                echo "GEMINI_API_KEY = \"your_gemini_api_key_here\""
+            fi
+            return 0
+        fi
+
         print_success "Successfully configured Codex CLI"
         echo "  Config: $codex_config"
         echo "  Restart Codex CLI to use Zen MCP Server"
+        codex_has_zen=true
+    else
+        print_info "Codex CLI already configured; refreshing Codex settings..."
+    fi
 
-        if ! grep -Eq '^\s*web_search\s*=' "$codex_config" 2>/dev/null; then
+    if [[ "$codex_has_zen" == true ]]; then
+        if ! grep -Eq '^\s*web_search_request\s*=' "$codex_config" 2>/dev/null; then
             echo ""
-            print_info "Web search lets Codex pull fresh documentation for Zen's API lookup tooling."
-            read -p "Enable Codex CLI web search tool? (Y/n): " -n 1 -r
+            print_info "Web search requests let Codex pull fresh documentation for Zen's API lookup tooling."
+            read -p "Enable Codex CLI web search requests? (Y/n): " -n 1 -r
             echo ""
             if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-                if grep -Eq '^\s*\[tools\]' "$codex_config" 2>/dev/null; then
+                if grep -Eq '^\s*\[features\]' "$codex_config" 2>/dev/null; then
                     if ! python3 - "$codex_config" <<'PY'
 import sys
 from pathlib import Path
@@ -1819,72 +1985,82 @@ from pathlib import Path
 cfg_path = Path(sys.argv[1])
 content = cfg_path.read_text().splitlines()
 output = []
-in_tools = False
+in_features = False
 added = False
 
 for line in content:
     stripped = line.strip()
     if stripped.startswith("[") and stripped.endswith("]"):
-        if in_tools and not added:
-            output.append("web_search = true")
+        if in_features and not added:
+            output.append("web_search_request = true")
             added = True
-        in_tools = stripped == "[tools]"
+        in_features = stripped == "[features]"
         output.append(line)
         continue
-    if in_tools and stripped.startswith("web_search"):
+    if in_features and stripped.startswith("web_search_request"):
         added = True
     output.append(line)
 
-if in_tools and not added:
-    output.append("web_search = true")
+if in_features and not added:
+    output.append("web_search_request = true")
 
 cfg_path.write_text("\n".join(output) + "\n")
 PY
                     then
-                        print_error "Failed to enable Codex web search tool. Add 'web_search = true' under [tools] in $codex_config manually."
+                        print_error "Failed to enable Codex web search request feature. Add 'web_search_request = true' under [features] in $codex_config manually."
                     else
-                        print_success "Enabled Codex web search tool"
+                        print_success "Enabled Codex web search request feature"
                     fi
                 else
                     {
                         echo ""
-                        echo "[tools]"
-                        echo "web_search = true"
-                    } >> "$codex_config" && print_success "Enabled Codex web search tool" || \
-                        print_error "Failed to enable Codex web search tool. Add 'web_search = true' under [tools] in $codex_config manually."
+                        echo "[features]"
+                        echo "web_search_request = true"
+                    } >> "$codex_config" && print_success "Enabled Codex web search request feature" || \
+                        print_error "Failed to enable Codex web search request feature. Add 'web_search_request = true' under [features] in $codex_config manually."
                 fi
             else
-                print_info "Skipping Codex web search tool enablement"
+                print_info "Skipping Codex web search request feature"
             fi
         fi
-    else
-        print_error "Failed to update Codex CLI config"
-        echo "Manual config location: $codex_config"
-        echo "Add this configuration:"
-        
-        # Generate example with actual environment variables for error case
-        env_vars=$(parse_env_variables)
-cat << EOF
-[mcp_servers.zen]
-command = "sh"
-args = ["-c", "exec \$(which uvx 2>/dev/null || echo uvx) --from git+https://github.com/BeehiveInnovations/zen-mcp-server.git zen-mcp-server"]
-tool_timeout_sec = 1200
 
-[mcp_servers.zen.env]
-PATH = "/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin:\$HOME/.local/bin:\$HOME/.cargo/bin:\$HOME/bin"
-EOF
-        
-        # Add environment variable examples only if they exist
-        if [[ -n "$env_vars" ]]; then
-            while IFS= read -r line; do
-                if [[ -n "$line" && "$line" =~ ^([^=]+)=(.*)$ ]]; then
-                    local key="${BASH_REMATCH[1]}"
-                    echo "${key} = \"your_$(echo "${key}" | tr '[:upper:]' '[:lower:]')\""
+        if grep -Eq '^\s*\[tools\]' "$codex_config" 2>/dev/null && \
+           grep -Eq '^\s*web_search\s*=' "$codex_config" 2>/dev/null; then
+            local removal_status
+            if removal_status=$(python3 - "$codex_config" <<'PY' | tr -d '\n'
+import sys
+from pathlib import Path
+
+cfg_path = Path(sys.argv[1])
+lines = cfg_path.read_text().splitlines()
+output = []
+in_tools = False
+removed = False
+
+for line in lines:
+    stripped = line.strip()
+    if stripped.startswith('[') and stripped.endswith(']'):
+        in_tools = stripped == '[tools]'
+        output.append(line)
+        continue
+    if in_tools and stripped.startswith('web_search'):
+        removed = True
+        continue
+    output.append(line)
+
+if removed:
+    cfg_path.write_text("\n".join(output) + "\n")
+    print('REMOVED', end='')
+else:
+    print('UNCHANGED', end='')
+PY
+); then
+                if [[ "$removal_status" == "REMOVED" ]]; then
+                    print_success "Removed deprecated Codex [tools].web_search entry"
                 fi
-            done <<< "$env_vars"
-        else
-            # Show GEMINI_API_KEY example if no environment variables exist
-            echo "GEMINI_API_KEY = \"your_gemini_api_key_here\""
+            else
+                print_warning "Failed to clean up deprecated Codex [tools].web_search entry; remove manually from $codex_config"
+            fi
         fi
     fi
 }
@@ -1985,6 +2161,43 @@ check_qwen_cli_integration() {
         env_lines=$(printf '%s\n' "${env_array[@]}")
     fi
 
+    local legacy_names_csv
+    legacy_names_csv=$(IFS=,; echo "${LEGACY_MCP_NAMES[*]}")
+
+    if [[ -f "$qwen_config" ]]; then
+        ZEN_QWEN_LEGACY="$legacy_names_csv" ZEN_QWEN_CONFIG="$qwen_config" python3 - <<'PYCLEANCONF' 2>/dev/null || true
+import json
+import os
+import pathlib
+import sys
+
+config_path = pathlib.Path(os.environ.get("ZEN_QWEN_CONFIG", ""))
+legacy = [n for n in os.environ.get("ZEN_QWEN_LEGACY", "").split(",") if n]
+
+if not config_path.exists():
+    sys.exit(0)
+
+try:
+    data = json.loads(config_path.read_text(encoding="utf-8"))
+except Exception:
+    sys.exit(0)
+
+if not isinstance(data, dict):
+    sys.exit(0)
+
+servers = data.get("mcpServers")
+if isinstance(servers, dict):
+    removed = False
+    for key in legacy:
+        if servers.pop(key, None) is not None:
+            removed = True
+    if removed:
+        config_path.write_text(json.dumps(data, indent=2))
+
+sys.exit(0)
+PYCLEANCONF
+    fi
+
     local config_status=3
     if [[ -f "$qwen_config" ]]; then
         if python3 - "$qwen_config" "$python_cmd" "$server_path" "$script_dir" <<'PYCONF'
@@ -2040,7 +2253,7 @@ PYCONF
         print_warning "Unable to parse Qwen CLI settings; replacing with a fresh entry may help."
     fi
 
-    local prompt="Configure Zen for Qwen CLI? (Y/n): "
+    local prompt="Configure ZEN for Qwen CLI? (Y/n): "
     if [[ $config_status -eq 4 || $config_status -eq 5 ]]; then
         prompt="Update Qwen CLI zen configuration? (Y/n): "
     fi
@@ -2366,7 +2579,7 @@ display_setup_instructions() {
     echo "===== $setup_header ====="
     printf '%*s\n' "$((${#setup_header} + 12))" | tr ' ' '='
     echo ""
-    print_success "Zen is ready to use!"
+    print_success "ZEN is ready to use!"
     
     # Display enabled/disabled tools if DISABLED_TOOLS is configured
     if [[ -n "${DISABLED_TOOLS:-}" ]]; then

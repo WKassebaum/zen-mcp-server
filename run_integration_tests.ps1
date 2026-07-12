@@ -1,9 +1,9 @@
 <#
 .SYNOPSIS
-    Integration test runner script for the Zen MCP server on Windows.
+    Integration test runner script for the ZEN MCP server on Windows.
 
 .DESCRIPTION
-    This PowerShell script prepares and runs integration tests for the Zen MCP server:
+    This PowerShell script prepares and runs integration tests for the ZEN MCP server:
     - Sets up the test environment
     - Installs required dependencies
     - Runs automated integration tests
