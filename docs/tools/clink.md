@@ -141,6 +141,7 @@ Clink configurations live in `conf/cli_clients/`. We ship presets for the suppor
 - `gemini.json` – runs `gemini --telemetry false --yolo -o json`
 - `claude.json` – runs `claude --print --output-format json --permission-mode acceptEdits --model sonnet`
 - `codex.json` – runs `codex exec --json --dangerously-bypass-approvals-and-sandbox`
+- `grok.json` – runs `grok --output-format json --permission-mode acceptEdits --single` (xAI's Grok Build CLI)
 
 > **CAUTION**: These flags intentionally bypass each CLI's safety prompts so they can edit files or launch tools autonomously via MCP. Only enable them in trusted sandboxes and tailor role prompts or CLI configs if you need more guardrails.
 
@@ -162,7 +163,7 @@ Clink is the **only sanctioned way** to run Zen tasks on a consumer AI subscript
 
 **What Zen deliberately does NOT support**: pasting an `sk-ant-oat...` subscription OAuth token into the native Anthropic provider (`ANTHROPIC_API_KEY` path). Anthropic's Consumer ToS restricts subscription OAuth credentials to official surfaces (Claude Code / Agent SDK / claude.ai), enforces this server-side, and prohibits multi-tenant or resold use. Use a regular API key from the Claude Platform for the native provider, or route through clink for subscription auth.
 
-**xAI / SpaceXAI (SuperGrok, X Premium) — not available for the general API.** xAI's developer API supports API keys only (`XAI_API_KEY` from console.x.ai); consumer subscriptions are explicitly separate from API access. The only official subscription-login agent is xAI's own Grok Build CLI (SuperGrok Heavy tier, beta). Third-party tools that reverse-engineer the accounts.x.ai OAuth flow are not sanctioned, and Zen does not ship one. If Grok Build's CLI matures and its entitlements are documented, it could be added as a clink client via `conf/cli_clients/`.
+**xAI / SpaceXAI (SuperGrok, X Premium) — not available for the general API, but available through Grok Build.** xAI's developer API supports API keys only (`XAI_API_KEY` from console.x.ai); consumer subscriptions are explicitly separate from API access, and third-party tools that reverse-engineer the accounts.x.ai OAuth flow are not sanctioned. The one official subscription-login surface is xAI's own **Grok Build CLI** (`grok`), and Zen ships a clink client for it: run `grok login` once with your Grok subscription (or set `XAI_API_KEY`/`GROK_CODE_XAI_API_KEY` for headless key auth), then `clink with grok ...` runs on that CLI's credentials — the exact analog of the Claude Code path above. Subscription entitlements for Grok Build are set by xAI and still evolving; if your tier isn't entitled, the CLI falls back to API-key auth.
 
 ## When to Use Clink vs Other Tools
 

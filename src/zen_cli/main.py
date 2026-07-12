@@ -1285,7 +1285,7 @@ def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model,
 
 @cli.command()
 @click.argument("prompt_text", required=False)
-@click.option("--cli-name", help="CLI client to invoke (gemini, codex, claude)")
+@click.option("--cli-name", help="CLI client to invoke (gemini, codex, claude, grok)")
 @click.option("--role", help="Role preset for the CLI (default, planner, codereviewer)")
 @click.option("--files", "-f", multiple=True, help="Files to pass to the CLI")
 @click.option("--images", "-i", multiple=True, help="Images to pass to the CLI")
@@ -1304,14 +1304,18 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
     """
     prompt = prompt_text or click.prompt("Enter your prompt for the CLI")
 
-    # Build arguments matching ClinkRequest schema
+    # Build arguments matching ClinkRequest schema. cli_name/role are omitted
+    # when not provided so CLinkTool applies its own defaults (first configured
+    # CLI, 'default' role) - passing invalid placeholders here breaks resolution.
     arguments = {
         "prompt": prompt,
-        "cli_name": cli_name or "default",  # Required field
-        "role": role or "assistant",  # Optional with default
         "files": list(files) if files else [],
         "images": list(images) if images else [],
     }
+    if cli_name:
+        arguments["cli_name"] = cli_name
+    if role:
+        arguments["role"] = role
     # Note: working_directory removed - not in ClinkRequest schema
 
     try:

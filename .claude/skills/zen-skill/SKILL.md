@@ -116,9 +116,9 @@ zen setup
 ```
 - Configures API keys, storage backend, and MCP registration. Never run autonomously.
 
-#### clink — bridge to other AI CLIs (claude, codex, gemini)
+#### clink — bridge to other AI CLIs (claude, codex, gemini, grok)
 ```bash
-zen clink <prompt> --cli-name <claude|codex|gemini> [--role <default|planner|codereviewer>] [-f <file>]... [-i <image>]... [--json]
+zen clink <prompt> --cli-name <claude|codex|gemini|grok> [--role <default|planner|codereviewer>] [-f <file>]... [-i <image>]... [--json]
 ```
 - Spawns an external AI CLI as a subagent with fresh context.
 
