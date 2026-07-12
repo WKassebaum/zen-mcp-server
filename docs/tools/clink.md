@@ -150,6 +150,20 @@ Each preset points to role-specific prompts in `systemprompts/clink/`. Duplicate
 
 **Adding new CLIs**: Drop a JSON config into `conf/cli_clients/`, create role prompts in `systemprompts/clink/`, and register a parser/agent if the CLI outputs a new format.
 
+## Subscription Authentication (Login Tokens Instead of API Keys)
+
+Clink is the **only sanctioned way** to run Zen tasks on a consumer AI subscription instead of a pay-per-token API key. Policy status as of July 2026:
+
+**Anthropic (Claude Pro/Max/Team/Enterprise) — allowed, through Claude Code only.** Anthropic's May 2026 policy update ("Use the Claude Agent SDK with your Claude plan") permits third-party agentic tools to run on your Claude subscription **provided they authenticate through Claude Code or the Claude Agent SDK**. Zen's `claude` clink client spawns the real Claude Code CLI, so it qualifies:
+
+- **Interactive**: run `claude` once and log in with your claude.ai account — clink calls then draw from your subscription with no `ANTHROPIC_API_KEY` needed.
+- **Headless/CI**: run `claude setup-token` (Pro/Max/Team/Enterprise plans) to mint a 1-year, inference-only OAuth token and export it as `CLAUDE_CODE_OAUTH_TOKEN`; the Claude CLI that clink spawns picks it up automatically.
+- Subscription usage currently draws from your plan's normal rolling rate limits (Anthropic announced, then paused, a separate Agent SDK credit pool — check their Help Center for current status).
+
+**What Zen deliberately does NOT support**: pasting an `sk-ant-oat...` subscription OAuth token into the native Anthropic provider (`ANTHROPIC_API_KEY` path). Anthropic's Consumer ToS restricts subscription OAuth credentials to official surfaces (Claude Code / Agent SDK / claude.ai), enforces this server-side, and prohibits multi-tenant or resold use. Use a regular API key from the Claude Platform for the native provider, or route through clink for subscription auth.
+
+**xAI / SpaceXAI (SuperGrok, X Premium) — not available for the general API.** xAI's developer API supports API keys only (`XAI_API_KEY` from console.x.ai); consumer subscriptions are explicitly separate from API access. The only official subscription-login agent is xAI's own Grok Build CLI (SuperGrok Heavy tier, beta). Third-party tools that reverse-engineer the accounts.x.ai OAuth flow are not sanctioned, and Zen does not ship one. If Grok Build's CLI matures and its entitlements are documented, it could be added as a clink client via `conf/cli_clients/`.
+
 ## When to Use Clink vs Other Tools
 
 - **Use `clink`** for: Leveraging external CLI capabilities (Gemini's web search, 1M context), specialized CLI features, cross-CLI collaboration
