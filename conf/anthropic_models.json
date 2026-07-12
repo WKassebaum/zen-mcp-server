@@ -23,17 +23,64 @@
   },
   "models": [
     {
+      "model_name": "claude-fable-5",
+      "friendly_name": "Anthropic (Claude Fable 5)",
+      "aliases": [
+        "fable",
+        "claude-fable",
+        "fable-5",
+        "claude-fable-5"
+      ],
+      "intelligence_score": 20,
+      "description": "Claude Fable 5 (GA 2026-07-01) - Mythos-class flagship above Opus 4.8, SOTA on nearly all published benchmarks (SWE-bench Verified ~95%, Terminal-Bench 2.0 84.3%). Adaptive thinking always-on with effort controls; safety classifiers may return stop_reason 'refusal'. Rejects non-default temperature/top_p. 1M context, 128K output, $10/$50 per 1M tokens.",
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "claude-opus-4-8",
+      "friendly_name": "Anthropic (Claude Opus 4.8)",
+      "aliases": [
+        "opus-4.8",
+        "claude-opus",
+        "opus",
+        "claude-opus-4.8",
+        "claude-opus-4-8"
+      ],
+      "intelligence_score": 19,
+      "description": "Claude Opus 4.8 (released 2026-05-28) - Previous flagship, superseded as SOTA by Claude Fable 5. Adaptive thinking with effort controls (extra/max), Terminal-Bench 2.1 69.2%, agentic computer use 83.4%. Rejects non-default temperature/top_p. 1M context, 128K output, $5/$25 per 1M tokens.",
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-opus-4-7",
       "friendly_name": "Anthropic (Claude Opus 4.7)",
       "aliases": [
         "opus-4.7",
-        "claude-opus",
-        "opus",
         "claude-opus-4.7",
         "claude-opus-4-7"
       ],
-      "intelligence_score": 20,
-      "description": "Claude Opus 4.7 - Flagship model with advanced software engineering, xhigh thinking effort, 200K context (1M beta), 128K output, $5/$25 per 1M tokens",
+      "intelligence_score": 19,
+      "description": "Claude Opus 4.7 - Previous flagship (released 2026-04-16), superseded by Opus 4.8. Advanced software engineering, xhigh thinking effort, rejects non-default temperature/top_p, 200K context (1M beta), 128K output, $5/$25 per 1M tokens",
       "context_window": 200000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
@@ -42,7 +89,8 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
-      "supports_temperature": true,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
       "allow_code_generation": true,
       "max_image_size_mb": 20.0
     },
@@ -99,7 +147,7 @@
         "claude-opus-4-1"
       ],
       "intelligence_score": 19,
-      "description": "Claude Opus 4.1 - Previous flagship with frontier intelligence",
+      "description": "Claude Opus 4.1 - Previous flagship with frontier intelligence. DEPRECATED 2026-06-05, retires from the API 2026-08-05 - migrate to claude-opus-4-8.",
       "context_window": 200000,
       "max_output_tokens": 4096,
       "supports_extended_thinking": true,
@@ -113,17 +161,39 @@
       "max_image_size_mb": 20.0
     },
     {
+      "model_name": "claude-sonnet-5",
+      "friendly_name": "Anthropic (Claude Sonnet 5)",
+      "aliases": [
+        "sonnet",
+        "claude-sonnet",
+        "sonnet-5",
+        "claude-sonnet-5"
+      ],
+      "intelligence_score": 19,
+      "description": "Claude Sonnet 5 (released 2026-06-30) - Near-Opus-4.8 capability at Sonnet pricing, default agentic workhorse. Adaptive thinking with effort levels (low/medium/high/max/x-high, default high). Rejects non-default temperature/top_p. 1M context, 128K output. Intro pricing $2/$10 per 1M through 2026-08-31, then $3/$15.",
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-sonnet-4-6",
       "friendly_name": "Anthropic (Claude Sonnet 4.6)",
       "aliases": [
         "sonnet-4.6",
-        "claude-sonnet",
-        "sonnet",
         "claude-sonnet-4.6",
         "claude-sonnet-4-6"
       ],
-      "intelligence_score": 19,
-      "description": "Claude Sonnet 4.6 - Opus-level reasoning at Sonnet pricing, adaptive thinking, 200K context (1M beta), 64K output, $3/$15 per 1M tokens",
+      "intelligence_score": 18,
+      "description": "Claude Sonnet 4.6 - Previous Sonnet flagship, superseded by Claude Sonnet 5. Opus-level reasoning at Sonnet pricing, adaptive thinking, 200K context (1M beta), 64K output, $3/$15 per 1M tokens",
       "context_window": 200000,
       "max_output_tokens": 64000,
       "supports_extended_thinking": true,

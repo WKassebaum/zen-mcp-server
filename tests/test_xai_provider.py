@@ -44,8 +44,8 @@ class TestXAIProvider:
         """Test model name validation."""
         provider = XAIModelProvider("test-key")
 
-        # Test valid models (grok-4/grok-3 retired 2026-05-15; aliases now resolve to grok-4.3/grok-3-fast)
-        assert provider.validate_model_name("grok-4") is True  # alias on grok-4.3
+        # Test valid models (bare grok/grok4/grok-4 aliases live on flagship grok-4.5; grok-3 aliases on grok-3-fast)
+        assert provider.validate_model_name("grok-4") is True  # alias on grok-4.5
         assert provider.validate_model_name("grok4") is True
         assert provider.validate_model_name("grok-3") is True  # alias on grok-3-fast
         assert provider.validate_model_name("grok-3-fast") is True
@@ -64,15 +64,15 @@ class TestXAIProvider:
         provider = XAIModelProvider("test-key")
 
         # Test shorthand resolution
-        assert provider._resolve_model_name("grok") == "grok-4.3"
-        assert provider._resolve_model_name("grok4") == "grok-4.3"
+        assert provider._resolve_model_name("grok") == "grok-4.5"
+        assert provider._resolve_model_name("grok4") == "grok-4.5"
         # grok3 / grok-3 / grokfast all resolve to grok-3-fast (only surviving Grok 3 SKU)
         assert provider._resolve_model_name("grok3") == "grok-3-fast"
         assert provider._resolve_model_name("grokfast") == "grok-3-fast"
         assert provider._resolve_model_name("grok3fast") == "grok-3-fast"
 
-        # Retired slugs alias onto current SOTA
-        assert provider._resolve_model_name("grok-4") == "grok-4.3"
+        # Family/retired slugs alias onto current SOTA
+        assert provider._resolve_model_name("grok-4") == "grok-4.5"
         assert provider._resolve_model_name("grok-3") == "grok-3-fast"
         assert provider._resolve_model_name("grok-3-fast") == "grok-3-fast"
 
@@ -96,13 +96,13 @@ class TestXAIProvider:
         assert capabilities.temperature_constraint.default_temp == 0.3
 
     def test_get_capabilities_grok4_legacy_alias(self):
-        """Test that retired grok-4 slug resolves to grok-4.3 capabilities."""
+        """Test that the grok-4 family slug resolves to grok-4.5 capabilities."""
         provider = XAIModelProvider("test-key")
 
         capabilities = provider.get_capabilities("grok-4")
-        assert capabilities.model_name == "grok-4.3"
-        assert capabilities.friendly_name == "X.AI (Grok 4.3)"
-        assert capabilities.context_window == 1_000_000
+        assert capabilities.model_name == "grok-4.5"
+        assert capabilities.friendly_name == "X.AI (Grok 4.5)"
+        assert capabilities.context_window == 500_000
         assert capabilities.provider == ProviderType.XAI
         assert capabilities.supports_extended_thinking is True
         assert capabilities.supports_system_prompts is True
@@ -132,8 +132,8 @@ class TestXAIProvider:
         provider = XAIModelProvider("test-key")
 
         capabilities = provider.get_capabilities("grok")
-        assert capabilities.model_name == "grok-4.3"  # Should resolve to full name
-        assert capabilities.context_window == 1_000_000
+        assert capabilities.model_name == "grok-4.5"  # Should resolve to full name
+        assert capabilities.context_window == 500_000
 
         capabilities_fast = provider.get_capabilities("grokfast")
         assert capabilities_fast.model_name == "grok-3-fast"  # Should resolve to full name
@@ -149,7 +149,7 @@ class TestXAIProvider:
         """X.AI capabilities should expose extended thinking support correctly."""
         provider = XAIModelProvider("test-key")
 
-        # grok-4/grok aliases all resolve to grok-4.3 which supports configurable reasoning effort
+        # grok-4/grok aliases resolve to grok-4.5 (grok-4.3 also supports reasoning effort)
         thinking_aliases = ["grok-4", "grok", "grok4", "grok-4.3", "grok-4.20-beta-0309-reasoning"]
         for alias in thinking_aliases:
             assert provider.get_capabilities(alias).supports_extended_thinking is True
@@ -181,7 +181,7 @@ class TestXAIProvider:
         assert provider.validate_model_name("grokfast") is True  # alias for grok-3-fast
         assert provider.validate_model_name("grok-3") is True  # also alias for grok-3-fast
 
-        # grok should be blocked (resolves to grok-4.3 which is not allowed)
+        # grok should be blocked (resolves to grok-4.5 which is not allowed)
         assert provider.validate_model_name("grok") is False
 
         # grok-3-mini should be blocked by restrictions
@@ -199,7 +199,7 @@ class TestXAIProvider:
 
         provider = XAIModelProvider("test-key")
 
-        # Shorthand "grok" should be allowed (resolves to grok-4.3)
+        # Shorthand "grok" should be allowed (alias itself is in the allow-list)
         assert provider.validate_model_name("grok") is True
 
         # "grok-3-fast" should be allowed (explicitly listed)
@@ -222,7 +222,7 @@ class TestXAIProvider:
         provider = XAIModelProvider("test-key")
 
         # Shorthand "grok" and full name "grok-4.3" both allowed
-        assert provider.validate_model_name("grok") is True  # Resolves to grok-4.3
+        assert provider.validate_model_name("grok") is True  # Alias in allow-list (resolves to grok-4.5)
         assert provider.validate_model_name("grok-4.3") is True
         assert provider.validate_model_name("grok-3-fast") is True
 
@@ -257,7 +257,8 @@ class TestXAIProvider:
         """Test that MODEL_CAPABILITIES has the correct structure."""
         provider = XAIModelProvider("test-key")
 
-        # Check that all expected base models are present (post-2026-05-15 retirement set)
+        # Check that all expected base models are present
+        assert "grok-4.5" in provider.MODEL_CAPABILITIES
         assert "grok-4.3" in provider.MODEL_CAPABILITIES
         assert "grok-3-fast" in provider.MODEL_CAPABILITIES
 
@@ -272,10 +273,13 @@ class TestXAIProvider:
         assert grok43_config.context_window == 1_000_000
         assert grok43_config.supports_extended_thinking is True
 
-        # grok-4/grok-4-0709 retired slugs now alias onto grok-4.3 (xAI upstream auto-redirects)
-        assert "grok" in grok43_config.aliases
-        assert "grok4" in grok43_config.aliases
-        assert "grok-4" in grok43_config.aliases
+        # Bare grok/grok4/grok-4 aliases live on flagship grok-4.5; retired grok-4-0709 stays on grok-4.3
+        grok45_config = provider.MODEL_CAPABILITIES["grok-4.5"]
+        assert grok45_config.context_window == 500_000
+        assert grok45_config.supports_extended_thinking is True
+        assert "grok" in grok45_config.aliases
+        assert "grok4" in grok45_config.aliases
+        assert "grok-4" in grok45_config.aliases
         assert "grok-4-0709" in grok43_config.aliases
 
         grok3fast_config = provider.MODEL_CAPABILITIES["grok-3-fast"]
@@ -292,7 +296,7 @@ class TestXAIProvider:
         """Test that generate_content resolves aliases before making API calls.
 
         This is the CRITICAL test that ensures aliases like 'grok' get resolved
-        to 'grok-4' before being sent to X.AI API.
+        to the flagship model before being sent to X.AI API.
         """
         # Set up mock OpenAI client
         mock_client = MagicMock()
@@ -303,7 +307,7 @@ class TestXAIProvider:
         mock_response.choices = [MagicMock()]
         mock_response.choices[0].message.content = "Test response"
         mock_response.choices[0].finish_reason = "stop"
-        mock_response.model = "grok-4.3"  # API returns the resolved model name
+        mock_response.model = "grok-4.5"  # API returns the resolved model name
         mock_response.id = "test-id"
         mock_response.created = 1234567890
         mock_response.usage = MagicMock()
@@ -319,15 +323,15 @@ class TestXAIProvider:
         result = provider.generate_content(
             prompt="Test prompt",
             model_name="grok",
-            temperature=0.7,  # This should be resolved to "grok-4.3"
+            temperature=0.7,  # This should be resolved to "grok-4.5"
         )
 
         # Verify the API was called with the RESOLVED model name
         mock_client.chat.completions.create.assert_called_once()
         call_kwargs = mock_client.chat.completions.create.call_args[1]
 
-        # CRITICAL ASSERTION: The API should receive "grok-4.3", not "grok"
-        assert call_kwargs["model"] == "grok-4.3", f"Expected 'grok-4.3' but API received '{call_kwargs['model']}'"
+        # CRITICAL ASSERTION: The API should receive "grok-4.5", not "grok"
+        assert call_kwargs["model"] == "grok-4.5", f"Expected 'grok-4.5' but API received '{call_kwargs['model']}'"
 
         # Verify other parameters
         assert call_kwargs["temperature"] == 0.7
@@ -337,7 +341,7 @@ class TestXAIProvider:
 
         # Verify response
         assert result.content == "Test response"
-        assert result.model_name == "grok-4.3"  # Should be the resolved name
+        assert result.model_name == "grok-4.5"  # Should be the resolved name
 
     @patch("providers.openai_compatible.OpenAI")
     def test_generate_content_other_aliases(self, mock_openai_class):
@@ -359,17 +363,17 @@ class TestXAIProvider:
 
         provider = XAIModelProvider("test-key")
 
-        # Test grok4 -> grok-4.3
-        mock_response.model = "grok-4.3"
+        # Test grok4 -> grok-4.5
+        mock_response.model = "grok-4.5"
         provider.generate_content(prompt="Test", model_name="grok4", temperature=0.7)
         call_kwargs = mock_client.chat.completions.create.call_args[1]
-        assert call_kwargs["model"] == "grok-4.3"
+        assert call_kwargs["model"] == "grok-4.5"
 
-        # Test retired grok-4 slug -> grok-4.3 (auto-redirect via alias)
-        mock_response.model = "grok-4.3"
+        # Test grok-4 family slug -> grok-4.5 (follows flagship)
+        mock_response.model = "grok-4.5"
         provider.generate_content(prompt="Test", model_name="grok-4", temperature=0.7)
         call_kwargs = mock_client.chat.completions.create.call_args[1]
-        assert call_kwargs["model"] == "grok-4.3"
+        assert call_kwargs["model"] == "grok-4.5"
 
         # Test retired grok-3 slug -> grok-3-fast (only surviving Grok 3 SKU)
         mock_response.model = "grok-3-fast"

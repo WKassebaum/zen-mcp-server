@@ -66,9 +66,13 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         Returns:
             ModelResponse: Contains the generated content, token usage, and metadata
         """
-        # Validate parameters and fetch capabilities
-        self.validate_parameters(model_name, temperature)
+        # Fetch capabilities and derive the effective temperature. Adaptive-thinking
+        # Claude models (Opus 4.7+, Sonnet 5, Fable 5) reject non-default temperature
+        # with a 400 error, so the parameter must be omitted entirely for them.
         capabilities = self.get_capabilities(model_name)
+        effective_temperature = capabilities.get_effective_temperature(temperature)
+        if effective_temperature is not None:
+            self.validate_parameters(model_name, effective_temperature)
 
         resolved_model_name = self._resolve_model_name(model_name)
 
@@ -116,8 +120,8 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         if system_prompt:
             params["system"] = system_prompt
 
-        if temperature is not None:
-            params["temperature"] = temperature
+        if effective_temperature is not None:
+            params["temperature"] = effective_temperature
 
         try:
             # Make API call with streaming to avoid 10-minute timeout limit

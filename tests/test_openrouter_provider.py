@@ -79,8 +79,8 @@ class TestOpenRouterProvider:
         provider = OpenRouterProvider(api_key="test-key")
 
         # Test alias resolution
-        assert provider._resolve_model_name("opus") == "anthropic/claude-opus-4-7"
-        assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-4-6"
+        assert provider._resolve_model_name("opus") == "anthropic/claude-opus-4-8"
+        assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-5"
         assert provider._resolve_model_name("sonnet4.1") == "anthropic/claude-sonnet-4.1"
         assert provider._resolve_model_name("o3") == "openai/o3"
         assert provider._resolve_model_name("o3-mini") == "openai/o3-mini"
@@ -89,16 +89,16 @@ class TestOpenRouterProvider:
         assert provider._resolve_model_name("o4-mini") == "openai/o4-mini"
         assert provider._resolve_model_name("haiku") == "anthropic/claude-haiku-4.5"
         assert provider._resolve_model_name("mistral") == "mistralai/mistral-large-2512"
-        # grok-4 retired 2026-05-15; alias collapses onto x-ai/grok-4.3 (upstream auto-redirects too)
-        assert provider._resolve_model_name("grok-4") == "x-ai/grok-4.3"
-        assert provider._resolve_model_name("grok4") == "x-ai/grok-4.3"
-        assert provider._resolve_model_name("grok") == "x-ai/grok-4.3"
+        # bare grok/grok4/grok-4 aliases follow the flagship (now x-ai/grok-4.5)
+        assert provider._resolve_model_name("grok-4") == "x-ai/grok-4.5"
+        assert provider._resolve_model_name("grok4") == "x-ai/grok-4.5"
+        assert provider._resolve_model_name("grok") == "x-ai/grok-4.5"
         assert provider._resolve_model_name("deepseek") == "deepseek/deepseek-r1-0528"
         assert provider._resolve_model_name("r1") == "deepseek/deepseek-r1-0528"
 
         # Test case-insensitive
-        assert provider._resolve_model_name("OPUS") == "anthropic/claude-opus-4-7"
-        assert provider._resolve_model_name("SONNET") == "anthropic/claude-sonnet-4-6"
+        assert provider._resolve_model_name("OPUS") == "anthropic/claude-opus-4-8"
+        assert provider._resolve_model_name("SONNET") == "anthropic/claude-sonnet-5"
         assert provider._resolve_model_name("O3") == "openai/o3"
         assert provider._resolve_model_name("Mistral") == "mistralai/mistral-large-2512"
 
@@ -309,7 +309,7 @@ class TestOpenRouterRegistry:
         # Test known model
         caps = registry.get_capabilities("opus")
         assert caps is not None
-        assert caps.model_name == "anthropic/claude-opus-4-7"
+        assert caps.model_name == "anthropic/claude-opus-4-8"
         assert caps.context_window == 200000  # Claude's context window
 
         # Test using full model name
@@ -327,10 +327,10 @@ class TestOpenRouterRegistry:
 
         registry = OpenRouterModelRegistry()
 
-        # "sonnet" now resolves to Claude Sonnet 4.6 (latest)
+        # "sonnet" now resolves to Claude Sonnet 5 (latest)
         config = registry.resolve("sonnet")
         assert config is not None
-        assert config.model_name == "anthropic/claude-sonnet-4-6"
+        assert config.model_name == "anthropic/claude-sonnet-5"
 
         # "sonnet4.5" still resolves to Claude Sonnet 4.5 (previous version)
         config = registry.resolve("sonnet4.5")

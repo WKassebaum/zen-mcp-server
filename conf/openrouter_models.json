@@ -25,10 +25,48 @@
   },
   "models": [
     {
-      "model_name": "anthropic/claude-sonnet-4-6",
+      "model_name": "anthropic/claude-fable-5",
+      "aliases": [
+        "fable",
+        "claude-fable",
+        "fable-5"
+      ],
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "Claude Fable 5 (GA 2026-07-01) - Mythos-class Anthropic flagship above Opus 4.8, SOTA on nearly all published benchmarks, adaptive thinking with effort controls, $10/$50 per 1M tokens (via OpenRouter)",
+      "intelligence_score": 20,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "anthropic/claude-sonnet-5",
       "aliases": [
         "sonnet",
         "claude-sonnet",
+        "sonnet-5"
+      ],
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "Claude Sonnet 5 (released 2026-06-30) - Near-Opus-4.8 capability at Sonnet pricing, adaptive thinking with effort levels, intro $2/$10 per 1M through 2026-08-31 then $3/$15 (via OpenRouter)",
+      "intelligence_score": 19,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "anthropic/claude-sonnet-4-6",
+      "aliases": [
         "sonnet-4.6"
       ],
       "context_window": 200000,
@@ -38,8 +76,8 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
-      "description": "Claude Sonnet 4.6 - Opus-level reasoning at Sonnet pricing, adaptive thinking (via OpenRouter)",
-      "intelligence_score": 19,
+      "description": "Claude Sonnet 4.6 - Previous Sonnet flagship, superseded by Claude Sonnet 5. Opus-level reasoning at Sonnet pricing, adaptive thinking (via OpenRouter)",
+      "intelligence_score": 18,
       "allow_code_generation": true
     },
     {
@@ -60,10 +98,26 @@
       "allow_code_generation": true
     },
     {
-      "model_name": "anthropic/claude-opus-4-7",
+      "model_name": "anthropic/claude-opus-4-8",
       "aliases": [
         "opus",
         "claude-opus",
+        "opus-4.8"
+      ],
+      "context_window": 200000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Claude Opus 4.8 (released 2026-05-28) - Previous Anthropic flagship, superseded as SOTA by Claude Fable 5. Adaptive thinking and effort controls, Terminal-Bench 2.1 69.2% (via OpenRouter)",
+      "intelligence_score": 19
+    },
+    {
+      "model_name": "anthropic/claude-opus-4-7",
+      "aliases": [
         "opus-4.7"
       ],
       "context_window": 200000,
@@ -74,8 +128,8 @@
       "supports_images": true,
       "max_image_size_mb": 20.0,
       "allow_code_generation": true,
-      "description": "Claude Opus 4.7 - Flagship with advanced software engineering, xhigh thinking effort (via OpenRouter)",
-      "intelligence_score": 20
+      "description": "Claude Opus 4.7 - Previous flagship, superseded by Opus 4.8 (via OpenRouter)",
+      "intelligence_score": 19
     },
     {
       "model_name": "anthropic/claude-opus-4-6",
@@ -370,6 +424,69 @@
       "intelligence_score": 11
     },
     {
+      "model_name": "openai/gpt-5.6-sol",
+      "aliases": [
+        "gpt-5.6",
+        "gpt5.6",
+        "sol",
+        "gpt5.6-sol",
+        "codex"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "allow_code_generation": true,
+      "description": "GPT-5.6 Sol (released 2026-07-09) - OpenAI flagship and coding SOTA, reasoning.effort none..max, $5/$30 per 1M tokens (via OpenRouter)",
+      "intelligence_score": 20
+    },
+    {
+      "model_name": "openai/gpt-5.6-terra",
+      "aliases": [
+        "gpt5.6-terra",
+        "terra"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "allow_code_generation": true,
+      "description": "GPT-5.6 Terra (released 2026-07-09) - Mid-tier GPT-5.6, GPT-5.5-class at half the price, $2.50/$15 per 1M tokens (via OpenRouter)",
+      "intelligence_score": 19
+    },
+    {
+      "model_name": "openai/gpt-5.6-luna",
+      "aliases": [
+        "gpt5.6-luna",
+        "luna"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "allow_code_generation": true,
+      "description": "GPT-5.6 Luna (released 2026-07-09) - Cost-optimized GPT-5.6 for fast/high-volume work, $1/$6 per 1M tokens (via OpenRouter)",
+      "intelligence_score": 18
+    },
+    {
       "model_name": "openai/gpt-5.5-pro",
       "aliases": [
         "gpt5.5-pro",
@@ -387,8 +504,8 @@
       "use_openai_response_api": true,
       "default_reasoning_effort": "high",
       "allow_code_generation": true,
-      "description": "GPT-5.5 Pro - First fully retrained base model since GPT-4.5, highest reasoning (via OpenRouter)",
-      "intelligence_score": 20
+      "description": "GPT-5.5 Pro - Previous flagship tier, superseded by GPT-5.6 Sol. Highest reasoning (via OpenRouter)",
+      "intelligence_score": 19
     },
     {
       "model_name": "openai/gpt-5.5",
@@ -406,8 +523,8 @@
       "supports_temperature": false,
       "temperature_constraint": "fixed",
       "allow_code_generation": true,
-      "description": "GPT-5.5 (1.05M context) - First fully retrained base model since GPT-4.5, reasoning effort low→xhigh (via OpenRouter)",
-      "intelligence_score": 20
+      "description": "GPT-5.5 (1.05M context) - Previous flagship, superseded by GPT-5.6 Sol. Reasoning effort low→xhigh (via OpenRouter)",
+      "intelligence_score": 19
     },
     {
       "model_name": "openai/gpt-5",
@@ -449,7 +566,6 @@
     {
       "model_name": "openai/gpt-5-codex",
       "aliases": [
-        "codex",
         "gpt5codex"
       ],
       "context_window": 400000,
@@ -459,7 +575,7 @@
       "supports_function_calling": false,
       "supports_images": false,
       "max_image_size_mb": 0.0,
-      "description": "GPT-5-Codex is a specialized version of GPT-5 optimized for software engineering and coding workflows",
+      "description": "GPT-5-Codex is a specialized version of GPT-5 optimized for software engineering and coding workflows. DEPRECATED - upstream API shutdown 2026-07-23; 'codex' alias now resolves to GPT-5.6 Sol.",
       "intelligence_score": 17
     },
     {
@@ -497,13 +613,32 @@
       "intelligence_score": 8
     },
     {
-      "model_name": "x-ai/grok-4.3",
+      "model_name": "x-ai/grok-4.5",
       "aliases": [
         "grok",
         "grok4",
+        "grok-4.5",
+        "grok4.5",
+        "grok-4"
+      ],
+      "context_window": 500000,
+      "max_output_tokens": 500000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "Grok 4.5 (released 2026-07-08) - SpaceXAI (formerly xAI) flagship for code and agentic work, best-in-class agentic tool calling, $2/$6 per 1M tokens, 500K context, text+image input (via OpenRouter)",
+      "intelligence_score": 20,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "x-ai/grok-4.3",
+      "aliases": [
         "grok-4.3",
         "grok4.3",
-        "grok-4",
         "grok-4-0709"
       ],
       "context_window": 1000000,
@@ -515,8 +650,8 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
       "temperature_constraint": "range",
-      "description": "Grok 4.3 - xAI flagship with configurable reasoning effort (none/low/medium/high), 1M context, vision, $1.25/$2.50 per 1M tokens (via OpenRouter). Retired grok-4-0709/grok-4 slugs auto-redirect here upstream.",
-      "intelligence_score": 20,
+      "description": "Grok 4.3 - Previous flagship, superseded by Grok 4.5 for general use; retained for 1M context and video understanding, $1.25/$2.50 per 1M tokens (via OpenRouter). Retired grok-4-0709/grok-4 slugs auto-redirect here upstream.",
+      "intelligence_score": 19,
       "allow_code_generation": true
     }
   ]
