@@ -78,8 +78,9 @@ You can make your own custom roles in `conf/cli_clients/` or tweak any of the sh
 ## Tool Parameters
 
 - `prompt`: Your question or task for the external CLI (required)
-- `cli_name`: Which CLI to use - `gemini` (default), `claude`, `codex`, or add your own in `conf/cli_clients/`
+- `cli_name`: Which CLI to use - `gemini` (default), `claude`, `codex`, `grok`, or add your own in `conf/cli_clients/`
 - `role`: Preset role - `default`, `planner`, `codereviewer` (default: `default`)
+- `model`: Optional model override for the target CLI (passed as `--model`). Replaces any config-pinned default (e.g. `claude.json` ships with `--model sonnet`). CLI-specific aliases/IDs — for Claude Code use `fable`/`opus`/`sonnet` (Claude CLI rejects Zen's `fable-5` alias). CLI: `zen clink "…" --cli-name claude --model fable`
 - `files`: Optional file paths for context (references only, CLI opens files itself)
 - `images`: Optional image paths for visual context
 - `continuation_id`: Continue previous clink conversations

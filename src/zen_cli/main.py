@@ -81,6 +81,30 @@ def _jsonable(obj):
     return str(obj)
 
 
+def _parse_tool_result(result):
+    """Normalize a tool execute() result into a plain Python value.
+
+    Tools return list[TextContent] whose first item's ``.text`` is normally a
+    JSON string (ToolOutput). Falls back gracefully for empty, multi-item,
+    non-JSON, or already-parsed results.
+    """
+    if not isinstance(result, list):
+        return result
+    if not result:
+        return []
+    items = []
+    for item in result:
+        text = getattr(item, "text", None)
+        if text is None:
+            items.append(_jsonable(item))
+            continue
+        try:
+            items.append(json.loads(text))
+        except (json.JSONDecodeError, TypeError):
+            items.append({"content": text})
+    return items[0] if len(items) == 1 else items
+
+
 def print_result_json(result):
     """Serialize a tool result to JSON for --json output.
 
@@ -89,20 +113,32 @@ def print_result_json(result):
     and degrade safely for empty, multi-item, or non-JSON results so --json never
     crashes with "Object of type TextContent is not JSON serializable".
     """
-    if isinstance(result, list):
-        items = []
-        for item in result:
-            text = getattr(item, "text", None)
-            if text is None:
-                items.append(_jsonable(item))
-                continue
-            try:
-                items.append(json.loads(text))
-            except (json.JSONDecodeError, TypeError):
-                items.append({"content": text})
-        console.print_json(data=items[0] if len(items) == 1 else items)
+    console.print_json(data=_parse_tool_result(result))
+
+
+def print_result_human(result):
+    """Pretty-print a tool result for human terminal output.
+
+    Prefer the ToolOutput ``content`` field as Markdown when present; otherwise
+    print the parsed payload or raw value. Matches the clink/challenge/apilookup
+    human path and fixes chat/debug/codereview which previously only handled
+    bare dicts (never list[TextContent]).
+    """
+    parsed = _parse_tool_result(result)
+    if isinstance(parsed, dict):
+        body = parsed.get("content", parsed)
+        if isinstance(body, str):
+            console.print(Markdown(body))
+        else:
+            console.print_json(data=body if body is not parsed else parsed)
         return
-    console.print_json(data=result)
+    if isinstance(parsed, str):
+        console.print(Markdown(parsed))
+        return
+    if parsed == []:
+        console.print("[dim](no content)[/dim]")
+        return
+    console.print(parsed)
 
 
 class ZenCLI:
@@ -279,11 +315,7 @@ def chat(ctx, message, model, files, output_json):
         if output_json:
             print_result_json(result)
         else:
-            # Pretty print the response
-            if isinstance(result, dict) and "content" in result:
-                console.print(Markdown(result["content"]))
-            else:
-                console.print(result)
+            print_result_human(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
@@ -329,10 +361,7 @@ def debug(ctx, problem, files, confidence, model, output_json):
         if output_json:
             print_result_json(result)
         else:
-            if isinstance(result, dict) and "content" in result:
-                console.print(Markdown(result["content"]))
-            else:
-                console.print(result)
+            print_result_human(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
@@ -379,10 +408,7 @@ def codereview(ctx, files, review_type, model, output_json):
         if output_json:
             print_result_json(result)
         else:
-            if isinstance(result, dict) and "content" in result:
-                console.print(Markdown(result["content"]))
-            else:
-                console.print(result)
+            print_result_human(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
@@ -1323,11 +1349,16 @@ def thinkdeep(ctx, question, session, continue_findings, thinking_budget, model,
 @click.argument("prompt_text", required=False)
 @click.option("--cli-name", help="CLI client to invoke (gemini, codex, claude, grok)")
 @click.option("--role", help="Role preset for the CLI (default, planner, codereviewer)")
+@click.option(
+    "--model",
+    "-m",
+    help="Model override for the target CLI (e.g. fable/opus/sonnet for claude, or a full model id)",
+)
 @click.option("--files", "-f", multiple=True, help="Files to pass to the CLI")
 @click.option("--images", "-i", multiple=True, help="Images to pass to the CLI")
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
 @click.pass_context
-def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
+def clink(ctx, prompt_text, cli_name, role, model, files, images, output_json):
     """CLI-to-CLI bridge - spawn external AI CLIs as subagents
 
     NEW in v9.0.0: Recursive AI agents! Claude Code can spawn Codex,
@@ -1335,14 +1366,16 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
 
     Examples:
         zen clink "Review auth module" --cli-name codex --role codereviewer
-        zen clink "Implement dark mode" --cli-name claude
+        zen clink "Implement dark mode" --cli-name claude --model fable
         zen clink "Search for best practices" --cli-name gemini
+        zen clink "Quick check" --cli-name grok -m grok-4
     """
     prompt = prompt_text or click.prompt("Enter your prompt for the CLI")
 
-    # Build arguments matching ClinkRequest schema. cli_name/role are omitted
-    # when not provided so CLinkTool applies its own defaults (first configured
-    # CLI, 'default' role) - passing invalid placeholders here breaks resolution.
+    # Build arguments matching ClinkRequest schema. cli_name/role/model are
+    # omitted when not provided so CLinkTool applies its own defaults (first
+    # configured CLI, 'default' role, CLI-config model) - passing invalid
+    # placeholders here breaks resolution.
     arguments = {
         "prompt": prompt,
         "files": list(files) if files else [],
@@ -1352,6 +1385,8 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
         arguments["cli_name"] = cli_name
     if role:
         arguments["role"] = role
+    if model:
+        arguments["model"] = model
     # Note: working_directory removed - not in ClinkRequest schema
 
     try:
@@ -1362,11 +1397,7 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
         if output_json:
             print_result_json(result)
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get("content", str(content))))
-            else:
-                console.print(result)
+            print_result_human(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
@@ -2083,11 +2114,7 @@ def challenge(ctx, statement, output_json):
         if output_json:
             print_result_json(result)
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get("content", str(content))))
-            else:
-                console.print(result)
+            print_result_human(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")
@@ -2126,11 +2153,7 @@ def apilookup(ctx, query, output_json):
         if output_json:
             print_result_json(result)
         else:
-            if isinstance(result, list) and len(result) > 0:
-                content = json.loads(result[0].text)
-                console.print(Markdown(content.get("content", str(content))))
-            else:
-                console.print(result)
+            print_result_human(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")

@@ -60,12 +60,14 @@ class BaseCLIAgent:
         system_prompt: str | None = None,
         files: Sequence[str],
         images: Sequence[str],
+        model: str | None = None,
     ) -> AgentOutput:
         # Files and images are already embedded into the prompt by the tool; they are
         # accepted here only to keep parity with SimpleTool callers.
         _ = (files, images)
         # The runner simply executes the configured CLI command for the selected role.
         command = self._build_command(role=role, system_prompt=system_prompt)
+        command = self._apply_model_override(command, model)
         env = self._build_environment()
 
         # Resolve executable path for cross-platform compatibility (especially Windows)
@@ -197,6 +199,34 @@ class BaseCLIAgent:
         base.extend(role.role_args)
 
         return base
+
+    def _apply_model_override(self, command: list[str], model: str | None) -> list[str]:
+        """Inject or replace ``--model`` / ``-m`` on a built CLI command.
+
+        Strips any existing model flag pairs (from client config defaults such as
+        claude's hard-pinned ``--model sonnet``) and appends ``--model <model>``
+        when a runtime override is provided. Call this *before* appending a
+        trailing positional prompt so the model flag stays among the options.
+        Model IDs are opaque and CLI-specific (e.g. ``fable`` for Claude Code).
+        """
+        if not model:
+            return command
+
+        filtered: list[str] = []
+        skip_next = False
+        for i, arg in enumerate(command):
+            if skip_next:
+                skip_next = False
+                continue
+            if arg in ("--model", "-m") and i + 1 < len(command):
+                skip_next = True
+                continue
+            if arg.startswith("--model="):
+                continue
+            filtered.append(arg)
+
+        filtered.extend(["--model", model])
+        return filtered
 
     def _build_environment(self) -> dict[str, str]:
         env = os.environ.copy()

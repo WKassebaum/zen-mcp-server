@@ -41,11 +41,13 @@ class CodexAgent(BaseCLIAgent):
         system_prompt: str | None = None,
         files: Sequence[str],
         images: Sequence[str],
+        model: str | None = None,
     ) -> AgentOutput:
         """Run codex CLI with prompt as positional argument (not stdin)."""
         _ = (files, images)  # Already embedded in prompt
 
         command = self._build_command(role=role, system_prompt=system_prompt)
+        command = self._apply_model_override(command, model)
         # Append prompt as positional argument for codex
         command.append(prompt)
         env = self._build_environment()

@@ -118,12 +118,13 @@ zen setup
 
 #### clink — bridge to other AI CLIs (claude, codex, gemini, grok)
 ```bash
-zen clink <prompt> --cli-name <claude|codex|gemini|grok> [--role <default|planner|codereviewer>] [-f <file>]... [-i <image>]... [--json]
+zen clink <prompt> --cli-name <claude|codex|gemini|grok> [--role <default|planner|codereviewer>] [-m|--model <id>] [-f <file>]... [-i <image>]... [--json]
 ```
 - Spawns an external AI CLI as a full subagent in a fresh context; only the final result returns. The sub-CLI uses its own tools (web search, file access, shell) — unlike `chat`, which is a single model reply.
 - **Reach for clink when**: (1) a task would burn heavy context in the current session (big review/audit/exploration — offload it, keep the conclusion); (2) you need a capability the current session lacks (gemini's 1M context or web search); (3) you want the work billed to a CLI subscription instead of per-token API keys.
 - **Subscription auth (login tokens)**: `claude` runs on a Claude Pro/Max login and `grok` on a Grok subscription login (xAI's Grok Build CLI) — the only ToS-sanctioned ways to do agentic work on those plans; no ANTHROPIC_API_KEY/XAI_API_KEY needed. `gemini` gives 1,000 free requests/day on a personal Google login. See docs/tools/clink.md "Subscription Authentication".
 - **Pick by strength**: `gemini` = 1M context + web search; `claude` = strongest coding agent on subscription; `grok` = fast agentic coding on subscription; `codex` = isolated implementation/review sandbox.
+- **Model override (`-m/--model`)**: passed through to the target CLI as `--model`, replacing any config-pinned default (e.g. `claude.json` hard-pins `sonnet`). CLI-specific aliases — for Claude Code prefer `fable` / `opus` / `sonnet` (note: Claude CLI rejects Zen's `fable-5` alias; use `fable` or `claude-fable-5`). Example: `zen clink "audit auth" --cli-name claude --model fable --json`.
 - **Roles**: `planner` (strategy/breakdown), `codereviewer` (severity-tagged review), `default` (general). Prerequisite: the target CLI must be installed and logged in (`claude`, `grok login`, etc.).
 
 ### Workflow (all support `-s --session`, `--continue`, `-m --model`, `--json`)

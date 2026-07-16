@@ -344,5 +344,109 @@ class TestPrintResultJson:
         assert self._capture([TC()]) == {"content": "just a plain string"}
 
 
+class TestPrintResultHuman:
+    """Regression tests for print_result_human (human pretty-print of tool results)."""
+
+    def _capture(self, result):
+        from rich.console import Console
+
+        from zen_cli import main as cli_main
+
+        buffer = Console(record=True, force_terminal=False)
+        original = cli_main.console
+        cli_main.console = buffer
+        try:
+            cli_main.print_result_human(result)
+        finally:
+            cli_main.console = original
+        return buffer.export_text()
+
+    def test_textcontent_tooloutput_renders_content(self):
+        class TC:
+            text = '{"status": "success", "content": "Hello from the model"}'
+
+        assert "Hello from the model" in self._capture([TC()])
+
+    def test_plain_dict_content_field(self):
+        assert "legacy path" in self._capture({"content": "legacy path"})
+
+    def test_empty_list_is_quiet(self):
+        assert "no content" in self._capture([]).lower()
+
+
+class TestChatJsonSerializationEndToEnd:
+    """CLI-level regression: chat --json must not crash on list[TextContent]."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+        os.environ.setdefault("GEMINI_API_KEY", "test-key-gemini")
+        os.environ.setdefault("OPENAI_API_KEY", "test-key-openai")
+
+    def test_chat_json_with_textcontent_list(self):
+        import json as _json
+
+        class TC:
+            text = '{"status": "success", "content": "pong", "content_type": "text"}'
+
+        with patch("tools.chat.ChatTool.execute", new_callable=AsyncMock) as mock_execute:
+            mock_execute.return_value = [TC()]
+            result = self.runner.invoke(cli, ["chat", "ping", "--json"])
+
+        assert result.exit_code == 0, result.output
+        assert "not JSON serializable" not in result.output
+        payload = _json.loads(result.output)
+        assert payload["status"] == "success"
+        assert payload["content"] == "pong"
+
+    def test_chat_human_with_textcontent_list(self):
+        class TC:
+            text = '{"status": "success", "content": "human readable answer"}'
+
+        with patch("tools.chat.ChatTool.execute", new_callable=AsyncMock) as mock_execute:
+            mock_execute.return_value = [TC()]
+            result = self.runner.invoke(cli, ["chat", "ping"])
+
+        assert result.exit_code == 0, result.output
+        assert "human readable answer" in result.output
+
+
+class TestClinkModelFlag:
+    """CLI wiring: zen clink --model is forwarded into CLinkTool arguments."""
+
+    def setup_method(self):
+        self.runner = CliRunner()
+        os.environ.setdefault("GEMINI_API_KEY", "test-key-gemini")
+        os.environ.setdefault("OPENAI_API_KEY", "test-key-openai")
+
+    def test_clink_model_option_forwarded(self):
+        class TC:
+            text = '{"status": "success", "content": "ok"}'
+
+        with patch("tools.clink.CLinkTool.execute", new_callable=AsyncMock) as mock_execute:
+            mock_execute.return_value = [TC()]
+            result = self.runner.invoke(
+                cli,
+                ["clink", "review this", "--cli-name", "claude", "--model", "fable", "--json"],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert mock_execute.called
+        call_args = mock_execute.call_args[0][0]
+        assert call_args["model"] == "fable"
+        assert call_args["cli_name"] == "claude"
+
+    def test_clink_without_model_omits_key(self):
+        class TC:
+            text = '{"status": "success", "content": "ok"}'
+
+        with patch("tools.clink.CLinkTool.execute", new_callable=AsyncMock) as mock_execute:
+            mock_execute.return_value = [TC()]
+            result = self.runner.invoke(cli, ["clink", "hello", "--cli-name", "gemini", "--json"])
+
+        assert result.exit_code == 0, result.output
+        call_args = mock_execute.call_args[0][0]
+        assert "model" not in call_args
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

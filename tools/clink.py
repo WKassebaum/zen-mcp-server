@@ -38,6 +38,14 @@ class CLinkRequest(BaseModel):
         default=None,
         description="Optional role preset defined in the CLI configuration (defaults to 'default').",
     )
+    model: str | None = Field(
+        default=None,
+        description=(
+            "Optional model override for the target CLI (passed as --model). "
+            "CLI-specific: e.g. 'fable'/'opus'/'sonnet' for claude, a Codex model id for codex. "
+            "When omitted, the CLI's configured default is used (claude.json currently pins sonnet)."
+        ),
+    )
     absolute_file_paths: list[str] = Field(
         default_factory=list,
         description=COMMON_FIELD_DESCRIPTIONS["absolute_file_paths"],
@@ -140,6 +148,14 @@ class CLinkTool(SimpleTool):
                 "enum": self._all_roles or ["default"],
                 "description": role_description,
             },
+            "model": {
+                "type": "string",
+                "description": (
+                    "Optional model override for the target CLI (passed as --model / -m). "
+                    "CLI-specific aliases or full IDs (e.g. fable, opus, sonnet for claude). "
+                    "Omitting uses each CLI's configured default."
+                ),
+            },
             "absolute_file_paths": SchemaBuilder.SIMPLE_FIELD_SCHEMAS["absolute_file_paths"],
             "images": SchemaBuilder.COMMON_FIELD_SCHEMAS["images"],
             "continuation_id": SchemaBuilder.COMMON_FIELD_SCHEMAS["continuation_id"],
@@ -211,6 +227,7 @@ class CLinkTool(SimpleTool):
                 system_prompt=system_prompt_text if system_prompt_text.strip() else None,
                 files=absolute_file_paths,
                 images=images,
+                model=request.model,
             )
         except CLIAgentError as exc:
             metadata = self._build_error_metadata(client_config, exc)
