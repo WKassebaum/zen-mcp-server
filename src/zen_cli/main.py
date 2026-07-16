@@ -69,6 +69,42 @@ console = Console()
 logger = logging.getLogger(__name__)
 
 
+def _jsonable(obj):
+    """Best-effort conversion of a non-TextContent tool item to a serializable value."""
+    for attr in ("model_dump", "dict"):
+        fn = getattr(obj, attr, None)
+        if callable(fn):
+            try:
+                return fn()
+            except Exception:
+                pass
+    return str(obj)
+
+
+def print_result_json(result):
+    """Serialize a tool result to JSON for --json output.
+
+    Tools return a list[TextContent] whose first item's ``.text`` is normally a
+    JSON string. Mirror the consensus/workflow handling (json.loads(result[0].text))
+    and degrade safely for empty, multi-item, or non-JSON results so --json never
+    crashes with "Object of type TextContent is not JSON serializable".
+    """
+    if isinstance(result, list):
+        items = []
+        for item in result:
+            text = getattr(item, "text", None)
+            if text is None:
+                items.append(_jsonable(item))
+                continue
+            try:
+                items.append(json.loads(text))
+            except (json.JSONDecodeError, TypeError):
+                items.append({"content": text})
+        console.print_json(data=items[0] if len(items) == 1 else items)
+        return
+    console.print_json(data=result)
+
+
 class ZenCLI:
     """Main CLI orchestrator that bridges CLI commands to MCP tools."""
 
@@ -241,7 +277,7 @@ def chat(ctx, message, model, files, output_json):
         result = asyncio.run(ChatTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            print_result_json(result)
         else:
             # Pretty print the response
             if isinstance(result, dict) and "content" in result:
@@ -291,7 +327,7 @@ def debug(ctx, problem, files, confidence, model, output_json):
         result = asyncio.run(DebugIssueTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            print_result_json(result)
         else:
             if isinstance(result, dict) and "content" in result:
                 console.print(Markdown(result["content"]))
@@ -341,7 +377,7 @@ def codereview(ctx, files, review_type, model, output_json):
         result = asyncio.run(CodeReviewTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            print_result_json(result)
         else:
             if isinstance(result, dict) and "content" in result:
                 console.print(Markdown(result["content"]))
@@ -1324,7 +1360,7 @@ def clink(ctx, prompt_text, cli_name, role, files, images, output_json):
         result = asyncio.run(CLinkTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            print_result_json(result)
         else:
             if isinstance(result, list) and len(result) > 0:
                 content = json.loads(result[0].text)
@@ -2045,7 +2081,7 @@ def challenge(ctx, statement, output_json):
         result = asyncio.run(ChallengeTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            print_result_json(result)
         else:
             if isinstance(result, list) and len(result) > 0:
                 content = json.loads(result[0].text)
@@ -2088,7 +2124,7 @@ def apilookup(ctx, query, output_json):
         result = asyncio.run(LookupTool().execute(arguments))
 
         if output_json:
-            console.print_json(data=result)
+            print_result_json(result)
         else:
             if isinstance(result, list) and len(result) > 0:
                 content = json.loads(result[0].text)

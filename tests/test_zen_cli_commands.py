@@ -291,5 +291,58 @@ class TestCLIErrorHandling:
             assert "Error" in result.output
 
 
+class TestPrintResultJson:
+    """Regression tests for print_result_json (--json serialization of tool results).
+
+    Guards against the "Object of type TextContent is not JSON serializable" crash
+    that affected chat/debug/codereview/clink/challenge/apilookup with --json.
+    """
+
+    def _capture(self, result):
+        import json as _json
+
+        from rich.console import Console
+
+        from zen_cli import main as cli_main
+
+        buffer = Console(record=True, force_terminal=False)
+        original = cli_main.console
+        cli_main.console = buffer
+        try:
+            cli_main.print_result_json(result)
+        finally:
+            cli_main.console = original
+        return _json.loads(buffer.export_text())
+
+    def test_single_textcontent_json_payload(self):
+        """List with one TextContent whose .text is JSON -> parsed object."""
+
+        class TC:
+            text = '{"status": "success", "content": "pong"}'
+
+        assert self._capture([TC()]) == {"status": "success", "content": "pong"}
+
+    def test_empty_list_yields_empty_array(self):
+        """Empty result list must not crash; serializes to []."""
+        assert self._capture([]) == []
+
+    def test_multiple_textcontent_items_preserved(self):
+        """Multiple items are preserved as a list, not silently dropped."""
+
+        class TC:
+            def __init__(self, t):
+                self.text = t
+
+        assert self._capture([TC('{"a": 1}'), TC('{"b": 2}')]) == [{"a": 1}, {"b": 2}]
+
+    def test_non_json_text_wrapped_in_content(self):
+        """Plain (non-JSON) text degrades to a {"content": ...} object."""
+
+        class TC:
+            text = "just a plain string"
+
+        assert self._capture([TC()]) == {"content": "just a plain string"}
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
