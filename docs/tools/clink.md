@@ -4,7 +4,7 @@
 
 The `clink` tool transforms your CLI into a multi-agent orchestrator. Launch isolated Codex instances from _within_ Codex, delegate to Gemini's 1M context, or run specialized Claude agents—all while preserving conversation continuity. Instead of context-switching or token bloat, spawn fresh subagents that handle complex tasks in isolation and return only the results you need.
 
-> **CAUTION**: Clink launches real CLI agents with relaxed permission flags (Gemini ships with `--yolo`, Codex with `--dangerously-bypass-approvals-and-sandbox`, Claude with `--permission-mode acceptEdits`) so they can edit files and run tools autonomously via MCP. If that’s more access than you want, remove those flags—the CLI can still open/read files and report findings, it just won’t auto-apply edits. You can also tighten role prompts or system prompts with stop-words/guardrails, or disable clink entirely. Otherwise, keep the shipped presets confined to workspaces you fully trust.
+> **CAUTION**: Clink launches real CLI agents with relaxed permission flags (Gemini ships with `--yolo`, Codex with `--dangerously-bypass-approvals-and-sandbox`, Claude with `--permission-mode acceptEdits`, Grok with `--permission-mode auto`) so they can edit files and run tools autonomously via MCP. If that’s more access than you want, remove those flags—the CLI can still open/read files and report findings, it just won’t auto-apply edits. You can also tighten role prompts or system prompts with stop-words/guardrails, or disable clink entirely. Otherwise, keep the shipped presets confined to workspaces you fully trust.
 
 ## Why Use Clink (CLI + Link)?
 
@@ -142,13 +142,17 @@ Clink configurations live in `conf/cli_clients/`. We ship presets for the suppor
 - `gemini.json` – runs `gemini --telemetry false --yolo -o json`
 - `claude.json` – runs `claude --print --output-format json --permission-mode acceptEdits --model sonnet`
 - `codex.json` – runs `codex exec --json --dangerously-bypass-approvals-and-sandbox`
-- `grok.json` – runs `grok --output-format json --permission-mode acceptEdits --single` (xAI's Grok Build CLI)
+- `grok.json` – runs `grok --output-format json --permission-mode auto --single` (xAI's Grok Build CLI)
 
 > **CAUTION**: These flags intentionally bypass each CLI's safety prompts so they can edit files or launch tools autonomously via MCP. Only enable them in trusted sandboxes and tailor role prompts or CLI configs if you need more guardrails.
 
 Each preset points to role-specific prompts in `systemprompts/clink/`. Duplicate those files to add more roles or adjust CLI flags.
 
 > **Why `--yolo` for Gemini?** The Gemini CLI currently requires automatic approvals to execute its own tools (for example `run_shell_command`). Without the flag it errors with `Tool "run_shell_command" not found in registry`. See [issue #5382](https://github.com/google-gemini/gemini-cli/issues/5382) for more details.
+
+> **Why `--permission-mode auto` for Grok?** Grok Build documents that the CLI flag only reliably applies `bypassPermissions` and `default`; `acceptEdits`/`dontAsk`/`plan` are accepted on the flag but do not enable those policies (set them via `defaultMode` instead). Clink uses `auto` for unattended headless runs so tools are not cancelled when a prompt would be required. Tighten to `default` (or project permission rules) if you need less autonomy.
+
+> **Grok `--model` + `--single`:** Grok's `--single`/`-p` takes the prompt as its value. When you pass a runtime model override (`zen clink … --cli-name grok -m grok-4.5`), Zen inserts `--model` *before* `--single` so clap does not treat `--model` as the headless prompt.
 
 **Adding new CLIs**: Drop a JSON config into `conf/cli_clients/`, create role prompts in `systemprompts/clink/`, and register a parser/agent if the CLI outputs a new format.
 

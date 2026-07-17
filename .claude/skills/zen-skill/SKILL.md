@@ -127,6 +127,19 @@ zen clink <prompt> --cli-name <claude|codex|gemini|grok> [--role <default|planne
 - **Model override (`-m/--model`)**: passed through to the target CLI as `--model`, replacing any config-pinned default (e.g. `claude.json` hard-pins `sonnet`). CLI-specific aliases — for Claude Code prefer `fable` / `opus` / `sonnet` (note: Claude CLI rejects Zen's `fable-5` alias; use `fable` or `claude-fable-5`). Example: `zen clink "audit auth" --cli-name claude --model fable --json`.
 - **Roles**: `planner` (strategy/breakdown), `codereviewer` (severity-tagged review), `default` (general). Prerequisite: the target CLI must be installed and logged in (`claude`, `grok login`, etc.).
 
+**Subscription vs API (do not mix these up):**
+
+| Goal | Use | Auth / billing |
+|---|---|---|
+| Claude Max / Grok Build on subscription (agentic, no API key burn) | `zen clink --cli-name claude\|grok` | CLI login tokens |
+| One model reply / Zen workflows / multi-provider | `zen chat\|debug\|codereview\|… --model <zen-alias>` | API keys in `~/.zen/.env` |
+
+**Anti-patterns:**
+- `zen chat --model fable` — API/provider path, **not** Claude Max subscription
+- `zen clink -m fable-5 --cli-name claude` — Claude CLI rejects Zen's `fable-5`; use `fable` or `claude-fable-5`
+- Shelling out to raw `claude -p` / `grok -p` for Zen workflows — bypasses clink roles, JSON parsing, and continuation; use `zen clink` instead
+- Treating `zen chat -m …` and `zen clink -m …` as interchangeable — same flag name, **different model ID namespaces** (Zen registry vs target CLI)
+
 ### Workflow (all support `-s --session`, `--continue`, `-m --model`, `--json`)
 
 #### analyze — architecture & code analysis

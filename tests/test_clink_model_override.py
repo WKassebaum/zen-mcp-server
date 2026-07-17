@@ -9,6 +9,7 @@ import pytest
 
 from clink.agents.base import BaseCLIAgent
 from clink.agents.claude import ClaudeAgent
+from clink.agents.grok import GrokAgent
 from clink.models import ResolvedCLIClient, ResolvedCLIRole
 
 
@@ -31,6 +32,23 @@ def _claude_client_with_pinned_sonnet():
         timeout_seconds=30,
         parser="claude_json",
         runner="claude",
+        roles={"default": role},
+        output_to_file=None,
+        working_dir=None,
+    )
+
+
+def _grok_client():
+    role = _role()
+    return ResolvedCLIClient(
+        name="grok",
+        executable=["grok"],
+        internal_args=["--output-format", "json"],
+        config_args=["--permission-mode", "auto"],
+        env={},
+        timeout_seconds=30,
+        parser="grok_json",
+        runner="grok",
         roles={"default": role},
         output_to_file=None,
         working_dir=None,
@@ -111,6 +129,57 @@ async def test_claude_agent_model_override_before_prompt(monkeypatch):
     assert cmd[model_idx + 1] == "fable"
     assert "sonnet" not in cmd
     assert model_idx < len(cmd) - 1  # model flag before trailing prompt
+
+
+def test_grok_apply_model_override_keeps_single_last():
+    """Grok --single takes a prompt value; --model must not land after it."""
+    agent = GrokAgent(_grok_client())
+    role = _role()
+    cmd = agent._build_command(role=role, system_prompt="sys")
+    assert cmd[-1] == "--single"
+    out = agent._apply_model_override(cmd, "grok-4.5")
+    assert out[-1] == "--single"
+    assert out[-3:] == ["--model", "grok-4.5", "--single"]
+    assert out.count("--model") == 1
+
+
+@pytest.mark.asyncio
+async def test_grok_agent_model_override_before_single(monkeypatch):
+    """Runtime model flag stays among options; --single <prompt> stays terminal."""
+    client = _grok_client()
+    agent = GrokAgent(client)
+    role = client.get_role("default")
+    captured: dict = {}
+
+    class DummyProcess:
+        returncode = 0
+
+        async def communicate(self, input_data=None):
+            payload = {"text": "ok", "stopReason": "EndTurn"}
+            return json.dumps(payload).encode(), b""
+
+    async def fake_create(*args, **_kwargs):
+        captured["cmd"] = list(args)
+        return DummyProcess()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_create)
+    monkeypatch.setattr(shutil, "which", lambda name: f"/usr/bin/{name}")
+
+    result = await agent.run(
+        role=role,
+        prompt="do the thing",
+        system_prompt=None,
+        files=[],
+        images=[],
+        model="grok-4.5",
+    )
+
+    cmd = result.sanitized_command
+    assert cmd[-2:] == ["--single", "do the thing"]
+    model_idx = cmd.index("--model")
+    single_idx = cmd.index("--single")
+    assert cmd[model_idx + 1] == "grok-4.5"
+    assert model_idx < single_idx
 
 
 @pytest.mark.asyncio

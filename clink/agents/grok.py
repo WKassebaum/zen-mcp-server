@@ -29,3 +29,17 @@ class GrokAgent(ClaudeAgent):
         # makes it the headless prompt value rather than an interactive TUI arg.
         command.append("--single")
         return command
+
+    def _apply_model_override(self, command: list[str], model: str | None) -> list[str]:
+        # --single must stay immediately before the trailing prompt; the base
+        # implementation appends --model at the end, which clap would read as
+        # --single's value. Insert the model flag before --single instead.
+        if not model:
+            return command
+        has_single = bool(command) and command[-1] == "--single"
+        if has_single:
+            command = command[:-1]
+        command = super()._apply_model_override(command, model)
+        if has_single:
+            command.append("--single")
+        return command

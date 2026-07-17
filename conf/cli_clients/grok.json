@@ -3,7 +3,7 @@
   "command": "grok",
   "additional_args": [
     "--permission-mode",
-    "acceptEdits"
+    "auto"
   ],
   "env": {},
   "roles": {
