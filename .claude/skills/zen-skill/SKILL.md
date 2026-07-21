@@ -207,11 +207,11 @@ Auto-mode picks by `intelligence_score`. Current SOTA per provider (as of 2026-0
 
 | Provider | Top model | Aliases |
 |---|---|---|
-| Anthropic | `claude-opus-4-7` | `opus`, `claude-opus`, `opus-4.7` |
-| OpenAI | `gpt-5.5-pro` | `gpt5.5-pro`, `gpt-5-5-pro` |
-| OpenAI (balanced) | `gpt-5.5` | `gpt5.5`, `gpt-5-5` |
-| Google | `gemini-3.1-pro-preview` | varies |
-| xAI | `grok-4.20-beta-0309-reasoning` | `grok`, `grok4` |
+| Anthropic | `claude-fable-5` / Opus 4.8 | `fable`, `opus`, `sonnet` (via OpenRouter/native) |
+| OpenAI | `gpt-5.6-sol` | `sol`, `gpt-5.6`, `codex` |
+| Google | `gemini-3.1-pro-preview` / `gemini-3.6-flash` | `pro`, `flash`, `flashlite` |
+| xAI | `grok-4.5` | `grok`, `grok4`, `grok-4.5` |
+| Moonshot (OpenRouter) | `moonshotai/kimi-k3` | `kimi`, `kimi-k3`, `k3` |
 
 Verify with `zen listmodels --format simple` — config lives in `conf/*_models.json` in the zen-cli project and changes over time.
 

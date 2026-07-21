@@ -149,8 +149,8 @@ class TestModelSelection:
             ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
-            # Gemini prefers gemini3.5-flash GA for fast response (alias sorts highest among flash models post-2026-05-19)
-            assert model == "gemini3.5-flash"
+            # Gemini prefers gemini-3.6-flash (or its gemini3.6-flash alias) for fast response
+            assert model in ("gemini-3.6-flash", "gemini3.6-flash", "flash")
 
     def test_balanced_category_fallback(self):
         """Test BALANCED category uses existing logic."""
@@ -206,7 +206,7 @@ class TestFlexibleModelSelection:
                 "env": {"GEMINI_API_KEY": "test-key"},
                 "provider_type": ProviderType.GOOGLE,
                 "category": ToolModelCategory.FAST_RESPONSE,
-                "expected": "gemini3.5-flash",  # Gemini 3.5 Flash GA alias (sorts highest among flash models post-2026-05-19)
+                "expected": "gemini-3.6-flash",  # Gemini 3.6 Flash is preferred for fast response
             },
             # Case 3: OpenAI provider for fast response
             {
@@ -268,7 +268,7 @@ class TestCustomProviderFallback:
 
         model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
         # Should fall back to hardcoded default
-        assert model == "gemini-2.5-flash"
+        assert model == "gemini-3.6-flash"
 
 
 class TestAutoModeErrorMessages:
@@ -358,7 +358,7 @@ class TestProviderHelperMethods:
 
         # Should return hardcoded fallback
         model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
-        assert model == "gemini-2.5-flash"
+        assert model == "gemini-3.6-flash"
 
 
 class TestEffectiveAutoMode:

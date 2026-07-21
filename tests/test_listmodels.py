@@ -7,7 +7,27 @@ from unittest.mock import patch
 import pytest
 from mcp.types import TextContent
 
+from providers.registry import ModelProviderRegistry
+from providers.shared import ProviderType
 from tools.listmodels import ListModelsTool
+
+
+def _clear_providers():
+    """Clear cached/registered providers so prior tests cannot leak state."""
+    import utils.model_restrictions
+
+    ModelProviderRegistry.clear_cache()
+    for provider_type in list(ProviderType):
+        ModelProviderRegistry.unregister_provider(provider_type)
+    utils.model_restrictions._restriction_service = None
+
+
+def _reset_and_configure_providers():
+    """Clear providers and re-register from the current (patched) env."""
+    from server import configure_providers
+
+    _clear_providers()
+    configure_providers()
 
 
 class TestListModelsTool:
@@ -30,6 +50,8 @@ class TestListModelsTool:
         with patch.dict(os.environ, {}, clear=True):
             # Set auto mode
             os.environ["DEFAULT_MODEL"] = "auto"
+            # No API keys → do not call configure_providers (it requires at least one)
+            _clear_providers()
 
             result = await tool.execute({})
 
@@ -58,6 +80,7 @@ class TestListModelsTool:
         env_vars = {"GEMINI_API_KEY": "test-key", "DEFAULT_MODEL": "auto"}
 
         with patch.dict(os.environ, env_vars, clear=True):
+            _reset_and_configure_providers()
             result = await tool.execute({})
 
             response = json.loads(result[0].text)
@@ -65,8 +88,8 @@ class TestListModelsTool:
 
             # Check Gemini shows as configured
             assert "Google Gemini ✅" in content
-            assert "`flash` → `gemini-2.5-flash`" in content
-            assert "`pro` → `gemini-3-pro-preview`" in content
+            assert "`flash` → `gemini-3.6-flash`" in content
+            assert "`pro` → `gemini-3.1-pro-preview`" in content
             assert "1M context" in content
             assert "Supports structured code generation" in content
 
@@ -84,6 +107,7 @@ class TestListModelsTool:
         }
 
         with patch.dict(os.environ, env_vars, clear=True):
+            _reset_and_configure_providers()
             result = await tool.execute({})
 
             response = json.loads(result[0].text)
@@ -107,6 +131,7 @@ class TestListModelsTool:
         env_vars = {"OPENROUTER_API_KEY": "test-key", "DEFAULT_MODEL": "auto"}
 
         with patch.dict(os.environ, env_vars, clear=True):
+            _reset_and_configure_providers()
             result = await tool.execute({})
 
             response = json.loads(result[0].text)
@@ -118,6 +143,7 @@ class TestListModelsTool:
 
             # Should show some models (mocked registry will have some)
             assert "Available Models" in content
+            assert "kimi" in content.lower() or "kimi-k3" in content
 
     @pytest.mark.asyncio
     async def test_execute_with_custom_api(self, tool):
@@ -125,6 +151,7 @@ class TestListModelsTool:
         env_vars = {"CUSTOM_API_URL": "http://localhost:11434", "DEFAULT_MODEL": "auto"}
 
         with patch.dict(os.environ, env_vars, clear=True):
+            _reset_and_configure_providers()
             result = await tool.execute({})
 
             response = json.loads(result[0].text)

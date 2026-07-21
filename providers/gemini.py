@@ -42,13 +42,18 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         "max": 1.0,  # 100% of max - full thinking budget
     }
 
-    # Model-specific thinking token limits
+    # Model-specific thinking token limits (fallback when registry omits max_thinking_tokens)
     MAX_THINKING_TOKENS = {
         "gemini-2.0-flash": 24576,  # Same as 2.5 flash for consistency
         "gemini-2.0-flash-lite": 0,  # No thinking support
         "gemini-2.5-flash": 24576,  # Flash 2.5 thinking budget limit
         "gemini-2.5-pro": 32768,  # Pro 2.5 thinking budget limit
         "gemini-3-pro-preview": 32768,  # Pro 3.0 Preview thinking budget limit
+        "gemini-3.1-pro-preview": 32768,
+        "gemini-3.5-flash": 32768,
+        "gemini-3.5-flash-lite": 24576,
+        "gemini-3.6-flash": 32768,
+        "gemini-3-flash-preview": 32768,
     }
 
     def __init__(self, api_key: str, **kwargs):
@@ -514,7 +519,16 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 return find_best(pro_models)
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer Flash models for speed
+            # Prefer latest Flash for speed/cost (3.6 > 3.5 > older)
+            for preferred in (
+                "gemini-3.6-flash",
+                "gemini3.6-flash",
+                "flash",
+                "gemini-3.5-flash",
+                "gemini3.5-flash",
+            ):
+                if preferred in allowed_models:
+                    return preferred
             flash_models = [m for m in allowed_models if "flash" in m]
             if flash_models:
                 return find_best(flash_models)

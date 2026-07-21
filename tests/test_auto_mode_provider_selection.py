@@ -320,8 +320,8 @@ class TestAutoModeProviderSelection:
 
             # Test that providers resolve aliases correctly
             test_cases = [
-                ("flash", ProviderType.GOOGLE, "gemini-2.5-flash"),
-                ("pro", ProviderType.GOOGLE, "gemini-3-pro-preview"),  # "pro" now resolves to gemini-3-pro-preview
+                ("flash", ProviderType.GOOGLE, "gemini-3.6-flash"),
+                ("pro", ProviderType.GOOGLE, "gemini-3.1-pro-preview"),
                 ("mini", ProviderType.OPENAI, "gpt-5-mini"),  # "mini" now resolves to gpt-5-mini
                 ("o3mini", ProviderType.OPENAI, "o3-mini"),
                 ("grok", ProviderType.XAI, "grok-4.5"),

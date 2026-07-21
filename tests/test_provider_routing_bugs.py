@@ -287,8 +287,8 @@ class TestOpenRouterAliasRestrictions:
 
             # Expected aliases that should resolve to models:
             # o3-mini -> openai/o3-mini
-            # pro -> google/gemini-2.5-pro
-            # flash -> google/gemini-2.5-flash
+            # pro -> google/gemini-3.1-pro-preview (native) or OR equivalent
+            # flash -> google/gemini-3.6-flash
             # o4-mini -> openai/o4-mini
             # o3 -> openai/o3
             # gpt4.1 -> should not exist (expected to be filtered out)
@@ -353,7 +353,7 @@ class TestOpenRouterAliasRestrictions:
                 "openai/o3-mini",  # canonical
                 "anthropic/claude-opus-4.1",  # full name
                 "flash",  # alias
-                "google/gemini-2.5-flash",  # canonical
+                "google/gemini-3.6-flash",  # canonical
             }
 
             available_model_names = set(available_models.keys())

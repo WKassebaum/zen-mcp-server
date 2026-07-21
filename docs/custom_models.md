@@ -52,18 +52,17 @@ The curated defaults in `conf/openrouter_models.json` include popular entries su
 
 | Alias | Canonical Model | Highlights |
 |-------|-----------------|------------|
-| `opus`, `claude-opus` | `anthropic/claude-opus-4.1` | Flagship Claude reasoning model with vision |
-| `sonnet`, `sonnet4.5` | `anthropic/claude-sonnet-4.5` | Balanced Claude with high context window |
-| `haiku` | `anthropic/claude-3.5-haiku` | Fast Claude option with vision |
-| `pro`, `gemini` | `google/gemini-2.5-pro` | Frontier Gemini with extended thinking |
-| `flash` | `google/gemini-2.5-flash` | Ultra-fast Gemini with vision |
-| `mistral` | `mistralai/mistral-large-2411` | Frontier Mistral (text only) |
-| `llama3` | `meta-llama/llama-3-70b` | Large open-weight text model |
-| `deepseek-r1` | `deepseek/deepseek-r1-0528` | DeepSeek reasoning model |
-| `perplexity` | `perplexity/llama-3-sonar-large-32k-online` | Search-augmented model |
-| `gpt5.2`, `gpt-5.2`, `5.2` | `openai/gpt-5.2` | Flagship GPT-5.2 with reasoning and vision |
-| `gpt5.1-codex`, `codex-5.1` | `openai/gpt-5.1-codex` | Agentic coding specialization (Responses API) |
-| `codex-mini`, `gpt5.1-codex-mini` | `openai/gpt-5.1-codex-mini` | Cost-efficient Codex variant with streaming |
+| `fable`, `opus` | `anthropic/claude-fable-5` / `anthropic/claude-opus-4-8` | Anthropic frontier (OpenRouter) |
+| `sonnet` | `anthropic/claude-sonnet-5` | Balanced Claude with high context |
+| `pro`, `gemini` | `google/gemini-3.1-pro-preview` | Frontier Gemini reasoning |
+| `flash` | `google/gemini-3.6-flash` | Latest balanced Gemini Flash |
+| `flashlite` | `google/gemini-3.5-flash-lite` | Cheap high-throughput Gemini |
+| `kimi`, `k3` | `moonshotai/kimi-k3` | Moonshot open-weight frontier (1M ctx; may 429) |
+| `kimi-k2.6` | `moonshotai/kimi-k2.6` | Cheaper Kimi fallback |
+| `sol`, `gpt-5.6` | `openai/gpt-5.6-sol` | OpenAI flagship |
+| `grok` | `x-ai/grok-4.5` | xAI flagship |
+| `deepseek-v4` | `deepseek/deepseek-v4-pro` | DeepSeek open-weights |
+| `mistral` | `mistralai/mistral-large-2512` | Mistral Large 3 |
 
 Consult the JSON file for the full list, aliases, and capability flags. Add new entries as OpenRouter releases additional models.
 
