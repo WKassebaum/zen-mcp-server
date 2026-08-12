@@ -23,7 +23,7 @@
       "intelligence_score": "1-20 human rating used as the primary signal for auto-mode model ordering",
       "allow_code_generation": "Whether this model can generate and suggest fully working code"
     },
-    "catalog_provenance_2026_08_12": "Verified against GET https://api.x.ai/v1/models on 2026-08-12: every entry below is present upstream, model_name matches xAI's canonical ID, and no callable xAI text model is missing. Pruned on 2026-08-12 because all their slugs return 404: the grok-2* and grok-3* families (xAI retired grok-3 effective 2026-05-15, grok-2 earlier), plus grok-beta and grok-vision-beta. Requests for a pruned slug now fail fast with 'not available with current API keys' rather than 404ing at the API. The grok-4.20 entries were renamed from their '-beta-' alias form to the canonical grok-4.20-*-0309 IDs on 2026-08-12; the old '-beta-' slugs are retained as aliases so pinned configs keep resolving. CAVEAT: existing upstream does not mean callable from zen - grok-4.20-multi-agent-0309 is listed by the API but rejects /v1/chat/completions with a 400, so it fails on every zen request (see its description). Note grok-code-fast-1 was NOT retired - it was renamed to grok-build-0.1 and its old slugs remain live aliases upstream."
+    "catalog_provenance_2026_08_12": "Verified against GET https://api.x.ai/v1/models on 2026-08-12 and smoke-tested with a live /v1/chat/completions call: every entry below is callable from zen, model_name matches xAI's canonical ID, and no usable xAI text model is missing. Pruned on 2026-08-12 because all their slugs return 404: the grok-2* and grok-3* families (xAI retired grok-3 effective 2026-05-15, grok-2 earlier), plus grok-beta and grok-vision-beta. Also pruned grok-4.20-multi-agent-0309: it is listed by the API but rejects /v1/chat/completions with 400 'Multi Agent requests are not allowed on chat completions', and chat completions is the only path the xAI provider implements, so it failed on every zen request. Re-add it only alongside support for whatever endpoint xAI exposes for multi-agent. Requests for any pruned slug now fail fast with 'not available with current API keys' rather than erroring at the API. The grok-4.20 entries were renamed from their '-beta-' alias form to the canonical grok-4.20-*-0309 IDs on 2026-08-12; the old '-beta-' slugs are retained as aliases so pinned configs keep resolving. Note grok-code-fast-1 was NOT retired - it was renamed to grok-build-0.1 and its old slugs remain live aliases upstream."
   },
   "models": [
     {
@@ -133,29 +133,6 @@
       "context_window": 1000000,
       "max_output_tokens": 1000000,
       "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
-    },
-    {
-      "model_name": "grok-4.20-multi-agent-0309",
-      "friendly_name": "X.AI (Grok 4.20 Multi-Agent)",
-      "aliases": [
-        "grok4.20-agent",
-        "grok-4.20-agent",
-        "grok-multi-agent",
-        "grok-4.20-multi-agent-beta-0309"
-      ],
-      "intelligence_score": 17,
-      "description": "Grok 4.20 Multi-Agent - Multi-agent orchestration variant, 1M context, text+image input, $1.25/$2.50 per 1M tokens. WARNING: NOT usable through zen. xAI rejects this model on /v1/chat/completions with 400 'Multi Agent requests are not allowed on chat completions', and chat completions is the only path the xAI provider implements. Every zen call to it fails. Retained pending a dedicated endpoint; remove it if that does not land.",
-      "context_window": 1000000,
-      "max_output_tokens": 1000000,
-      "supports_extended_thinking": true,
       "supports_system_prompts": true,
       "supports_streaming": true,
       "supports_function_calling": true,
