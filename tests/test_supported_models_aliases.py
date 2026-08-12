@@ -83,25 +83,22 @@ class TestSupportedModelsAliases:
             assert hasattr(config, "aliases"), f"{model_name} must have aliases attribute"
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
-        # Test specific aliases (bare grok/grok4/grok-4 now live on flagship grok-4.6; grok-3 retired aliases collapse onto grok-3-fast)
+        # Test specific aliases (bare grok/grok4/grok-4 now live on flagship grok-4.6)
         assert "grok" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
         assert "grok4" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
         assert "grok-4" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
-        assert "grok3" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
-        assert "grok-3" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
-        assert "grok3fast" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
-        assert "grokfast" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
+        assert "grokbuild" in provider.MODEL_CAPABILITIES["grok-build-0.1"].aliases
+        assert "grok-code-fast-1" in provider.MODEL_CAPABILITIES["grok-build-0.1"].aliases
 
         # Test alias resolution
         assert provider._resolve_model_name("grok") == "grok-4.6"
         assert provider._resolve_model_name("grok4") == "grok-4.6"
-        assert provider._resolve_model_name("grok3") == "grok-3-fast"
-        assert provider._resolve_model_name("grok3fast") == "grok-3-fast"
-        assert provider._resolve_model_name("grokfast") == "grok-3-fast"
+        assert provider._resolve_model_name("grokbuild") == "grok-build-0.1"
+        assert provider._resolve_model_name("grok-code-fast-1") == "grok-build-0.1"
 
         # Test case insensitive resolution
         assert provider._resolve_model_name("Grok") == "grok-4.6"
-        assert provider._resolve_model_name("GROKFAST") == "grok-3-fast"
+        assert provider._resolve_model_name("GROKBUILD") == "grok-build-0.1"
 
     def test_dial_provider_aliases(self):
         """Test DIAL provider's alias structure."""
@@ -147,7 +144,7 @@ class TestSupportedModelsAliases:
         assert "o3-mini" in openai_models
         assert "o3mini" in openai_models
 
-        # Test XAI (post-2026-05-15 retirement: grok-3 retired, grok-3 alias now lives on grok-3-fast)
+        # Test XAI (grok-2*/grok-3* families pruned 2026-08-12 - all 404 upstream)
         xai_provider = XAIModelProvider("test-key")
         xai_models = xai_provider.list_models(respect_restrictions=False)
         assert "grok-4.3" in xai_models
