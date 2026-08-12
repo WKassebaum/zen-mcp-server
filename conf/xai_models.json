@@ -23,7 +23,7 @@
       "intelligence_score": "1-20 human rating used as the primary signal for auto-mode model ordering",
       "allow_code_generation": "Whether this model can generate and suggest fully working code"
     },
-    "catalog_provenance_2026_08_12": "Verified against GET https://api.x.ai/v1/models on 2026-08-12; this file now mirrors the live xAI catalog exactly. The grok-2* and grok-3* families were pruned on 2026-08-12: xAI retired them (grok-3 effective 2026-05-15, grok-2 earlier) and every slug returns 404, so listing them only advertised models that cannot be called. grok-beta and grok-vision-beta are likewise dead and retained only as tombstones. Note grok-code-fast-1 was NOT retired - it was renamed to grok-build-0.1 and its old slugs remain live aliases upstream."
+    "catalog_provenance_2026_08_12": "Verified against GET https://api.x.ai/v1/models on 2026-08-12: every entry below returns 200, and no callable xAI text model is missing. Pruned on 2026-08-12 because all their slugs return 404: the grok-2* and grok-3* families (xAI retired grok-3 effective 2026-05-15, grok-2 earlier), plus grok-beta and grok-vision-beta. Requests for a pruned slug now fail fast with 'not available with current API keys' rather than 404ing at the API. Two naming notes: (1) the three grok-4.20 entries are keyed by their '-beta-' alias form rather than xAI's canonical grok-4.20-0309-* IDs - both resolve, so this is cosmetic, but do not assume model_name here is the canonical upstream ID; (2) grok-code-fast-1 was NOT retired - it was renamed to grok-build-0.1 and its old slugs remain live aliases upstream."
   },
   "models": [
     {
@@ -184,45 +184,6 @@
       "supports_images": true,
       "supports_temperature": true,
       "allow_code_generation": true,
-      "max_image_size_mb": 20.0
-    },
-    {
-      "model_name": "grok-beta",
-      "friendly_name": "X.AI (Grok Beta)",
-      "aliases": [
-        "grok-experimental"
-      ],
-      "intelligence_score": 10,
-      "description": "Grok Beta - Early access experimental version for testing new features",
-      "context_window": 131072,
-      "max_output_tokens": 131072,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": false,
-      "supports_temperature": true,
-      "allow_code_generation": false
-    },
-    {
-      "model_name": "grok-vision-beta",
-      "friendly_name": "X.AI (Grok Vision Beta)",
-      "aliases": [
-        "grok-vision-experimental"
-      ],
-      "intelligence_score": 11,
-      "description": "Grok Vision Beta - Early access multimodal experimental version",
-      "context_window": 131072,
-      "max_output_tokens": 131072,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "allow_code_generation": false,
       "max_image_size_mb": 20.0
     }
   ]
