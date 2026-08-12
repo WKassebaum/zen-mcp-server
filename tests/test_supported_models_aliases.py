@@ -83,24 +83,24 @@ class TestSupportedModelsAliases:
             assert hasattr(config, "aliases"), f"{model_name} must have aliases attribute"
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
-        # Test specific aliases (bare grok/grok4/grok-4 now live on flagship grok-4.5; grok-3 retired aliases collapse onto grok-3-fast)
-        assert "grok" in provider.MODEL_CAPABILITIES["grok-4.5"].aliases
-        assert "grok4" in provider.MODEL_CAPABILITIES["grok-4.5"].aliases
-        assert "grok-4" in provider.MODEL_CAPABILITIES["grok-4.5"].aliases
+        # Test specific aliases (bare grok/grok4/grok-4 now live on flagship grok-4.6; grok-3 retired aliases collapse onto grok-3-fast)
+        assert "grok" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
+        assert "grok4" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
+        assert "grok-4" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
         assert "grok3" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
         assert "grok-3" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
         assert "grok3fast" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
         assert "grokfast" in provider.MODEL_CAPABILITIES["grok-3-fast"].aliases
 
         # Test alias resolution
-        assert provider._resolve_model_name("grok") == "grok-4.5"
-        assert provider._resolve_model_name("grok4") == "grok-4.5"
+        assert provider._resolve_model_name("grok") == "grok-4.6"
+        assert provider._resolve_model_name("grok4") == "grok-4.6"
         assert provider._resolve_model_name("grok3") == "grok-3-fast"
         assert provider._resolve_model_name("grok3fast") == "grok-3-fast"
         assert provider._resolve_model_name("grokfast") == "grok-3-fast"
 
         # Test case insensitive resolution
-        assert provider._resolve_model_name("Grok") == "grok-4.5"
+        assert provider._resolve_model_name("Grok") == "grok-4.6"
         assert provider._resolve_model_name("GROKFAST") == "grok-3-fast"
 
     def test_dial_provider_aliases(self):

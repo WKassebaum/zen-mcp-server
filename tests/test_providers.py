@@ -117,8 +117,12 @@ class TestGeminiProvider:
         assert provider.validate_model_name("flash")
         assert provider.validate_model_name("pro")
 
+        # Bare `flash` alias follows the current flagship Flash model
         capabilities = provider.get_capabilities("flash")
         assert capabilities.model_name == "gemini-3.6-flash"
+
+        # Version-pinned aliases still resolve to their exact model
+        assert provider.get_capabilities("flash2.5").model_name == "gemini-2.5-flash"
 
     @patch("google.genai.Client")
     def test_generate_content(self, mock_client_class):

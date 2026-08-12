@@ -91,10 +91,10 @@ class TestOpenRouterProvider:
         assert provider._resolve_model_name("o4-mini") == "openai/o4-mini"
         assert provider._resolve_model_name("haiku") == "anthropic/claude-haiku-4.5"
         assert provider._resolve_model_name("mistral") == "mistralai/mistral-large-2512"
-        # bare grok/grok4/grok-4 aliases follow the flagship (now x-ai/grok-4.5)
-        assert provider._resolve_model_name("grok-4") == "x-ai/grok-4.5"
-        assert provider._resolve_model_name("grok4") == "x-ai/grok-4.5"
-        assert provider._resolve_model_name("grok") == "x-ai/grok-4.5"
+        # bare grok/grok4/grok-4 aliases follow the flagship (now x-ai/grok-4.6)
+        assert provider._resolve_model_name("grok-4") == "x-ai/grok-4.6"
+        assert provider._resolve_model_name("grok4") == "x-ai/grok-4.6"
+        assert provider._resolve_model_name("grok") == "x-ai/grok-4.6"
         assert provider._resolve_model_name("deepseek") == "deepseek/deepseek-r1-0528"
         assert provider._resolve_model_name("r1") == "deepseek/deepseek-r1-0528"
 

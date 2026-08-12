@@ -727,12 +727,12 @@
       "intelligence_score": 8
     },
     {
-      "model_name": "x-ai/grok-4.5",
+      "model_name": "x-ai/grok-4.6",
       "aliases": [
         "grok",
         "grok4",
-        "grok-4.5",
-        "grok4.5",
+        "grok-4.6",
+        "grok4.6",
         "grok-4"
       ],
       "context_window": 500000,
@@ -744,8 +744,48 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
       "temperature_constraint": "range",
-      "description": "Grok 4.5 (released 2026-07-08) - SpaceXAI (formerly xAI) flagship for code and agentic work, best-in-class agentic tool calling, $2/$6 per 1M tokens, 500K context, text+image input (via OpenRouter)",
+      "description": "Grok 4.6 (released 2026-08-12) - SpaceXAI flagship for code and everything else, tuned for long-running agents and visual/interactive work. AA Intelligence Index 61 (vs 56 for Grok 4.5), $2/$6 per 1M tokens, 500K context, text+image input (via OpenRouter)",
       "intelligence_score": 20,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "x-ai/grok-4.5",
+      "aliases": [
+        "grok-4.5",
+        "grok4.5"
+      ],
+      "context_window": 500000,
+      "max_output_tokens": 500000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "Grok 4.5 (released 2026-07-08) - Previous SpaceXAI flagship, superseded by Grok 4.6; best-in-class agentic tool calling at release, $2/$6 per 1M tokens, 500K context, text+image input (via OpenRouter)",
+      "intelligence_score": 19,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "x-ai/grok-build-0.1",
+      "aliases": [
+        "grok-build",
+        "grokbuild",
+        "grok-code-fast-1",
+        "grok-code-fast"
+      ],
+      "context_window": 256000,
+      "max_output_tokens": 256000,
+      "supports_extended_thinking": false,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": true,
+      "temperature_constraint": "range",
+      "description": "Grok Build 0.1 - Speed/cost-optimized agentic coding model (renamed successor to grok-code-fast-1), $1/$2 per 1M tokens, 256K context, text+image input (via OpenRouter)",
+      "intelligence_score": 15,
       "allow_code_generation": true
     },
     {
@@ -764,8 +804,8 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": true,
       "temperature_constraint": "range",
-      "description": "Grok 4.3 - Previous flagship, superseded by Grok 4.5 for general use; retained for 1M context and video understanding, $1.25/$2.50 per 1M tokens (via OpenRouter). Retired grok-4-0709/grok-4 slugs auto-redirect here upstream.",
-      "intelligence_score": 19,
+      "description": "Grok 4.3 - Superseded by Grok 4.5/4.6 for general use; retained as the 1M-context option, $1.25/$2.50 per 1M tokens (via OpenRouter). Retired grok-4-0709 slug auto-redirects here upstream.",
+      "intelligence_score": 18,
       "allow_code_generation": true
     },
     {

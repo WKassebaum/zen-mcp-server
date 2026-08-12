@@ -27,8 +27,8 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
 
     # Canonical model identifiers used for category routing.
-    PRIMARY_MODEL = "grok-4.3"
-    FALLBACK_MODEL = "grok-4-1-fast-reasoning"
+    PRIMARY_MODEL = "grok-4.6"
+    FALLBACK_MODEL = "grok-4.5"
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize X.AI provider with API key."""
@@ -65,27 +65,28 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Grok 4.3 is the SOTA flagship with configurable reasoning effort, 1M context.
+            # Grok 4.6 is the SOTA flagship with configurable reasoning effort, 500K context.
+            # Grok 4.3 stays in the list as the 1M-context fallback.
             preferred = find_first(
                 [
+                    "grok-4.6",
+                    "grok-4.5",
                     "grok-4.3",
                     "grok-4.20-beta-0309-reasoning",
-                    "grok-4-1-fast-reasoning",
-                    "grok-3-fast",
                 ]
             )
             return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Grok 4.3 (current SOTA) supports reasoning_effort=none for latency-sensitive use cases.
+            # Grok 4.6 supports reasoning_effort=none for latency-sensitive use cases.
             # Callers should pass reasoning_effort=none to skip thinking.
             preferred = find_first(
                 [
-                    "grok-4.3",
+                    "grok-4.6",
+                    "grok-build-0.1",
+                    "grok-4.5",
                     "grok-4.20-beta-0309-non-reasoning",
-                    "grok-4-1-fast-reasoning",
-                    "grok-3-fast",
-                    "grok-3-mini-fast",
+                    "grok-4.3",
                 ]
             )
             return preferred if preferred else allowed_models[0]
@@ -93,10 +94,10 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
         else:  # BALANCED or default
             preferred = find_first(
                 [
+                    "grok-4.6",
+                    "grok-4.5",
                     "grok-4.3",
                     "grok-4.20-beta-0309-reasoning",
-                    "grok-4-1-fast-reasoning",
-                    "grok-3-fast",
                 ]
             )
             return preferred if preferred else allowed_models[0]
