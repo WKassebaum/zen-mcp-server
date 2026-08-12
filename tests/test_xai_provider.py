@@ -138,7 +138,7 @@ class TestXAIProvider:
         provider = XAIModelProvider("test-key")
 
         # grok-4/grok aliases resolve to grok-4.6 (grok-4.5/grok-4.3 also support reasoning effort)
-        thinking_aliases = ["grok-4", "grok", "grok4", "grok-4.5", "grok-4.3", "grok-4.20-beta-0309-reasoning"]
+        thinking_aliases = ["grok-4", "grok", "grok4", "grok-4.5", "grok-4.3", "grok-4.20-0309-reasoning"]
         for alias in thinking_aliases:
             assert provider.get_capabilities(alias).supports_extended_thinking is True
 

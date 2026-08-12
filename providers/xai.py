@@ -72,7 +72,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                     "grok-4.6",
                     "grok-4.5",
                     "grok-4.3",
-                    "grok-4.20-beta-0309-reasoning",
+                    "grok-4.20-0309-reasoning",
                 ]
             )
             return preferred if preferred else allowed_models[0]
@@ -85,7 +85,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                     "grok-4.6",
                     "grok-build-0.1",
                     "grok-4.5",
-                    "grok-4.20-beta-0309-non-reasoning",
+                    "grok-4.20-0309-non-reasoning",
                     "grok-4.3",
                 ]
             )
@@ -97,7 +97,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                     "grok-4.6",
                     "grok-4.5",
                     "grok-4.3",
-                    "grok-4.20-beta-0309-reasoning",
+                    "grok-4.20-0309-reasoning",
                 ]
             )
             return preferred if preferred else allowed_models[0]
