@@ -96,8 +96,13 @@ class TestChatCommand:
             self.runner.invoke(cli, ["chat", "Analyze this", "--files", "file1.py", "--files", "file2.py"])
 
             call_args = mock_execute.call_args[0][0]
-            assert "files" in call_args
-            assert call_args["files"] == ["file1.py", "file2.py"]
+            # ChatRequest declares absolute_file_paths, not files. Asserting the
+            # old name here is what let the silent-drop bug survive.
+            assert "files" not in call_args
+            assert call_args["absolute_file_paths"] == [
+                os.path.abspath("file1.py"),
+                os.path.abspath("file2.py"),
+            ]
 
 
 class TestDebugCommand:
@@ -125,7 +130,10 @@ class TestDebugCommand:
 
             assert mock_execute.called
             call_args = mock_execute.call_args[0][0]
-            assert call_args["problem_description"] == "OAuth not working"
+            # DebugIssueTool is a workflow tool: the problem arrives as `step`.
+            assert call_args["step"] == "OAuth not working"
+            assert call_args["step_number"] == 1
+            assert call_args["next_step_required"] is False
             assert call_args["confidence"] == "exploring"
             assert call_args["model"] == "auto"
 
@@ -172,7 +180,8 @@ class TestCodeReviewCommand:
             self.runner.invoke(cli, ["codereview", "--files", "src/main.py", "--type", "security"])
 
             call_args = mock_execute.call_args[0][0]
-            assert call_args["files"] == ["src/main.py"]
+            assert "files" not in call_args
+            assert call_args["relevant_files"] == [os.path.abspath("src/main.py")]
             assert call_args["review_type"] == "security"
 
 
@@ -450,3 +459,119 @@ class TestClinkModelFlag:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestCLIToolContract:
+    """Every CLI command must send arguments its tool actually accepts.
+
+    Regression guard for the d2773f4 drift: the tool request models were renamed
+    (files -> absolute_file_paths / relevant_files) but src/zen_cli/main.py kept
+    sending the old keys. Pydantic ignores unknown keys, so -f/--files was
+    accepted, discarded, and the model answered with no file attached - no error
+    anywhere. The previous tests missed it because they mocked execute() and then
+    asserted the CLI's own wrong contract back at itself.
+
+    This validates the captured argument dict against the REAL request model, so
+    the next rename fails here instead of silently dropping user data.
+    """
+
+    CASES = [
+        ("chat", "tools.chat.ChatTool.execute", "tools.chat", "ChatTool", ["chat", "hi", "-f", "a.py"]),
+        ("clink", "tools.clink.CLinkTool.execute", "tools.clink", "CLinkTool", ["clink", "hi", "-f", "a.py"]),
+        (
+            "debug",
+            "tools.debug.DebugIssueTool.execute",
+            "tools.debug",
+            "DebugIssueTool",
+            ["debug", "boom", "-f", "a.py"],
+        ),
+        (
+            "codereview",
+            "tools.codereview.CodeReviewTool.execute",
+            "tools.codereview",
+            "CodeReviewTool",
+            ["codereview", "-f", "a.py", "--type", "security"],
+        ),
+        (
+            "analyze",
+            "tools.analyze.AnalyzeTool.execute",
+            "tools.analyze",
+            "AnalyzeTool",
+            ["analyze", "goal", "-f", "a.py"],
+        ),
+        (
+            "precommit",
+            "tools.precommit.PrecommitTool.execute",
+            "tools.precommit",
+            "PrecommitTool",
+            ["precommit", "goal", "-f", "a.py"],
+        ),
+        (
+            "testgen",
+            "tools.testgen.TestGenTool.execute",
+            "tools.testgen",
+            "TestGenTool",
+            ["testgen", "goal", "-f", "a.py"],
+        ),
+        (
+            "secaudit",
+            "tools.secaudit.SecauditTool.execute",
+            "tools.secaudit",
+            "SecauditTool",
+            ["secaudit", "goal", "-f", "a.py"],
+        ),
+        (
+            "refactor",
+            "tools.refactor.RefactorTool.execute",
+            "tools.refactor",
+            "RefactorTool",
+            ["refactor", "goal", "-f", "a.py"],
+        ),
+    ]
+
+    def setup_method(self):
+        self.runner = CliRunner()
+        os.environ.setdefault("GEMINI_API_KEY", "test-key-gemini")
+        os.environ.setdefault("OPENAI_API_KEY", "test-key-openai")
+
+    def _capture(self, target, argv):
+        with patch(target, new_callable=AsyncMock) as mock_execute:
+            mock_execute.return_value = {"content": "ok"}
+            self.runner.invoke(cli, argv)
+            assert mock_execute.called, f"{argv[0]} never invoked its tool"
+            return mock_execute.call_args[0][0]
+
+    @staticmethod
+    def _request_model(tool, module, cls):
+        if cls == "ChatTool":
+            from tools.chat import ChatRequest
+
+            return ChatRequest
+        if cls == "CLinkTool":
+            from tools.clink import CLinkRequest
+
+            return CLinkRequest
+        return tool.get_workflow_request_model()
+
+    @pytest.mark.parametrize("name,target,module,cls,argv", CASES, ids=[c[0] for c in CASES])
+    def test_arguments_contain_no_unknown_keys(self, name, target, module, cls, argv):
+        """A key the schema does not declare is silently dropped, not rejected."""
+        args = self._capture(target, argv)
+        tool = getattr(__import__(module, fromlist=[cls]), cls)()
+        declared = set(tool.get_input_schema().get("properties", {}))
+        unknown = sorted(set(args) - declared)
+        assert not unknown, f"{name} sends keys its tool will discard: {unknown}"
+
+    @pytest.mark.parametrize("name,target,module,cls,argv", CASES, ids=[c[0] for c in CASES])
+    def test_arguments_validate_against_request_model(self, name, target, module, cls, argv):
+        """The dict the CLI builds must actually construct the tool's request."""
+        args = self._capture(target, argv)
+        tool = getattr(__import__(module, fromlist=[cls]), cls)()
+        self._request_model(tool, module, cls)(**args)
+
+    @pytest.mark.parametrize("name,target,module,cls,argv", CASES, ids=[c[0] for c in CASES])
+    def test_files_option_reaches_the_tool(self, name, target, module, cls, argv):
+        """-f must land in a field the tool reads, under some declared name."""
+        args = self._capture(target, argv)
+        landed = [k for k in ("absolute_file_paths", "relevant_files") if args.get(k)]
+        assert landed, f"{name} dropped its -f/--files argument entirely"
