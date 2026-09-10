@@ -115,9 +115,11 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer the most capable models for deep reasoning and coding tasks
-            # GPT-5.5-pro is the pinnacle (first fully retrained base since GPT-4.5, highest reasoning)
+            # GPT-6 Astra is the current flagship (Sept 2026); 5.6 Sol remains for cost/compat.
             preferred = find_first(
                 [
+                    "gpt-6-astra",
+                    "gpt-5.6-sol",
                     "gpt-5.5-pro",
                     "gpt-5.5",
                     "gpt-5.4-pro",

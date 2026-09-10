@@ -98,11 +98,12 @@ class TestAutoModeProviderSelection:
             fast_response = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
             balanced = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.BALANCED)
 
-            # Should select appropriate OpenAI models (5.5 series now preferred for power/coding)
+            # Should select the current OpenAI flagship for power/coding
             assert extended_reasoning in (
+                "gpt-6-astra",
+                "gpt-5.6-sol",
                 "gpt-5.5-pro",
-                "gpt-5.5",
-            ), f"Expected GPT-5.5 variant, got '{extended_reasoning}'"
+            ), f"Expected GPT-6 Astra (or prior flagship), got '{extended_reasoning}'"
             assert fast_response is not None and fast_response.lower() != "auto"
             assert balanced is not None and balanced.lower() != "auto"
 

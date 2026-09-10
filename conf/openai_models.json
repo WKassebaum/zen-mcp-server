@@ -26,6 +26,33 @@
   },
   "models": [
     {
+      "model_name": "gpt-6-astra",
+      "friendly_name": "OpenAI (GPT-6 Astra)",
+      "aliases": [
+        "gpt-6",
+        "gpt6",
+        "astra",
+        "gpt-6-astra",
+        "gpt6-astra"
+      ],
+      "intelligence_score": 20,
+      "description": "GPT-6 Astra (released 2026-09-03) - OpenAI flagship. Responses API ID gpt-6-astra. 1.05M context, 128K output, knowledge cutoff Apr 30 2026. $10/$50 per 1M tokens. No temperature; reasoning.effort has no 'none' (start at low). Tool calling requires Responses API.",
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "max_image_size_mb": 20.0,
+      "default_reasoning_effort": "high",
+      "allow_code_generation": true,
+      "temperature_constraint": "fixed",
+      "use_openai_response_api": true
+    },
+    {
       "model_name": "gpt-5.6-sol",
       "friendly_name": "OpenAI (GPT-5.6 Sol)",
       "aliases": [
@@ -37,8 +64,8 @@
         "gpt-5-6-sol",
         "codex"
       ],
-      "intelligence_score": 20,
-      "description": "GPT-5.6 Sol (released 2026-07-09) - OpenAI flagship AND coding SOTA (80 on AA Coding Agent Index, 54% more token-efficient); the retired Codex line now runs on Sol. reasoning.effort none/low/medium/high/xhigh/max, 1.05M context, 128K output, $5/$30 per 1M tokens.",
+      "intelligence_score": 19,
+      "description": "GPT-5.6 Sol (released 2026-07-09) - Previous flagship; prefer gpt-6-astra. Still coding-capable (80 on AA Coding Agent Index, 54% more token-efficient); the retired Codex line now runs on Sol. reasoning.effort none/low/medium/high/xhigh/max, 1.05M context, 128K output, $5/$30 per 1M tokens.",
       "context_window": 1050000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,

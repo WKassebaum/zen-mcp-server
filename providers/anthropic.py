@@ -206,11 +206,13 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Fable 5 is the Mythos-class frontier model for deep reasoning tasks.
+            # Fable 5.1 is the current Mythos-class frontier model for deep reasoning.
             return (
                 find_first(
                     [
+                        "claude-fable-5-1",
                         "claude-fable-5",
+                        "claude-opus-5",
                         "claude-opus-4-8",
                         "claude-opus-4-7",
                         "claude-opus-4-6",
@@ -238,7 +240,9 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             return (
                 find_first(
                     [
+                        "claude-opus-5",
                         "claude-opus-4-8",
+                        "claude-fable-5-1",
                         "claude-fable-5",
                         "claude-opus-4-7",
                         "claude-sonnet-5",
