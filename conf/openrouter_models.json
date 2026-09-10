@@ -270,10 +270,48 @@
       "intelligence_score": 20
     },
     {
-      "model_name": "google/gemini-3.6-flash",
+      "model_name": "google/gemini-3.8-flash",
       "aliases": [
         "flash",
         "gemini-flash",
+        "gemini-3.8",
+        "gemini3.8",
+        "flash-3.8",
+        "flash3.8"
+      ],
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Gemini 3.8 Flash via OpenRouter - current SOTA Flash for long-horizon coding/agents, 1M context",
+      "intelligence_score": 19
+    },
+    {
+      "model_name": "google/gemini-3.7-flash",
+      "aliases": [
+        "gemini-3.7",
+        "gemini3.7",
+        "flash-3.7",
+        "flash3.7"
+      ],
+      "context_window": 1048576,
+      "max_output_tokens": 65536,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "allow_code_generation": true,
+      "description": "Gemini 3.7 Flash via OpenRouter - previous-generation Flash. Prefer gemini-3.8-flash for new work.",
+      "intelligence_score": 19
+    },
+    {
+      "model_name": "google/gemini-3.6-flash",
+      "aliases": [
         "gemini-3.6",
         "gemini3.6",
         "flash-3.6",

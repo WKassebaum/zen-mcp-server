@@ -83,7 +83,7 @@ class TestIntelligentFallback:
         ModelProviderRegistry.register_provider(ProviderType.GOOGLE, GeminiModelProvider)
 
         fallback_model = ModelProviderRegistry.get_preferred_fallback_model()
-        assert fallback_model == "gemini-3.6-flash"  # Default fallback
+        assert fallback_model == "gemini-3.8-flash"  # Default fallback
 
     def test_available_providers_with_keys(self):
         """Test the get_available_providers_with_keys method"""

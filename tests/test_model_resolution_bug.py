@@ -41,8 +41,8 @@ class TestModelResolutionBug:
         # flash should map to latest Gemini Flash on OpenRouter
         resolved_flash = provider._resolve_model_name("flash")
         assert (
-            resolved_flash == "google/gemini-3.6-flash"
-        ), f"Expected 'google/gemini-3.6-flash', got '{resolved_flash}'"
+            resolved_flash == "google/gemini-3.8-flash"
+        ), f"Expected 'google/gemini-3.8-flash', got '{resolved_flash}'"
 
     # DELETED: test_provider_registry_returns_openrouter_for_gemini
     # This test had a flawed mock setup - it mocked get_provider() but called get_provider_for_model().

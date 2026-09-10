@@ -119,7 +119,7 @@ class TestGeminiProvider:
 
         # Bare `flash` alias follows the current flagship Flash model
         capabilities = provider.get_capabilities("flash")
-        assert capabilities.model_name == "gemini-3.6-flash"
+        assert capabilities.model_name == "gemini-3.8-flash"
 
         # Version-pinned aliases still resolve to their exact model
         assert provider.get_capabilities("flash2.5").model_name == "gemini-2.5-flash"

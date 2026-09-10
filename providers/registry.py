@@ -432,7 +432,7 @@ class ModelProviderRegistry:
 
         # Ultimate fallback if no providers have models
         logging.warning("No models available from any provider, using default fallback")
-        return "gemini-3.6-flash"
+        return "gemini-3.8-flash"
 
     @classmethod
     def get_available_providers_with_keys(cls) -> list[ProviderType]:

@@ -18,8 +18,8 @@ class TestSupportedModelsAliases:
             assert hasattr(config, "aliases"), f"{model_name} must have aliases attribute"
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
-        # Test specific aliases (SOTA July 2026: flash→3.6, pro→3.1, flashlite→3.5-lite)
-        assert "flash" in provider.MODEL_CAPABILITIES["gemini-3.6-flash"].aliases
+        # Test specific aliases (SOTA Sept 2026: flash→3.8, pro→3.1, flashlite→3.5-lite)
+        assert "flash" in provider.MODEL_CAPABILITIES["gemini-3.8-flash"].aliases
         assert "pro" in provider.MODEL_CAPABILITIES["gemini-3.1-pro-preview"].aliases
         assert "flash-2.0" in provider.MODEL_CAPABILITIES["gemini-2.0-flash"].aliases
         assert "flash2" in provider.MODEL_CAPABILITIES["gemini-2.0-flash"].aliases
@@ -27,14 +27,14 @@ class TestSupportedModelsAliases:
         assert "flash-lite" in provider.MODEL_CAPABILITIES["gemini-3.5-flash-lite"].aliases
 
         # Test alias resolution
-        assert provider._resolve_model_name("flash") == "gemini-3.6-flash"
+        assert provider._resolve_model_name("flash") == "gemini-3.8-flash"
         assert provider._resolve_model_name("pro") == "gemini-3.1-pro-preview"
         assert provider._resolve_model_name("flash-2.0") == "gemini-2.0-flash"
         assert provider._resolve_model_name("flash2") == "gemini-2.0-flash"
         assert provider._resolve_model_name("flashlite") == "gemini-3.5-flash-lite"
 
         # Test case insensitive resolution
-        assert provider._resolve_model_name("Flash") == "gemini-3.6-flash"
+        assert provider._resolve_model_name("Flash") == "gemini-3.8-flash"
         assert provider._resolve_model_name("PRO") == "gemini-3.1-pro-preview"
 
     def test_openai_provider_aliases(self):

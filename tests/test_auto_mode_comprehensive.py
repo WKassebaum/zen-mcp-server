@@ -80,7 +80,7 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro for deep thinking (highest intelligence)
-                    "FAST_RESPONSE": "gemini-3.6-flash",  # Gemini 3.6 Flash for speed (sorted highest post-2026-07-30)
+                    "FAST_RESPONSE": "gemini-3.8-flash",  # Gemini 3.8 Flash for speed (SOTA Sept 2026)
                     "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced default
                 },
             ),
@@ -122,7 +122,7 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "gemini-3.1-pro-preview",  # Gemini comes first in priority
-                    "FAST_RESPONSE": "gemini-3.6-flash",  # Gemini 3.6 Flash for speed (post-2026-07-30)
+                    "FAST_RESPONSE": "gemini-3.8-flash",  # Gemini 3.8 Flash for speed (SOTA Sept 2026)
                     "BALANCED": "gemini-3.1-pro-preview",  # Gemini 3.1 Pro as balanced
                 },
             ),

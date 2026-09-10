@@ -53,6 +53,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         "gemini-3.5-flash": 32768,
         "gemini-3.5-flash-lite": 24576,
         "gemini-3.6-flash": 32768,
+        "gemini-3.7-flash": 32768,
+        "gemini-3.8-flash": 32768,
         "gemini-3-flash-preview": 32768,
     }
 
@@ -519,11 +521,15 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 return find_best(pro_models)
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Prefer latest Flash for speed/cost (3.6 > 3.5 > older)
+            # Prefer latest Flash for speed/cost (3.8 > 3.7 > 3.6 > 3.5 > older)
             for preferred in (
+                "gemini-3.8-flash",
+                "gemini3.8-flash",
+                "flash",
+                "gemini-3.7-flash",
+                "gemini3.7-flash",
                 "gemini-3.6-flash",
                 "gemini3.6-flash",
-                "flash",
                 "gemini-3.5-flash",
                 "gemini3.5-flash",
             ):
