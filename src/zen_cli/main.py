@@ -302,9 +302,10 @@ def chat(ctx, message, model, files, output_json):
         "working_directory_absolute_path": os.getcwd(),
     }
 
-    # Add files if provided
+    # Add files if provided. The field is absolute_file_paths on ChatRequest;
+    # sending "files" here is silently discarded by pydantic (see d2773f4).
     if files:
-        arguments["files"] = list(files)
+        arguments["absolute_file_paths"] = [os.path.abspath(f) for f in files]
 
     # Execute chat tool asynchronously
     try:
@@ -343,15 +344,21 @@ def debug(ctx, problem, files, confidence, model, output_json):
     """
     _get_zen_instance(ctx)
 
+    # DebugIssueTool is a workflow tool: it requires the step protocol. A CLI
+    # invocation is inherently one-shot, so present it as a single completed
+    # step (next_step_required=False) which routes straight to expert analysis
+    # rather than returning next-step guidance the CLI cannot act on.
     arguments = {
-        "problem_description": problem,
+        "step": problem,
+        "step_number": 1,
+        "total_steps": 1,
+        "next_step_required": False,
+        "findings": problem,
         "confidence": confidence,
         "model": model,
-        "working_directory": os.getcwd(),
+        "relevant_files": [os.path.abspath(f) for f in files] if files else [],
+        "files_checked": [os.path.abspath(f) for f in files] if files else [],
     }
-
-    if files:
-        arguments["files"] = list(files)
 
     try:
         from tools.debug import DebugIssueTool
@@ -373,8 +380,8 @@ def debug(ctx, problem, files, confidence, model, output_json):
 @click.option(
     "--type",
     "review_type",
-    type=click.Choice(["quality", "security", "performance", "all"]),
-    default="all",
+    type=click.Choice(["full", "security", "performance", "quick"]),
+    default="full",
     help="Type of review",
 )
 @click.option("--model", default="auto", help="Model to use")
@@ -393,11 +400,18 @@ def codereview(ctx, files, review_type, model, output_json):
         console.print("[yellow]Warning:[/yellow] No files specified. Use --files to specify files to review.")
         return
 
+    # Workflow tool: see the note on debug above for why this is one step.
+    abs_files = [os.path.abspath(f) for f in files]
     arguments = {
-        "files": list(files),
+        "step": f"Perform a {review_type} code review of: {', '.join(files)}",
+        "step_number": 1,
+        "total_steps": 1,
+        "next_step_required": False,
+        "findings": "Initial review request from CLI",
+        "relevant_files": abs_files,
+        "files_checked": abs_files,
         "review_type": review_type,
         "model": model,
-        "working_directory": os.getcwd(),
     }
 
     try:
@@ -1132,8 +1146,8 @@ def planner(ctx, goal, session, continue_findings, context_files, model, output_
 @click.option("--files", "-f", multiple=True, help="Files to analyze")
 @click.option(
     "--analysis-type",
-    type=click.Choice(["architecture", "patterns", "complexity", "all"]),
-    default="all",
+    type=click.Choice(["architecture", "performance", "security", "quality", "general"]),
+    default="general",
     help="Type of analysis to perform",
 )
 @click.option("--model", "-m", help="AI model to use (default: auto)")
@@ -1199,8 +1213,6 @@ def analyze(ctx, goal, session, continue_findings, files, analysis_type, model, 
                 "step_number": 1,
                 "total_steps": 5,
                 "next_step_required": True,
-                "working_directory": os.getcwd(),
-                "files": list(files) if files else [],
                 "findings": f"Initializing {tool_name} workflow",
                 "files_checked": [],
                 "relevant_files": list(files) if files else [],
@@ -1378,8 +1390,8 @@ def clink(ctx, prompt_text, cli_name, role, model, files, images, output_json):
     # placeholders here breaks resolution.
     arguments = {
         "prompt": prompt,
-        "files": list(files) if files else [],
-        "images": list(images) if images else [],
+        "absolute_file_paths": [os.path.abspath(f) for f in files] if files else [],
+        "images": [os.path.abspath(i) for i in images] if images else [],
     }
     if cli_name:
         arguments["cli_name"] = cli_name
@@ -1472,14 +1484,12 @@ def precommit(ctx, goal, session, continue_findings, files, model, output_json):
                 "step_number": 1,
                 "total_steps": 5,
                 "next_step_required": True,
-                "working_directory": os.getcwd(),
-                "files": list(files) if files else [],
                 "findings": f"Initializing {tool_name} workflow",
                 "files_checked": [],
                 "relevant_files": list(files) if files else [],
                 "relevant_context": [],
                 "confidence": "exploring",
-                "validation_type": "all",
+                "path": os.getcwd(),
             }
 
             if model:
@@ -1585,20 +1595,19 @@ def testgen(ctx, goal, session, continue_findings, files, framework, test_type, 
 
             session_id = session or generate_session_id(tool_name)
 
+            # TestGenRequest carries no framework/test_type field, so the CLI's
+            # options are folded into the step text rather than sent as keys
+            # pydantic would silently discard.
             arguments = {
-                "step": goal,
+                "step": f"{goal} (framework: {framework or 'pytest'}, test type: {test_type})",
                 "step_number": 1,
                 "total_steps": 5,
                 "next_step_required": True,
-                "working_directory": os.getcwd(),
-                "files": list(files) if files else [],
                 "findings": f"Initializing {tool_name} workflow",
                 "files_checked": [],
                 "relevant_files": list(files) if files else [],
                 "relevant_context": [],
                 "confidence": "exploring",
-                "framework": framework or "pytest",
-                "test_type": test_type,
             }
 
             if model:
@@ -1635,7 +1644,10 @@ def testgen(ctx, goal, session, continue_findings, files, framework, test_type, 
 @click.option("--continue", "continue_findings", help="Continue with findings/work results")
 @click.option("--files", "-f", multiple=True, help="Files to audit")
 @click.option(
-    "--focus", type=click.Choice(["auth", "crypto", "injection", "all"]), default="all", help="Security focus area"
+    "--focus",
+    type=click.Choice(["owasp", "compliance", "infrastructure", "dependencies", "comprehensive"]),
+    default="comprehensive",
+    help="Security audit focus",
 )
 @click.option("--model", "-m", help="AI model to use (default: auto)")
 @click.option("--json", "output_json", is_flag=True, help="Output as JSON")
@@ -1700,14 +1712,12 @@ def secaudit(ctx, goal, session, continue_findings, files, focus, model, output_
                 "step_number": 1,
                 "total_steps": 5,
                 "next_step_required": True,
-                "working_directory": os.getcwd(),
-                "files": list(files) if files else [],
                 "findings": f"Initializing {tool_name} workflow",
                 "files_checked": [],
                 "relevant_files": list(files) if files else [],
                 "relevant_context": [],
                 "confidence": "exploring",
-                "focus": focus,
+                "audit_focus": focus,
                 "issues_found": [],
             }
 
@@ -1813,8 +1823,6 @@ def refactor(ctx, goal, session, continue_findings, files, refactor_type, model,
                 "step_number": 1,
                 "total_steps": 5,
                 "next_step_required": True,
-                "working_directory": os.getcwd(),
-                "files": list(files) if files else [],
                 "findings": f"Initializing {tool_name} workflow",
                 "files_checked": [],
                 "relevant_files": list(files) if files else [],
