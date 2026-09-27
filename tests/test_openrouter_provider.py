@@ -83,7 +83,7 @@ class TestOpenRouterProvider:
         assert provider._resolve_model_name("opus4.5") == "anthropic/claude-opus-4.5"
         assert provider._resolve_model_name("opus4.1") == "anthropic/claude-opus-4.1"
         assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-5"
-        assert provider._resolve_model_name("sonnet4.1") == "anthropic/claude-sonnet-4.1"
+        assert provider._resolve_model_name("sonnet4.5") == "anthropic/claude-sonnet-4.5"
         assert provider._resolve_model_name("o3") == "openai/o3"
         assert provider._resolve_model_name("o3-mini") == "openai/o3-mini"
         assert provider._resolve_model_name("o3mini") == "openai/o3-mini"
@@ -354,11 +354,6 @@ class TestOpenRouterRegistry:
         config = registry.resolve("sonnet4.5")
         assert config is not None
         assert config.model_name == "anthropic/claude-sonnet-4.5"
-
-        # Test Sonnet 4.1 alias
-        config = registry.resolve("sonnet4.1")
-        assert config is not None
-        assert config.model_name == "anthropic/claude-sonnet-4.1"
 
 
 class TestOpenRouterFunctionality:

@@ -383,98 +383,6 @@
       "temperature_constraint": "fixed"
     },
     {
-      "model_name": "gpt-5.1-instant",
-      "friendly_name": "OpenAI (GPT-5.1 Instant)",
-      "aliases": [
-        "gpt5.1-instant",
-        "gpt-5-1-instant"
-      ],
-      "intelligence_score": 16,
-      "description": "GPT-5.1 Instant (400K context, 128K output) - Fast variant optimized for low-latency responses",
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "gpt-5.1-thinking",
-      "friendly_name": "OpenAI (GPT-5.1 Thinking)",
-      "aliases": [
-        "gpt5.1-thinking",
-        "gpt-5-1-thinking"
-      ],
-      "intelligence_score": 19,
-      "description": "GPT-5.1 Thinking (400K context, 272K output) - Advanced reasoning variant with extended thinking capabilities",
-      "context_window": 400000,
-      "max_output_tokens": 272000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "use_openai_response_api": true,
-      "default_reasoning_effort": "high",
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "gpt-5.2-instant",
-      "friendly_name": "OpenAI (GPT-5.2 Instant)",
-      "aliases": [
-        "gpt5.2-instant",
-        "gpt-5-2-instant"
-      ],
-      "intelligence_score": 17,
-      "description": "GPT-5.2 Instant (400K context, 128K output) - Fast variant optimized for low-latency responses",
-      "context_window": 400000,
-      "max_output_tokens": 128000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "gpt-5.2-thinking",
-      "friendly_name": "OpenAI (GPT-5.2 Thinking)",
-      "aliases": [
-        "gpt5.2-thinking",
-        "gpt-5-2-thinking"
-      ],
-      "intelligence_score": 19,
-      "description": "GPT-5.2 Thinking (400K context, 272K output) - Previous SOTA reasoning, 100% AIME 2025, 92.4% GPQA Diamond (superseded by GPT-5.5)",
-      "context_window": 400000,
-      "max_output_tokens": 272000,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "max_image_size_mb": 20.0,
-      "allow_code_generation": true,
-      "use_openai_response_api": true,
-      "default_reasoning_effort": "high",
-      "temperature_constraint": "fixed"
-    },
-    {
       "model_name": "o3",
       "friendly_name": "OpenAI (O3)",
       "intelligence_score": 14,
@@ -510,27 +418,6 @@
       "supports_images": true,
       "supports_temperature": false,
       "max_image_size_mb": 20.0,
-      "temperature_constraint": "fixed"
-    },
-    {
-      "model_name": "o3-pro",
-      "friendly_name": "OpenAI (O3-Pro)",
-      "aliases": [
-        "o3pro"
-      ],
-      "intelligence_score": 15,
-      "description": "Professional-grade reasoning with advanced capabilities (200K context)",
-      "context_window": 200000,
-      "max_output_tokens": 65536,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": false,
-      "max_image_size_mb": 20.0,
-      "use_openai_response_api": true,
       "temperature_constraint": "fixed"
     },
     {

@@ -328,9 +328,9 @@ class ReplayTransport(httpx.MockTransport):
         return f"{request.method}:{request.url.path}:{content_hash}"
 
     def _is_o3_model_request(self, content_dict: dict) -> bool:
-        """Check if this is an o3 model request."""
+        """Check if this request should use semantic matching (o3 and GPT-6 Responses API models)."""
         model = content_dict.get("model", "")
-        return model.startswith("o3")
+        return model.startswith(("o3", "gpt-6"))
 
     def _extract_semantic_fields(self, content_dict: dict) -> dict:
         """Extract only semantic fields for matching, ignoring volatile prompts.
@@ -426,7 +426,7 @@ class TransportFactory:
 # Example usage:
 #
 # # In test setup:
-# cassette_path = "tests/cassettes/o3_pro_basic_math.json"
+# cassette_path = "tests/cassettes/responses_gpt6_luna_basic_math.json"
 # transport = TransportFactory.create_transport(cassette_path)
 #
 # # Inject into OpenAI client:

@@ -45,7 +45,9 @@ class TestOpenAIProvider:
         # Test valid models
         assert provider.validate_model_name("o3") is True
         assert provider.validate_model_name("o3-mini") is True
-        assert provider.validate_model_name("o3-pro") is True
+        assert provider.validate_model_name("gpt-6-sol") is True
+        # o3-pro was pruned 2026-09-26: the OpenAI API no longer serves it
+        assert provider.validate_model_name("o3-pro") is False
         assert provider.validate_model_name("o4-mini") is True
         assert provider.validate_model_name("o4-mini") is True
         assert provider.validate_model_name("gpt-5") is True
@@ -92,7 +94,7 @@ class TestOpenAIProvider:
         # Test full name passthrough
         assert provider._resolve_model_name("o3") == "o3"
         assert provider._resolve_model_name("o3-mini") == "o3-mini"
-        assert provider._resolve_model_name("o3-pro") == "o3-pro"
+        assert provider._resolve_model_name("gpt-5.5-pro") == "gpt-5.5-pro"
         assert provider._resolve_model_name("o4-mini") == "o4-mini"
         assert provider._resolve_model_name("o4-mini") == "o4-mini"
         assert provider._resolve_model_name("gpt-5") == "gpt-5"
@@ -292,7 +294,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIModelProvider("test-key")
 
-        # Test full model name passes through unchanged (use o3-mini since o3-pro has special handling)
+        # Test full model name passes through unchanged (use o3-mini, a chat-completions model)
         provider.generate_content(prompt="Test", model_name="o3-mini", temperature=1.0)
         call_kwargs = mock_client.chat.completions.create.call_args[1]
         assert call_kwargs["model"] == "o3-mini"  # Should be unchanged
@@ -324,16 +326,16 @@ class TestOpenAIProvider:
         assert not provider.validate_model_name("invalid-model")
 
     @patch("providers.openai_compatible.OpenAI")
-    def test_o3_pro_routes_to_responses_endpoint(self, mock_openai_class):
-        """Test that o3-pro model routes to the /v1/responses endpoint (mock test)."""
+    def test_responses_api_model_routes_to_responses_endpoint(self, mock_openai_class):
+        """Test that a Responses-API model (gpt-6-luna) routes to the /v1/responses endpoint (mock test)."""
         # Set up mock for OpenAI client responses endpoint
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
 
         mock_response = MagicMock()
-        # New o3-pro format: direct output_text field
+        # Responses API format: direct output_text field
         mock_response.output_text = "4"
-        mock_response.model = "o3-pro"
+        mock_response.model = "gpt-6-luna"
         mock_response.id = "test-id"
         mock_response.created_at = 1234567890
         mock_response.usage = MagicMock()
@@ -345,24 +347,24 @@ class TestOpenAIProvider:
 
         provider = OpenAIModelProvider("test-key")
 
-        # Generate content with o3-pro
-        result = provider.generate_content(prompt="What is 2 + 2?", model_name="o3-pro", temperature=1.0)
+        # Generate content with a Responses-API model
+        result = provider.generate_content(prompt="What is 2 + 2?", model_name="gpt-6-luna", temperature=1.0)
 
         # Verify responses.create was called
         mock_client.responses.create.assert_called_once()
         call_args = mock_client.responses.create.call_args[1]
-        assert call_args["model"] == "o3-pro"
+        assert call_args["model"] == "gpt-6-luna"
         assert call_args["input"][0]["role"] == "user"
         assert "What is 2 + 2?" in call_args["input"][0]["content"][0]["text"]
 
         # Verify the response
         assert result.content == "4"
-        assert result.model_name == "o3-pro"
+        assert result.model_name == "gpt-6-luna"
         assert result.metadata["endpoint"] == "responses"
 
     @patch("providers.openai_compatible.OpenAI")
     def test_non_o3_pro_uses_chat_completions(self, mock_openai_class):
-        """Test that non-o3-pro models use the standard chat completions endpoint."""
+        """Test that non-Responses-API models use the standard chat completions endpoint."""
         # Set up mock
         mock_client = MagicMock()
         mock_openai_class.return_value = mock_client
@@ -381,7 +383,7 @@ class TestOpenAIProvider:
 
         provider = OpenAIModelProvider("test-key")
 
-        # Generate content with o3-mini (not o3-pro)
+        # Generate content with o3-mini (a chat-completions model)
         result = provider.generate_content(prompt="Test prompt", model_name="o3-mini", temperature=1.0)
 
         # Verify chat.completions.create was called

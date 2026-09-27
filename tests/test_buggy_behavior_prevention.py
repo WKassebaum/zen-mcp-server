@@ -108,7 +108,7 @@ class TestBuggyBehaviorPrevention:
             assert provider.validate_model_name("o4-mini")
 
             # These should be blocked
-            assert not provider.validate_model_name("o3-pro")  # Not in allowed list
+            assert not provider.validate_model_name("gpt-5.5-pro")  # Not in allowed list
             assert not provider.validate_model_name("o3")  # Not in allowed list
 
             # "mini" now resolves to gpt-5-mini, not o4-mini, so it should be blocked
@@ -126,7 +126,7 @@ class TestBuggyBehaviorPrevention:
             )
             assert "o3-mini" in all_known  # Should be known (and allowed)
             assert "o4-mini" in all_known  # Should be known (and allowed)
-            assert "o3-pro" in all_known  # Should be known (but blocked)
+            assert "gpt-5.5-pro" in all_known  # Should be known (but blocked)
             assert "mini" in all_known  # Should be known (and allowed since it resolves to o4-mini)
 
     def test_alias_aware_listing_extends_canonical_view(self):

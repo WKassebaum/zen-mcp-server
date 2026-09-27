@@ -230,7 +230,6 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                 find_first(
                     [
                         "claude-haiku-4-5-20251001",
-                        "claude-3-5-haiku-20241022",
                         "claude-sonnet-4-6",
                     ]
                 )

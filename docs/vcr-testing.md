@@ -1,6 +1,6 @@
 # HTTP Transport Recorder for Testing
 
-A custom HTTP recorder for testing expensive API calls (like o3-pro) with real responses.
+A custom HTTP recorder for testing API calls (such as the Responses API path used by GPT-6) with real responses.
 
 ## Overview
 
@@ -20,7 +20,7 @@ def test_expensive_api_call(monkeypatch):
     inject_transport(monkeypatch, "tests/openai_cassettes/my_test.json")
     
     # Make API calls - automatically recorded/replayed with PII sanitization
-    result = await chat_tool.execute({"prompt": "2+2?", "model": "o3-pro"})
+    result = await chat_tool.execute({"prompt": "2+2?", "model": "gpt-6-luna"})
 ```
 
 ## How It Works
@@ -41,10 +41,10 @@ async def test_with_recording(monkeypatch):
     inject_transport(monkeypatch, "tests/openai_cassettes/my_test.json")
     
     # Use API normally - recording/replay happens transparently
-    result = await chat_tool.execute({"prompt": "2+2?", "model": "o3-pro"})
+    result = await chat_tool.execute({"prompt": "2+2?", "model": "gpt-6-luna"})
 ```
 
-For manual setup, see `test_o3_pro_output_text_fix.py`.
+For manual setup, see `test_responses_api_output_text.py`.
 
 ## Automatic PII Sanitization
 
@@ -71,7 +71,7 @@ tests/
 ├── pii_sanitizer.py           # Automatic PII sanitization
 ├── transport_helpers.py       # Simplified transport injection
 ├── sanitize_cassettes.py      # Batch sanitization script
-└── test_o3_pro_output_text_fix.py  # Example usage
+└── test_responses_api_output_text.py  # Example usage
 ```
 
 ## Sanitizing Existing Cassettes
@@ -109,7 +109,7 @@ When API changes require new recordings:
 rm tests/openai_cassettes/my_test.json
 
 # Run test with real API key
-python -m pytest tests/test_o3_pro_output_text_fix.py
+python -m pytest tests/test_responses_api_output_text.py
 ```
 
 ## Implementation Details

@@ -35,6 +35,11 @@ class PIIPattern:
 class PIISanitizer:
     """Sanitizes PII from various data structures while preserving format."""
 
+    # Header values that identify the recording account; replaced wholesale.
+    ACCOUNT_IDENTIFYING_HEADERS = frozenset(
+        {"openai-organization", "openai-project", "set-cookie", "anthropic-organization-id"}
+    )
+
     def __init__(self, patterns: Optional[list[PIIPattern]] = None):
         """Initialize with optional custom patterns."""
         self.patterns: list[PIIPattern] = patterns or []
@@ -173,6 +178,9 @@ class PIISanitizer:
                     sanitized_headers[key] = f"{auth_type} SANITIZED"
                 else:
                     sanitized_headers[key] = self.sanitize_string(value)
+            elif key.lower() in self.ACCOUNT_IDENTIFYING_HEADERS:
+                # Account/org identifiers and session cookies that replay never needs
+                sanitized_headers[key] = "SANITIZED"
             else:
                 # Apply standard sanitization to all other headers
                 sanitized_headers[key] = self.sanitize_string(value)

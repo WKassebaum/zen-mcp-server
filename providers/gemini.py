@@ -44,11 +44,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
     # Model-specific thinking token limits (fallback when registry omits max_thinking_tokens)
     MAX_THINKING_TOKENS = {
-        "gemini-2.0-flash": 24576,  # Same as 2.5 flash for consistency
-        "gemini-2.0-flash-lite": 0,  # No thinking support
         "gemini-2.5-flash": 24576,  # Flash 2.5 thinking budget limit
         "gemini-2.5-pro": 32768,  # Pro 2.5 thinking budget limit
-        "gemini-3-pro-preview": 32768,  # Pro 3.0 Preview thinking budget limit
         "gemini-3.1-pro-preview": 32768,
         "gemini-3.5-flash": 32768,
         "gemini-3.5-flash-lite": 24576,
@@ -189,14 +186,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         # Create contents structure
         contents = [{"parts": parts}]
 
-        # Gemini 3 Pro Preview currently rejects medium thinking budgets; bump to high.
         effective_thinking_mode = thinking_mode
-        if resolved_model_name == "gemini-3-pro-preview" and thinking_mode == "medium":
-            logger.debug(
-                "Overriding thinking mode 'medium' with 'high' for %s due to launch limitation",
-                resolved_model_name,
-            )
-            effective_thinking_mode = "high"
 
         # Prepare generation config
         generation_config = types.GenerateContentConfig(
@@ -496,8 +486,6 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             # Prefer Gemini 3.1 Pro Preview first (highest intelligence)
             if "gemini-3.1-pro-preview" in allowed_models:
                 return "gemini-3.1-pro-preview"
-            if "gemini-3-pro-preview" in allowed_models:
-                return "gemini-3-pro-preview"
 
             # Then try other Pro models that support thinking
             pro_thinking = [
@@ -543,8 +531,6 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         # Prefer latest Pro model for balanced use (best overall capabilities)
         if "gemini-3.1-pro-preview" in allowed_models:
             return "gemini-3.1-pro-preview"
-        if "gemini-3-pro-preview" in allowed_models:
-            return "gemini-3-pro-preview"
 
         # Then Flash for speed, then other Pro models, then anything
         flash_models = [m for m in allowed_models if "flash" in m]

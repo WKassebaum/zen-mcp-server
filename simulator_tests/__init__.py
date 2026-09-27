@@ -23,7 +23,6 @@ from .test_line_number_validation import LineNumberValidationTest
 from .test_logs_validation import LogsValidationTest
 from .test_model_thinking_config import TestModelThinkingConfig
 from .test_o3_model_selection import O3ModelSelectionTest
-from .test_o3_pro_expensive import O3ProExpensiveTest
 from .test_ollama_custom_url import OllamaCustomUrlTest
 from .test_openrouter_fallback import OpenRouterFallbackTest
 from .test_openrouter_models import OpenRouterModelsTest
@@ -35,6 +34,7 @@ from .test_prompt_size_limit_bug import PromptSizeLimitBugTest
 
 # Redis validation test removed - no longer needed for standalone server
 from .test_refactor_validation import RefactorValidationTest
+from .test_responses_api_endpoint import ResponsesApiEndpointTest
 from .test_secaudit_validation import SecauditValidationTest
 from .test_testgen_validation import TestGenValidationTest
 from .test_thinkdeep_validation import ThinkDeepWorkflowValidationTest
@@ -77,7 +77,7 @@ TEST_REGISTRY = {
     "consensus_three_models": TestConsensusThreeModels,
     "analyze_validation": AnalyzeValidationTest,
     "prompt_size_limit_bug": PromptSizeLimitBugTest,
-    # "o3_pro_expensive": O3ProExpensiveTest,  # COMMENTED OUT - too expensive to run by default
+    # "responses_api_endpoint": ResponsesApiEndpointTest,  # Manual only - needs a real OpenAI key
 }
 
 __all__ = [
@@ -93,7 +93,7 @@ __all__ = [
     "LogsValidationTest",
     "TestModelThinkingConfig",
     "O3ModelSelectionTest",
-    "O3ProExpensiveTest",
+    "ResponsesApiEndpointTest",
     "OllamaCustomUrlTest",
     "OpenRouterFallbackTest",
     "OpenRouterModelsTest",

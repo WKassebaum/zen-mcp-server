@@ -213,28 +213,6 @@
       "max_image_size_mb": 20.0
     },
     {
-      "model_name": "claude-opus-4-1-20250805",
-      "friendly_name": "Anthropic (Claude Opus 4.1)",
-      "aliases": [
-        "opus-4.1",
-        "claude-opus-4.1",
-        "claude-opus-4-1"
-      ],
-      "intelligence_score": 19,
-      "description": "Claude Opus 4.1 - Previous flagship with frontier intelligence. DEPRECATED 2026-06-05, retires from the API 2026-08-05 - migrate to claude-opus-4-8.",
-      "context_window": 200000,
-      "max_output_tokens": 4096,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
-    },
-    {
       "model_name": "claude-sonnet-5",
       "friendly_name": "Anthropic (Claude Sonnet 5)",
       "aliases": [
@@ -304,50 +282,6 @@
       "max_image_size_mb": 20.0
     },
     {
-      "model_name": "claude-sonnet-4-20250514",
-      "friendly_name": "Anthropic (Claude Sonnet 4)",
-      "aliases": [
-        "sonnet-4",
-        "claude-sonnet-4",
-        "sonnet4"
-      ],
-      "intelligence_score": 17,
-      "description": "Claude Sonnet 4 - Hybrid reasoning model with extended thinking (200K context, 1M preview)",
-      "context_window": 200000,
-      "max_output_tokens": 8192,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
-    },
-    {
-      "model_name": "claude-3-7-sonnet-20250219",
-      "friendly_name": "Anthropic (Claude 3.7 Sonnet)",
-      "aliases": [
-        "sonnet-3.7",
-        "claude-3-7-sonnet",
-        "claude-3-7-sonnet-latest"
-      ],
-      "intelligence_score": 16,
-      "description": "Claude 3.7 Sonnet - First hybrid reasoning model generally available",
-      "context_window": 200000,
-      "max_output_tokens": 8192,
-      "supports_extended_thinking": true,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": true,
-      "supports_temperature": true,
-      "allow_code_generation": true,
-      "max_image_size_mb": 20.0
-    },
-    {
       "model_name": "claude-haiku-4-5-20251001",
       "friendly_name": "Anthropic (Claude Haiku 4.5)",
       "aliases": [
@@ -370,28 +304,6 @@
       "supports_temperature": true,
       "allow_code_generation": false,
       "max_image_size_mb": 20.0
-    },
-    {
-      "model_name": "claude-3-5-haiku-20241022",
-      "friendly_name": "Anthropic (Claude 3.5 Haiku)",
-      "aliases": [
-        "haiku-3.5",
-        "claude-3.5-haiku",
-        "claude-3-5-haiku-latest"
-      ],
-      "intelligence_score": 13,
-      "description": "Claude 3.5 Haiku - Fast and cost-effective, text-only (superseded by Haiku 4.5)",
-      "context_window": 200000,
-      "max_output_tokens": 8192,
-      "supports_extended_thinking": false,
-      "supports_system_prompts": true,
-      "supports_streaming": true,
-      "supports_function_calling": true,
-      "supports_json_mode": true,
-      "supports_images": false,
-      "supports_temperature": true,
-      "allow_code_generation": false,
-      "max_image_size_mb": 0.0
     }
   ]
 }

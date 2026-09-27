@@ -110,7 +110,7 @@ rm tests/openai_cassettes/<cassette_name>.json
 export OPENAI_API_KEY="your-real-key"
 
 # Run the specific test
-python -m pytest tests/test_o3_pro_output_text_fix.py -v
+python -m pytest tests/test_responses_api_output_text.py -v
 ```
 
 The test will:
@@ -123,7 +123,7 @@ The test will:
 
 ```bash
 # Test with dummy key (forces replay mode)
-OPENAI_API_KEY="dummy-key" python -m pytest tests/test_o3_pro_output_text_fix.py -v
+OPENAI_API_KEY="dummy-key" python -m pytest tests/test_responses_api_output_text.py -v
 ```
 
 ### Step 4: Commit the New Cassette
@@ -193,7 +193,7 @@ git commit -m "chore: re-record cassette for <test_name>"
 
 The semantic matching is implemented in `tests/http_transport_recorder.py`:
 
-- `_is_o3_model_request()`: Detects o3 model requests
+- `_is_o3_model_request()`: Detects o3 and GPT-6 model requests
 - `_extract_semantic_fields()`: Extracts only essential fields
 - `_get_request_signature()`: Generates hash from semantic fields
 
@@ -261,6 +261,6 @@ This dual-coverage approach ensures that both model families continue to work co
 - `tests/http_transport_recorder.py` - Cassette recording/replay implementation
 - `tests/transport_helpers.py` - Helper functions for injecting transports
 - `tests/test_cassette_semantic_matching.py` - Tests for semantic matching
-- `tests/test_o3_pro_output_text_fix.py` - Example of cassette usage
+- `tests/test_responses_api_output_text.py` - Example of cassette usage
 - `tests/test_consensus_integration.py` - Example of dual-model cassette coverage
 - `tests/openai_cassettes/` - Directory containing recorded cassettes
