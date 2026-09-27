@@ -3,10 +3,15 @@
 Regression tests for GitHub Issue #348: OpenAI "store" parameter validation error
 for certain models via OpenRouter.
 
-OpenRouter's /responses endpoint rejects store:true via Zod validation. This is an
-endpoint-level limitation, not model-specific. These tests verify that:
-- OpenRouter provider omits the store parameter
-- Direct OpenAI provider includes store: true
+OpenRouter's /responses endpoint rejects store:true via Zod validation but accepts
+store:false (verified live 2026-09-27). zen resends the full conversation on every turn
+and never uses previous_response_id, so it has no use for server-side retention.
+These tests verify that both providers send store: false:
+- OpenRouter never receives store:true (the Issue #348 failure)
+- Direct OpenAI opts out of OpenAI's default store:true, so prompts are not retained
+
+Before 2026-09-27 direct OpenAI requests sent store:true and OpenRouter requests omitted
+the parameter; the tests were updated when that retention was switched off.
 """
 
 import unittest
@@ -59,18 +64,18 @@ class MockOpenAIProvider(OpenAICompatibleProvider):
 class TestStoreParameterHandling(unittest.TestCase):
     """Test store parameter is conditionally included based on provider type.
 
-    **Feature: openrouter-store-parameter-fix, Property 1: OpenRouter requests omit store parameter**
-    **Feature: openrouter-store-parameter-fix, Property 2: Direct OpenAI requests include store parameter**
+    **Feature: openrouter-store-parameter-fix, Property 1: OpenRouter requests never send store:true**
+    **Feature: responses-no-retention, Property 2: Direct OpenAI requests send store:false**
     """
 
-    def test_openrouter_responses_omits_store_parameter(self):
-        """Test that OpenRouter provider omits store parameter from responses endpoint.
+    def test_openrouter_responses_sends_store_false(self):
+        """Test that OpenRouter provider sends store:false (never store:true) to the responses endpoint.
 
-        **Feature: openrouter-store-parameter-fix, Property 1: OpenRouter requests omit store parameter**
+        **Feature: openrouter-store-parameter-fix, Property 1: OpenRouter requests never send store:true**
         **Validates: Requirements 1.1, 2.1**
 
-        OpenRouter's /responses endpoint rejects store:true via Zod validation (Issue #348).
-        The store parameter should be omitted entirely for OpenRouter requests.
+        OpenRouter's /responses endpoint rejects store:true via Zod validation (Issue #348)
+        and accepts store:false.
         """
         # Capture the completion_params passed to the API
         captured_params = {}
@@ -98,17 +103,18 @@ class TestStoreParameterHandling(unittest.TestCase):
                 temperature=0.7,
             )
 
-        # Verify store parameter is NOT in the request
-        self.assertNotIn("store", captured_params, "OpenRouter requests should NOT include 'store' parameter")
+        # store:true is what OpenRouter rejects; store:false is accepted
+        self.assertIn("store", captured_params, "OpenRouter requests should send store explicitly")
+        self.assertIs(captured_params["store"], False, "OpenRouter requests must not send store=True")
 
-    def test_openai_responses_includes_store_parameter(self):
-        """Test that direct OpenAI provider includes store parameter in responses endpoint.
+    def test_openai_responses_sends_store_false(self):
+        """Test that direct OpenAI provider sends store:false to the responses endpoint.
 
-        **Feature: openrouter-store-parameter-fix, Property 2: Direct OpenAI requests include store parameter**
+        **Feature: responses-no-retention, Property 2: Direct OpenAI requests send store:false**
         **Validates: Requirements 1.2, 2.2**
 
-        Direct OpenAI API supports the store parameter for stored completions.
-        The store parameter should be included with value True for OpenAI requests.
+        OpenAI's Responses API stores responses unless told otherwise. zen never reads a
+        stored response back, so the provider must opt out explicitly.
         """
         # Capture the completion_params passed to the API
         captured_params = {}
@@ -136,9 +142,9 @@ class TestStoreParameterHandling(unittest.TestCase):
                 temperature=0.7,
             )
 
-        # Verify store parameter IS in the request with value True
+        # Omitting store would leave OpenAI's default (true) in effect, so it must be explicit
         self.assertIn("store", captured_params, "OpenAI requests should include 'store' parameter")
-        self.assertTrue(captured_params["store"], "OpenAI requests should have store=True")
+        self.assertIs(captured_params["store"], False, "OpenAI requests should have store=False")
 
 
 if __name__ == "__main__":

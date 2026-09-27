@@ -357,7 +357,7 @@ class OpenAICompatibleProvider(ModelProvider):
         return sanitized
 
     def _safe_extract_output_text(self, response) -> str:
-        """Safely extract output_text from o3-pro response with validation.
+        """Safely extract output_text from a Responses API response with validation.
 
         Args:
             response: Response object from OpenAI SDK
@@ -372,16 +372,18 @@ class OpenAICompatibleProvider(ModelProvider):
         logging.debug(f"Response attributes: {dir(response)}")
 
         if not hasattr(response, "output_text"):
-            raise ValueError(f"o3-pro response missing output_text field. Response type: {type(response).__name__}")
+            raise ValueError(
+                f"Responses API response missing output_text field. Response type: {type(response).__name__}"
+            )
 
         content = response.output_text
         logging.debug(f"Extracted output_text: '{content}' (type: {type(content)})")
 
         if content is None:
-            raise ValueError("o3-pro returned None for output_text")
+            raise ValueError("Responses API returned None for output_text")
 
         if not isinstance(content, str):
-            raise ValueError(f"o3-pro output_text is not a string. Got type: {type(content).__name__}")
+            raise ValueError(f"Responses API output_text is not a string. Got type: {type(content).__name__}")
 
         return content
 
@@ -403,8 +405,8 @@ class OpenAICompatibleProvider(ModelProvider):
             content = message.get("content", "")
 
             if role == "system":
-                # For o3-pro, system messages should be handled carefully to avoid policy violations
-                # Instead of prefixing with "System:", we'll include the system content naturally
+                # The system prompt is sent as a user message rather than via `instructions`
+                # or a developer message (tracked in docs/plans/BACKLOG.md).
                 input_messages.append({"role": "user", "content": [{"type": "input_text", "text": content}]})
             elif role == "user":
                 input_messages.append({"role": "user", "content": [{"type": "input_text", "text": content}]})
@@ -421,16 +423,13 @@ class OpenAICompatibleProvider(ModelProvider):
             "model": model_name,
             "input": input_messages,
             "reasoning": {"effort": effort},
+            # zen resends the full conversation on every turn and never chains requests
+            # with previous_response_id, so there is no reason for the provider to retain
+            # the prompt (which often includes file contents). OpenAI defaults store to
+            # true, so opt out explicitly. OpenRouter's /responses accepts only store:false
+            # and rejects store:true (Issue #348), so the same value works for both.
+            "store": False,
         }
-
-        # Only include store parameter for providers that support it.
-        # OpenRouter's /responses endpoint rejects store:true via Zod validation (Issue #348).
-        # This is an endpoint-level limitation, not model-specific, so we omit for all
-        # OpenRouter /responses calls. If OpenRouter later supports store, revisit this logic.
-        if self.get_provider_type() != ProviderType.OPENROUTER:
-            completion_params["store"] = True
-        else:
-            logging.debug(f"Omitting 'store' parameter for OpenRouter provider (model: {model_name})")
 
         # Add max tokens if specified (using max_completion_tokens for responses endpoint)
         if max_output_tokens:
@@ -450,7 +449,7 @@ class OpenAICompatibleProvider(ModelProvider):
 
             sanitized_params = self._sanitize_for_logging(completion_params)
             logging.info(
-                f"o3-pro API request (sanitized): {json.dumps(sanitized_params, indent=2, ensure_ascii=False)}"
+                f"Responses API request (sanitized): {json.dumps(sanitized_params, indent=2, ensure_ascii=False)}"
             )
 
             response = self.client.responses.create(**completion_params)
@@ -620,7 +619,7 @@ class OpenAICompatibleProvider(ModelProvider):
                 use_responses_api = getattr(static_capabilities, "use_openai_response_api", False)
 
         if use_responses_api:
-            # These models require the /v1/responses endpoint for stateful context
+            # These models are served only by the /v1/responses endpoint.
             # If it fails, we should not fall back to chat/completions
             return self._generate_with_responses_endpoint(
                 model_name=resolved_model,
