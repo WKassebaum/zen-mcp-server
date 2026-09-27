@@ -27,19 +27,40 @@
   },
   "models": [
     {
-      "model_name": "grok-4.6",
-      "friendly_name": "X.AI (Grok 4.6)",
+      "model_name": "grok-4.7",
+      "friendly_name": "X.AI (Grok 4.7)",
       "aliases": [
         "grok",
         "grok4",
-        "grok4.6",
-        "grok-4-6",
+        "grok4.7",
+        "grok-4-7",
         "grok-4",
         "grok-code",
         "grokcode"
       ],
       "intelligence_score": 20,
-      "description": "Grok 4.6 (released 2026-08-12) - SpaceXAI flagship for code and everything else. Built on Grok 4.5 with a longer supplemental training run plus improved SFT/RL; tuned for long-running agents and visual/interactive work. Artificial Analysis Intelligence Index 61 (vs 56 for Grok 4.5), CursorBench v3.2 69.9%, DeepSWE v1.1 65.9%. 500K context, text+image input, configurable reasoning effort. $2/$6 per 1M tokens (doubles to $4/$12 for prompts >=200K tokens). Knowledge cutoff 2026-02-01.",
+      "description": "Grok 4.7 (announced 2026-09-21) - SpaceXAI flagship succeeding Grok 4.6, built on a larger base model; strongest at long-running software engineering and self-verification. DeepSWE v1.1 71.0% (vs 65.2%), CursorBench 4.0 46.3% (vs 40.4%), Terminal-Bench 4.0 37.6% (vs 20.3%). Uses more tokens per task than 4.6. 500K context, text+image input, reasoning effort low/medium/high/xhigh (default high; no 'none'). $2/$6 per 1M tokens (doubles to $4/$12 for prompts >=200K tokens).",
+      "context_window": 500000,
+      "max_output_tokens": 500000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": true,
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "grok-4.6",
+      "friendly_name": "X.AI (Grok 4.6)",
+      "aliases": [
+        "grok4.6",
+        "grok-4-6"
+      ],
+      "intelligence_score": 19,
+      "description": "Grok 4.6 (released 2026-08-12) - Previous flagship, superseded by Grok 4.7. Built on Grok 4.5 with a longer supplemental training run plus improved SFT/RL; tuned for long-running agents and visual/interactive work. Artificial Analysis Intelligence Index 61 (vs 56 for Grok 4.5), CursorBench v3.2 69.9%, DeepSWE v1.1 65.9%. 500K context, text+image input, configurable reasoning effort. $2/$6 per 1M tokens (doubles to $4/$12 for prompts >=200K tokens). Knowledge cutoff 2026-02-01.",
       "context_window": 500000,
       "max_output_tokens": 500000,
       "supports_extended_thinking": true,
@@ -59,8 +80,8 @@
         "grok4.5",
         "grok-4-5"
       ],
-      "intelligence_score": 19,
-      "description": "Grok 4.5 (released 2026-07-08) - Previous flagship, superseded by Grok 4.6 for general/agentic use. Best-in-class agentic tool calling at release (Terminal-Bench 2.1 83.3%), $2/$6 per 1M tokens. 500K context, text+image input (no video input - use grok-4.3 for 1M context).",
+      "intelligence_score": 18,
+      "description": "Grok 4.5 (released 2026-07-08) - Older flagship, superseded by Grok 4.6/4.7 for general/agentic use. Best-in-class agentic tool calling at release (Terminal-Bench 2.1 83.3%), $2/$6 per 1M tokens. 500K context, text+image input (no video input - use grok-4.3 for 1M context).",
       "context_window": 500000,
       "max_output_tokens": 500000,
       "supports_extended_thinking": true,
@@ -81,8 +102,8 @@
         "grok-4-3",
         "grok-4-0709"
       ],
-      "intelligence_score": 18,
-      "description": "Grok 4.3 - Superseded by Grok 4.5/4.6 for general/agentic use but retained as the long-context option: 1M context, text+image input, $1.25/$2.50 per 1M tokens. Configurable reasoning effort (none/low/medium/high).",
+      "intelligence_score": 17,
+      "description": "Grok 4.3 - Superseded by Grok 4.5+ for general/agentic use but retained as the long-context option: 1M context, text+image input, $1.25/$2.50 per 1M tokens. Configurable reasoning effort (none/low/medium/high).",
       "context_window": 1000000,
       "max_output_tokens": 1000000,
       "supports_extended_thinking": true,
@@ -105,7 +126,7 @@
         "grok-4.20-reasoning",
         "grok-4.20-beta-0309-reasoning"
       ],
-      "intelligence_score": 17,
+      "intelligence_score": 16,
       "description": "Grok 4.20 Reasoning - Older xAI flagship with extended reasoning, 1M context, text+image input, $1.25/$2.50 per 1M tokens",
       "context_window": 1000000,
       "max_output_tokens": 1000000,
@@ -128,7 +149,7 @@
         "grok4.20-fast",
         "grok-4.20-beta-0309-non-reasoning"
       ],
-      "intelligence_score": 17,
+      "intelligence_score": 16,
       "description": "Grok 4.20 Non-Reasoning - Direct responses without thinking, 1M context, text+image input, $1.25/$2.50 per 1M tokens",
       "context_window": 1000000,
       "max_output_tokens": 1000000,

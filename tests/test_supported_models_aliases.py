@@ -83,21 +83,21 @@ class TestSupportedModelsAliases:
             assert hasattr(config, "aliases"), f"{model_name} must have aliases attribute"
             assert isinstance(config.aliases, list), f"{model_name} aliases must be a list"
 
-        # Test specific aliases (bare grok/grok4/grok-4 now live on flagship grok-4.6)
-        assert "grok" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
-        assert "grok4" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
-        assert "grok-4" in provider.MODEL_CAPABILITIES["grok-4.6"].aliases
+        # Test specific aliases (bare grok/grok4/grok-4 now live on flagship grok-4.7)
+        assert "grok" in provider.MODEL_CAPABILITIES["grok-4.7"].aliases
+        assert "grok4" in provider.MODEL_CAPABILITIES["grok-4.7"].aliases
+        assert "grok-4" in provider.MODEL_CAPABILITIES["grok-4.7"].aliases
         assert "grokbuild" in provider.MODEL_CAPABILITIES["grok-build-0.1"].aliases
         assert "grok-code-fast-1" in provider.MODEL_CAPABILITIES["grok-build-0.1"].aliases
 
         # Test alias resolution
-        assert provider._resolve_model_name("grok") == "grok-4.6"
-        assert provider._resolve_model_name("grok4") == "grok-4.6"
+        assert provider._resolve_model_name("grok") == "grok-4.7"
+        assert provider._resolve_model_name("grok4") == "grok-4.7"
         assert provider._resolve_model_name("grokbuild") == "grok-build-0.1"
         assert provider._resolve_model_name("grok-code-fast-1") == "grok-build-0.1"
 
         # Test case insensitive resolution
-        assert provider._resolve_model_name("Grok") == "grok-4.6"
+        assert provider._resolve_model_name("Grok") == "grok-4.7"
         assert provider._resolve_model_name("GROKBUILD") == "grok-build-0.1"
 
     def test_dial_provider_aliases(self):

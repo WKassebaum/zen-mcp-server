@@ -193,7 +193,7 @@ zen testgen <goal> [-f <file>]... [--framework <name>] [--test-type unit|integra
 ```bash
 zen thinkdeep <question> [--thinking-budget <128-32768>] [-m <model>]
 ```
-- Requires a model that supports extended thinking (gpt-5.5-pro, claude-opus-4-7, gemini-3.1-pro-preview, o3).
+- Requires a model that supports extended thinking (gpt-6-astra, claude-opus-5-5, gemini-3.1-pro-preview, grok-4.7).
 
 #### tracer — code-flow / dependency tracing
 ```bash
@@ -204,22 +204,23 @@ zen tracer <target> [--depth <N>] [--trace-mode forward|backward|both|ask]
 
 ## Model selection
 
-Auto-mode picks by `intelligence_score`. Current SOTA per provider (as of 2026-04):
+Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BALANCED`) from per-provider preference lists, with `intelligence_score` ordering listings. Current SOTA per provider (as of 2026-09-26):
 
 | Provider | Top model | Aliases |
 |---|---|---|
-| Anthropic | `claude-fable-5` / Opus 4.8 | `fable`, `opus`, `sonnet` (via OpenRouter/native) |
-| OpenAI | `gpt-5.6-sol` | `sol`, `gpt-5.6`, `codex` |
-| Google | `gemini-3.1-pro-preview` / `gemini-3.6-flash` | `pro`, `flash`, `flashlite` |
-| xAI | `grok-4.5` | `grok`, `grok4`, `grok-4.5` |
+| Anthropic | `claude-fable-5-1` / `claude-opus-5-5` | `fable`, `opus`, `sonnet` (via OpenRouter/native) |
+| OpenAI | `gpt-6-astra` / `gpt-6-sol` / `gpt-6-luna` | `gpt-6`, `astra`, `sol`, `luna` |
+| Google | `gemini-3.1-pro-preview` / `gemini-3.8-flash` | `pro`, `flash`, `flashlite` |
+| xAI | `grok-4.7` | `grok`, `grok4`, `grok-4.7` |
 | Moonshot (OpenRouter) | `moonshotai/kimi-k3` | `kimi`, `kimi-k3`, `k3` |
+| DeepSeek (OpenRouter) | `deepseek/deepseek-v4.1-flash` | `deepseek-flash`, `deepseek-v4.1-flash` |
 
 Verify with `zen listmodels --format simple` — config lives in `conf/*_models.json` in the zen-cli project and changes over time.
 
 **Picking a model explicitly:**
 ```bash
 zen chat "validate this approach" --model opus           # Anthropic flagship
-zen debug "race condition" --model gpt-5.5-pro -f x.py   # Frontier reasoning
+zen debug "race condition" --model gpt-6-astra -f x.py   # Frontier reasoning
 zen analyze "perf bottlenecks" --model gemini-3.1-pro-preview -f src/
 ```
 
@@ -295,7 +296,7 @@ Otherwise prefer CLI. The MCP and CLI tools share the same backend, models, and 
 | `zen: command not found` | `which zen`; if missing, `pip install -e .` from zen-cli root, or `pipx install zen-mcp-server` |
 | "Model not found" | `zen listmodels` to see actual aliases; check `~/.zen/.env` for the relevant API key |
 | Workflow never completes | You stopped responding to `continuation_command` — resume with `--session <id> --continue "<findings>"` |
-| Silent slow response | Some models (gpt-5.5-pro, o3-pro) use async Responses API; can take minutes — use `--json` and run via sub-agent |
+| Silent slow response | Some models (gpt-6-astra, gpt-5.5-pro) use async Responses API; can take minutes — use `--json` and run via sub-agent |
 | Empty/garbled output | Check `~/.zen/.env` has at least one valid provider key; run `zen setup` to reconfigure |
 
 ---

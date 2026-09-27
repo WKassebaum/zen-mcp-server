@@ -115,23 +115,23 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer the most capable models for deep reasoning and coding tasks
-            # GPT-6 Astra is the current flagship (Sept 2026); 5.6 Sol remains for cost/compat.
+            # GPT-6 Astra is the current flagship (Sept 2026); GPT-6 Sol is the cheaper high-end tier.
+            # Only IDs the OpenAI API currently serves belong here - the gpt-5.x-thinking/-instant
+            # ChatGPT names and o3-pro return "model does not exist" upstream.
             preferred = find_first(
                 [
                     "gpt-6-astra",
+                    "gpt-6-sol",
                     "gpt-5.6-sol",
                     "gpt-5.5-pro",
                     "gpt-5.5",
                     "gpt-5.4-pro",
                     "gpt-5.4",
-                    "gpt-5.2-thinking",
-                    "gpt-5.1-thinking",
                     "gpt-5.1-codex",
                     "gpt-5.2",
                     "gpt-5-codex",
                     "gpt-5.2-pro",
                     "gpt-5-pro",
-                    "o3-pro",
                     "gpt-5",
                     "o3",
                 ]
@@ -140,12 +140,12 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         elif category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            # GPT-5.1-Instant first (optimized for low latency), GPT-5.4 as capable fallback
+            # GPT-6 Luna is the fast/low-cost GPT-6 tier ($0.10/$0.50), GPT-5.4 as capable fallback
             preferred = find_first(
                 [
-                    "gpt-5.1-instant",
+                    "gpt-6-luna",
+                    "gpt-5.6-luna",
                     "gpt-5.4",
-                    "gpt-5.2-instant",
                     "gpt-5.2",
                     "gpt-5.1",
                     "gpt-5.1-codex-mini",
@@ -159,9 +159,11 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
             return preferred if preferred else allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer GPT-5.5 for best all-round performance (1.05M context, frontier reasoning)
+            # Prefer GPT-6 Sol for best all-round performance per dollar (1.05M context, $2/$10)
             preferred = find_first(
                 [
+                    "gpt-6-sol",
+                    "gpt-5.6-sol",
                     "gpt-5.5",
                     "gpt-5.4",
                     "gpt-5.4-pro",

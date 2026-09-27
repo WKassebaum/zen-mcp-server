@@ -27,8 +27,8 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
 
     # Canonical model identifiers used for category routing.
-    PRIMARY_MODEL = "grok-4.6"
-    FALLBACK_MODEL = "grok-4.5"
+    PRIMARY_MODEL = "grok-4.7"
+    FALLBACK_MODEL = "grok-4.6"
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize X.AI provider with API key."""
@@ -65,10 +65,11 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Grok 4.6 is the SOTA flagship with configurable reasoning effort, 500K context.
+            # Grok 4.7 is the SOTA flagship with configurable reasoning effort, 500K context.
             # Grok 4.3 stays in the list as the 1M-context fallback.
             preferred = find_first(
                 [
+                    "grok-4.7",
                     "grok-4.6",
                     "grok-4.5",
                     "grok-4.3",
@@ -78,10 +79,12 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
             return preferred if preferred else allowed_models[0]
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Grok 4.6 supports reasoning_effort=none for latency-sensitive use cases.
-            # Callers should pass reasoning_effort=none to skip thinking.
+            # FAST_RESPONSE backs `chat`, so quality still matters. Grok 4.7 and 4.6 reject
+            # reasoning_effort=none (verified 2026-09-26), but 4.7 measured ~2x faster than 4.6
+            # on short prompts. grok-4.20-0309-non-reasoning is the lowest-latency option.
             preferred = find_first(
                 [
+                    "grok-4.7",
                     "grok-4.6",
                     "grok-build-0.1",
                     "grok-4.5",
@@ -94,6 +97,7 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
         else:  # BALANCED or default
             preferred = find_first(
                 [
+                    "grok-4.7",
                     "grok-4.6",
                     "grok-4.5",
                     "grok-4.3",

@@ -212,6 +212,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                     [
                         "claude-fable-5-1",
                         "claude-fable-5",
+                        "claude-opus-5-5",
                         "claude-opus-5",
                         "claude-opus-4-8",
                         "claude-opus-4-7",
@@ -237,9 +238,11 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             )
 
         else:  # BALANCED
+            # Opus 5.5 is the current Opus flagship and cheaper than Opus 5 ($4/$20).
             return (
                 find_first(
                     [
+                        "claude-opus-5-5",
                         "claude-opus-5",
                         "claude-opus-4-8",
                         "claude-fable-5-1",

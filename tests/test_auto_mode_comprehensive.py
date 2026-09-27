@@ -94,8 +94,8 @@ class TestAutoModeComprehensive:
                 },
                 {
                     "EXTENDED_REASONING": "gpt-6-astra",  # GPT-6 Astra is the current OpenAI flagship
-                    "FAST_RESPONSE": "gpt-5.1-instant",  # GPT-5.1 Instant for speed
-                    "BALANCED": "gpt-5.5",  # GPT-5.5 for best all-round performance
+                    "FAST_RESPONSE": "gpt-6-luna",  # GPT-6 Luna, fast/low-cost GPT-6 tier
+                    "BALANCED": "gpt-6-sol",  # GPT-6 Sol for best all-round performance per dollar
                 },
             ),
             # Only X.AI API available
@@ -107,9 +107,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4.6",  # Grok 4.6 SOTA flagship for reasoning
-                    "FAST_RESPONSE": "grok-4.6",  # Grok 4.6 with reasoning_effort=none for speed
-                    "BALANCED": "grok-4.6",  # Grok 4.6 as balanced
+                    "EXTENDED_REASONING": "grok-4.7",  # Grok 4.7 SOTA flagship for reasoning
+                    "FAST_RESPONSE": "grok-4.7",  # Grok 4.7 flagship (faster than 4.6; chat quality matters)
+                    "BALANCED": "grok-4.7",  # Grok 4.7 as balanced
                 },
             ),
             # Both Gemini and OpenAI available - Google comes first in priority
@@ -135,9 +135,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "grok-4.6",  # XAI comes first in priority; Grok 4.6 SOTA
-                    "FAST_RESPONSE": "grok-4.6",  # Grok 4.6 with reasoning_effort=none for speed
-                    "BALANCED": "grok-4.6",  # Grok 4.6 as balanced
+                    "EXTENDED_REASONING": "grok-4.7",  # XAI comes first in priority; Grok 4.7 SOTA
+                    "FAST_RESPONSE": "grok-4.7",  # Grok 4.7 flagship (faster than 4.6; chat quality matters)
+                    "BALANCED": "grok-4.7",  # Grok 4.7 as balanced
                 },
             ),
         ],

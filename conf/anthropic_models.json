@@ -49,6 +49,32 @@
       "max_image_size_mb": 20.0
     },
     {
+      "model_name": "claude-opus-5-5",
+      "friendly_name": "Anthropic (Claude Opus 5.5)",
+      "aliases": [
+        "opus",
+        "claude-opus",
+        "opus-5.5",
+        "opus5.5",
+        "claude-opus-5.5",
+        "claude-opus-5-5"
+      ],
+      "intelligence_score": 19,
+      "description": "Claude Opus 5.5 (GA 2026-09-21) - Current Opus flagship, successor to Opus 5 at a lower price; Fable 5.1 remains the top tier. API ID claude-opus-5-5. Thinking always on (cannot be disabled), effort low..max with default medium. Rejects temperature/top_p and forced tool_choice. 1M context, 128K output, $4/$20 per 1M tokens.",
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
       "model_name": "claude-opus-5",
       "friendly_name": "Anthropic (Claude Opus 5)",
       "aliases": [
@@ -57,7 +83,7 @@
         "claude-opus-5"
       ],
       "intelligence_score": 19,
-      "description": "Claude Opus 5 (GA 2026-07-24) - Anthropic's recommended default for most workloads. API ID claude-opus-5. Adaptive thinking, default effort high. 1M context, 128K output, $5/$25 per 1M tokens. The `opus` alias still points at 4.8 until we retarget it.",
+      "description": "Claude Opus 5 (GA 2026-07-24) - Previous Opus flagship, superseded by Opus 5.5. API ID claude-opus-5. Adaptive thinking, default effort high. 1M context, 128K output, $5/$25 per 1M tokens.",
       "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
@@ -101,13 +127,11 @@
       "aliases": [
         "opus-4.8",
         "opus4.8",
-        "claude-opus",
-        "opus",
         "claude-opus-4.8",
         "claude-opus-4-8"
       ],
       "intelligence_score": 19,
-      "description": "Claude Opus 4.8 (released 2026-05-28) - Previous flagship, superseded as SOTA by Claude Fable 5. Adaptive thinking with effort controls (extra/max), Terminal-Bench 2.1 69.2%, agentic computer use 83.4%. Rejects non-default temperature/top_p. 1M context, 128K output, $5/$25 per 1M tokens.",
+      "description": "Claude Opus 4.8 (released 2026-05-28) - Previous flagship, superseded as SOTA by Claude Fable 5 and in the Opus line by Opus 5/5.5. Adaptive thinking with effort controls (extra/max), Terminal-Bench 2.1 69.2%, agentic computer use 83.4%. Rejects non-default temperature/top_p. 1M context, 128K output, $5/$25 per 1M tokens.",
       "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
