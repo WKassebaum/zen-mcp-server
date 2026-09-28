@@ -70,6 +70,14 @@ Future work that has been scoped or discovered but deliberately not started. Add
 - **Usage reported as zero:** `_extract_usage` reads `prompt_tokens` / `completion_tokens`, but a Responses `usage` object has `input_tokens` / `output_tokens`. Input and output are therefore reported as 0; only `total_tokens` is right.
 - **Latent crash on output caps:** a non-empty `max_output_tokens` is forwarded as `max_completion_tokens`, which `Responses.create` does not accept (the parameter is `max_output_tokens`). The SDK raises `TypeError: ... unexpected keyword argument 'max_completion_tokens'`. No caller passes a value today.
 
+### Unit suite is not hermetic in CI
+- **Recorded:** 2026-09-28
+- **What:** With no real API keys (CI conditions), two tests fail besides the three alias-restriction failures: `tests/test_large_prompt_handling.py::test_large_file_context_does_not_trigger_mcp_prompt_limit` makes a real Gemini request (locally it passes only by spending the exported `GEMINI_API_KEY` on every suite run), and `tests/test_zen_storage_backends.py::test_default_backend` depends on leftover state and environment. Mock the first; isolate the second.
+
+### Simulator tests omit `working_directory_absolute_path`
+- **Recorded:** 2026-09-28
+- **What:** `chat` requires `working_directory_absolute_path`, but no simulator test except `responses_api_endpoint` passes it, so their chat calls likely fail validation. The Responses endpoint test used to report exactly that validation error as a pass (fixed in b271101). Audit the others the same way: pass a temp directory and make every test fail on a tool error.
+
 ## Routing and ranking
 
 ### Auto mode ignores the tool category for OpenRouter/Azure/DIAL/Custom-only setups

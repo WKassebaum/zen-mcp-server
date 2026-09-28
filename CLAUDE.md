@@ -337,7 +337,7 @@ isort --check-only .
 
 ### Environment Requirements
 
-- Python 3.9+ with virtual environment
+- Python 3.10+ with virtual environment (every `mcp` release requires 3.10)
 - All dependencies from `requirements.txt` installed
 - Proper API keys configured in `.env` file
 
