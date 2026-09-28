@@ -35,8 +35,9 @@ jobs:
 
       - name: Verify tests pass
         run: |
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
+          # Install the package itself (zen_cli, anthropic, click, rich) plus test tooling;
+          # requirements.txt alone lacks them and pytest collection fails.
+          pip install -e . -r requirements-dev.txt
           python -m pytest tests/ -v --ignore=simulator_tests/ -m "not integration"
 
       - name: Run semantic release

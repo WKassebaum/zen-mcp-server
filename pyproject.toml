@@ -2,11 +2,11 @@
 name = "zen-mcp-server"
 version = "9.8.2"
 description = "AI-powered MCP server and CLI with multiple model providers"
-requires-python = ">=3.9"
+requires-python = ">=3.10"  # every mcp release requires Python 3.10+
 dependencies = [
-    "mcp>=1.0.0,<2",  # mcp 2.x removed Server.list_tools; server.py crashes on import
+    "mcp>=1.7.0,<2",  # 1.7.0 added types.ToolAnnotations (server.py); 2.x removed Server.list_tools
     "google-genai>=1.19.0,<2",
-    "openai>=1.55.2,<3",
+    "openai>=1.66.0,<3",  # 1.66.0 added client.responses (Responses API: GPT-6 and -pro models)
     "anthropic>=0.66.0,<1",
     "pydantic>=2.0.0",
     "python-dotenv>=1.0.0",
@@ -46,7 +46,7 @@ zen = "zen_cli.main:cli"        # CLI mode (for terminal, scripts, CI/CD)
 
 [tool.black]
 line-length = 120
-target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+target-version = ['py310', 'py311', 'py312', 'py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -77,6 +77,8 @@ line_length = 120
 skip_glob = ["venv/*", ".venv/*", ".zen_venv/*"]
 
 [tool.ruff]
+# Deliberately below requires-python: py310 turns on UP007/UP045 (X | None) across the
+# codebase (~311 findings). Bump it in a separate commit together with `ruff check --fix`.
 target-version = "py39"
 line-length = 120
 
