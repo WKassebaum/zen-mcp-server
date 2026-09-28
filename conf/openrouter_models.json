@@ -163,7 +163,7 @@
       "aliases": [
         "opus-4.8"
       ],
-      "context_window": 200000,
+      "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_json_mode": true,
@@ -179,7 +179,7 @@
       "aliases": [
         "opus-4.7"
       ],
-      "context_window": 200000,
+      "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_json_mode": true,
@@ -195,7 +195,7 @@
       "aliases": [
         "opus-4.6"
       ],
-      "context_window": 200000,
+      "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_json_mode": true,
@@ -654,7 +654,7 @@
       "temperature_constraint": "fixed",
       "default_reasoning_effort": "medium",
       "allow_code_generation": true,
-      "description": "GPT-5.6 Sol (released 2026-07-09) - Previous Sol, superseded by GPT-6 Sol; reasoning.effort none..max, $5/$30 per 1M tokens (via OpenRouter)",
+      "description": "GPT-5.6 Sol (released 2026-07-09) - Previous Sol, superseded by GPT-6 Sol; reasoning.effort none..max, OpenAI list $4/$20 per 1M tokens, promotional through at least 2026-11-21 (via OpenRouter)",
       "intelligence_score": 19
     },
     {
@@ -674,7 +674,7 @@
       "temperature_constraint": "fixed",
       "default_reasoning_effort": "medium",
       "allow_code_generation": true,
-      "description": "GPT-5.6 Terra (released 2026-07-09) - Mid-tier GPT-5.6, GPT-5.5-class at half the price, $2.50/$15 per 1M tokens (via OpenRouter)",
+      "description": "GPT-5.6 Terra (released 2026-07-09) - Mid-tier GPT-5.6, GPT-5.5-class at 40% of its price, OpenAI list $2/$12 per 1M tokens (via OpenRouter)",
       "intelligence_score": 19
     },
     {
@@ -693,7 +693,7 @@
       "temperature_constraint": "fixed",
       "default_reasoning_effort": "medium",
       "allow_code_generation": true,
-      "description": "GPT-5.6 Luna (released 2026-07-09) - Previous Luna, superseded by GPT-6 Luna; cost-optimized GPT-5.6 for fast/high-volume work, $1/$6 per 1M tokens (via OpenRouter)",
+      "description": "GPT-5.6 Luna (released 2026-07-09) - Previous Luna, superseded by GPT-6 Luna; cost-optimized GPT-5.6 for fast/high-volume work, OpenAI list $0.20/$1.20 per 1M tokens (via OpenRouter)",
       "intelligence_score": 17
     },
     {
@@ -1023,8 +1023,8 @@
       "intelligence_score": 16,
       "description": "DeepSeek V4 Pro via OpenRouter - frontier open-weights, 1M context, $0.435/$0.87 per MTok. Released April 24 2026.",
       "context_window": 1000000,
-      "max_output_tokens": 8192,
-      "supports_extended_thinking": false,
+      "max_output_tokens": 384000,
+      "supports_extended_thinking": true,
       "supports_json_mode": true,
       "supports_function_calling": true,
       "supports_images": false,
@@ -1040,8 +1040,8 @@
       "intelligence_score": 14,
       "description": "DeepSeek V4 Flash via OpenRouter - fast frontier open-weights, 1M context. Released April 24 2026. Superseded by V4.1 Flash.",
       "context_window": 1000000,
-      "max_output_tokens": 8192,
-      "supports_extended_thinking": false,
+      "max_output_tokens": 384000,
+      "supports_extended_thinking": true,
       "supports_json_mode": true,
       "supports_function_calling": true,
       "supports_images": false,

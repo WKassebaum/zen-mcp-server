@@ -154,8 +154,8 @@
         "claude-opus-4-7"
       ],
       "intelligence_score": 19,
-      "description": "Claude Opus 4.7 - Previous flagship (released 2026-04-16), superseded by Opus 4.8. Advanced software engineering, xhigh thinking effort, rejects non-default temperature/top_p, 200K context (1M beta), 128K output, $5/$25 per 1M tokens",
-      "context_window": 200000,
+      "description": "Claude Opus 4.7 - Previous flagship (released 2026-04-16), superseded by Opus 4.8. Advanced software engineering, xhigh thinking effort, rejects non-default temperature/top_p, 1M context, 128K output, $5/$25 per 1M tokens",
+      "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_system_prompts": true,
@@ -177,8 +177,8 @@
         "claude-opus-4-6"
       ],
       "intelligence_score": 19,
-      "description": "Claude Opus 4.6 - Previous flagship with adaptive thinking, 200K context (1M beta), 128K output, $5/$25 per 1M tokens",
-      "context_window": 200000,
+      "description": "Claude Opus 4.6 - Previous flagship with adaptive thinking, 1M context, 128K output, $5/$25 per 1M tokens",
+      "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
       "supports_system_prompts": true,
