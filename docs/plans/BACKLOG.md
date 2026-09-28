@@ -15,7 +15,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 - **What:** Prompt, optional reference images or a ≤10 s video → MP4 saved to disk, via `gemini-omni-1.1-flash`.
 - **Contract:** Interactions API only (`client.interactions.create` / `POST /v1beta/interactions`), not `generateContent`. One MP4 per call, 3–10 s, 24 fps, 360p/720p/1080p/4k (1080p and 4k upscaled), 16:9 or 9:16, SynthID watermark. Base64 inline or `delivery: "uri"` then poll `files.get` until `ACTIVE`. No audio input. `gemini-omni-flash-preview` is deprecated 2026-09-30.
 - **Cost and latency:** ~$0.10/s of output at 720p (5,792 tokens/s at $17.50/M), 360p about a third of that; third-party median ~42 s per clip.
-- **Blocker to decide:** `google-genai` ≥ 2.10 is needed for `interactions` (installed: 1.46, a major-version bump), or call the REST endpoint directly with httpx.
+- **Blocker to decide:** `client.interactions` exists from `google-genai` 1.55.0, but the video config types the contract above needs first appear in 2.10.0. No 1.x release (latest 1.75.0) has them or the interaction `steps` field (checked 2026-09-27). Using the SDK therefore means lifting the `google-genai<2` cap added in 2707f5d, a separate 1.x → 2.x migration (installed: 1.46.0). The alternative is calling `POST /v1beta/interactions` directly with httpx and keeping the cap.
 - **Needs:** a new tool output contract (a file path rather than text) and a storage decision (default `~/.zen/media/`).
 
 ### Gemini explicit context caches
@@ -56,11 +56,50 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Account identifiers in committed cassettes
 - **Recorded:** 2026-09-26
-- **What:** Older cassettes in `tests/openai_cassettes/` (and git history) contain the OpenAI organization ID and Cloudflare `set-cookie` values. The sanitizer now blanks these for new recordings (`tests/pii_sanitizer.py`). Decide whether to re-record or scrub the existing files.
+- **What:** Older cassettes in `tests/openai_cassettes/` (and git history) contain the OpenAI organization ID, the OpenAI project ID (`openai-project` header) and Cloudflare `set-cookie` values. The sanitizer now blanks these for new recordings (`tests/pii_sanitizer.py`). Decide whether to re-record or scrub the existing files.
 
 ### Stale model lists in docs
 - **Recorded:** 2026-09-26
 - **What:** The `model` option lists in `docs/tools/*.md` and `docs/advanced-usage.md` predate the GPT-6, Opus 5.5 and Grok 4.7 catalog. Regenerate them from `conf/*_models.json`.
+
+### Responses API path gaps
+- **Recorded:** 2026-09-27
+- **Context:** `providers/openai_compatible.py:_generate_with_responses_endpoint` now carries the default OpenAI traffic: gpt-6-astra/sol/luna and the `sol`/`luna` aliases, natively and via OpenRouter. Before GPT-6 it carried only o3-pro, and it was only ever tested with one-shot prompts. `store` has been `false` since 2026-09-27.
+- **System prompt role:** the system prompt is sent as a `user` message instead of `instructions` or a `developer` message. `Responses.create` accepts `instructions` from openai 1.66.0 onwards.
+- **Multi-turn continuation never run live:** earlier assistant turns are replayed as `output_text` parts. The `responses_api_endpoint` simulator test covers one turn only and is not in `TEST_REGISTRY`.
+- **Usage reported as zero:** `_extract_usage` reads `prompt_tokens` / `completion_tokens`, but a Responses `usage` object has `input_tokens` / `output_tokens`. Input and output are therefore reported as 0; only `total_tokens` is right.
+- **Latent crash on output caps:** a non-empty `max_output_tokens` is forwarded as `max_completion_tokens`, which `Responses.create` does not accept (the parameter is `max_output_tokens`). The SDK raises `TypeError: ... unexpected keyword argument 'max_completion_tokens'`. No caller passes a value today.
+
+## Routing and ranking
+
+### Auto mode ignores the tool category for OpenRouter/Azure/DIAL/Custom-only setups
+- **Recorded:** 2026-09-27 (behaviour dates from upstream 1a8ec2e, 2025-08)
+- **What:** these providers inherit `get_preferred_model`, which returns `None` (`providers/base.py:343`). `ModelProviderRegistry.get_preferred_fallback_model` then returns `sorted(allowed_models)[0]` (`providers/registry.py:417`), an alphabetical pick across canonical names and aliases. In OpenRouter-only auto mode every category resolves to alias `5.1` (openai/gpt-5.2). With the docstring example `OPENROUTER_ALLOWED_MODELS=opus,sonnet,mistral`, chat goes to Opus 5.5, the most expensive allowed model. Requests still succeed. The default setup is unaffected because xAI is first in priority.
+- **Fix direction:** fix this in the registry: stop at the first provider that has allowed models, and when it returns no preference, rank its canonical names (not aliases) by capability for the category.
+- **Warning:** do not add an `OpenRouterProvider.get_preferred_model` override. A verifier showed it lets a lower-priority OpenRouter preference beat Custom, Azure and DIAL: with Custom+OpenRouter, FAST_RESPONSE moved from `llama3.2` to `openai/gpt-6-luna`.
+- **Tests:** strengthen `tests/test_auto_mode_comprehensive.py::test_openrouter_fallback_when_no_native_apis`, which only asserts "not None", and add a Custom+OpenRouter case.
+
+### Capability rank clamps at 100, so intelligence_score above 18 is ignored
+- **Recorded:** 2026-09-27
+- **What:** `get_effective_capability_rank()` returns `max(0, min(100, score))` (`providers/shared/model_capabilities.py:111`). Every model with `intelligence_score` 18 or higher therefore ties, and ties sort by name. `listmodels` lists grok-4.5 above grok-4.7, Opus 5.5 last among the Opus entries and gpt-6-* after gpt-5.2. The auto-mode "Top models" hint in the tool schema shows gpt-5.2 and OpenRouter Opus 4.6/4.7 and none of the new flagships. Actual routing uses the hardcoded route lists and is unaffected. The 9dd618f commit message claims an ordering that does not happen.
+- **Fix direction:** remove the upper clamp (`return max(0, score)`). In simulation the unit suite passed and the top five became fable-5.1, gpt-6-astra, gemini-3.1-pro, gpt-6-sol and grok-4.7. Then spread the Anthropic scores, since every Opus entry is at 19. A secondary sort key would also work, but it needs edits at five sort sites.
+
+### Gemini `find_best` ranks by reverse string order
+- **Recorded:** 2026-09-27 (code dates from 2025-08)
+- **What:** `sorted(candidates, reverse=True)[0]` (`providers/gemini.py:482`) ranks gemini-3.5-flash-lite above gemini-3.5-flash, and the alias `gemini3.5-flash` above gemini-3.8-flash. With `GOOGLE_ALLOWED_MODELS=gemini-3.5-flash,gemini-3.5-flash-lite`, EXTENDED_REASONING and BALANCED run on flash-lite (score 13) instead of flash (19). This needs a restriction, auto mode and no xAI key. Unrestricted routing is correct.
+- **Fix direction:** resolve candidates through `_resolve_model_name` and dedupe; a canonical-only filter would empty an alias-only allowlist. Rank by `(intelligence_score, name)`, optionally keep FAST_RESPONSE preferring flash-lite, and add a regression test for the flash/flash-lite restriction.
+
+### OpenAI/xAI FAST_RESPONSE fallback returns the most capable model
+- **Recorded:** 2026-09-27 (code predates the GPT-6 work)
+- **What:** when no allowed model is on the FAST list, `providers/openai.py:155` and `providers/xai.py:95` return `allowed_models[0]`. That list is sorted by rank, highest first, so `OPENAI_ALLOWED_MODELS=gpt-5-nano,gpt-6-astra` routes chat to gpt-6-astra. gpt-5-nano, gpt-5.6-terra and gpt-4.1 are in no OpenAI route list. This needs an OpenAI restriction with OpenAI as the first provider that has allowed models; none of the documented examples trigger it.
+- **Fix direction:** in the FAST_RESPONSE branch, fall back to the lowest-rank allowed canonical model: walk the list from the end and skip aliases, because `allowed_models` contains aliases. Put this in a shared helper used by both providers. Add gpt-5-nano to the end of the FAST list, and gpt-5.6-terra and gpt-4.1 to BALANCED.
+
+### MCP server does not register the native Anthropic provider
+- **Recorded:** 2026-09-27
+- **What:** `server.configure_providers()` never registers `AnthropicProvider`; only the CLI does (`src/zen_cli/main.py:167-170`). This holds even though the live MCP entry passes `ANTHROPIC_API_KEY`. In the MCP server, Claude models therefore resolve only through OpenRouter, and the dash-form native IDs (`claude-opus-5-5`, `claude-fable-5-1`, `claude-sonnet-5`, ...) return "not available". The zen-skill now recommends `opus` / `fable` / `sonnet`, which resolve in both.
+- **Decision needed (billing):** there are two options:
+  1. Register ANTHROPIC in `server.configure_providers()`, mirroring the CLI. This moves `opus` / `fable` / `sonnet` from OpenRouter to native Anthropic billing.
+  2. Add the dash-form native IDs as aliases on the `anthropic/*` OpenRouter entries. This was verified to resolve with no collisions.
 
 ## Watchlist (not addable yet)
 

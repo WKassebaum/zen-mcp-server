@@ -8,7 +8,7 @@
 
 Let every zen tool that takes `files` send PDF, audio and video to models that can read them natively, and fail loudly — never silently — when the chosen model cannot.
 
-Today a video or PDF passed with `--files` is decoded as UTF-8 with replacement characters, so the model receives garbage tokens. Only images have a media path, and only through a separate `images` field.
+Today a video or PDF passed with `--files` goes through the text reader (`utils/file_utils.read_file_content`, `max_size=1_000_000`). Files of up to 1,000,000 bytes are decoded as UTF-8 with replacement characters, so the model receives garbage tokens. Larger files are replaced by a `--- FILE TOO LARGE: ... ---` marker, so the model sees none of the content. Only images have a media path, and only through a separate `images` field.
 
 ## Background: why this is not "Gemini Omni"
 
@@ -71,7 +71,9 @@ All checks run before any upload or API call.
 
 - **Explicit model:** `_validate_media_support` compares required kinds with the model's flags and raises `ToolExecutionError` naming the missing kind and up to five capable models available with the current keys.
 - **Auto mode:** `get_preferred_fallback_model(category, required_media=frozenset())`. `_get_allowed_models_for_provider` drops incapable models before each provider's `get_preferred_model` runs, so the existing route lists keep working. If nothing can serve the request, the error names the blocking kind and the provider keys that would enable it.
-- **Size:** inline caps — Anthropic 32 MB, OpenAI 50 MB, xAI 50 MB, Gemini 100 MB. Gemini uploads above its cap; others fail fast with size, cap and a pointer to Gemini.
+- **Size:** inline caps — Anthropic 32 MB, OpenAI 50 MB, xAI 50 MB, Gemini 100 MB per request. Gemini uploads above its cap; others fail fast with size, cap and a pointer to Gemini.
+  - Anthropic's 32 MB limit applies to the whole request, and media travels base64-encoded (4/3 inflation), so raw media tops out at roughly 23-24 MB once the prompt is included. Check the encoded size, not the file size.
+  - Gemini: phase 1 keeps raw inline media under 70 MB (`INLINE_MEDIA_MAX_BYTES`, sized for base64 inflation against the 100 MB request cap) and uploads the rest to the Files API. Live tests on 2026-09-26 accepted 57-71 MB PDFs inline, so the provider may allow more; the 70 MB rule stays as the safe bound.
 - **Page and duration limits** are not pre-checked; the provider's error is surfaced verbatim.
 - **consensus** pre-flights every model and fails before the first call if any cannot take the media.
 - **clink** is unchanged; CLI agents read paths themselves. `zen clink --cli-name grok` already handles PDF (Read tool), audio (local `whisper-cli`) and video (`ffmpeg` frames) and is the documented agentic fallback.
@@ -84,7 +86,7 @@ All checks run before any upload or API call.
 - Gemini upload cache `~/.zen/media_uploads.json`, keyed by `sha256(file) + model family`, storing `{file_uri, mime, expires_at}`. Reuse within Google's 48 h retention (expire 1 h early). A 404 on reuse evicts and re-uploads once. Uploads poll `files.get` until `ACTIVE` with a 10-minute timeout. zen never deletes uploads; Google's 48 h expiry does.
 - Privacy note for docs: media above Gemini's inline cap is stored on Google's servers for up to 48 hours.
 - xAI: inline only in v1.
-- Metadata per response: `media_attached: [{name, kind, bytes, transport: inline|uploaded|cached}]`; xAI also `server_side_tools_used`.
+- Metadata per response: `media_attached: [{name, kind, bytes, transport: inline|uploaded|cached}]`; xAI also `num_server_side_tools_used` and `num_sources_used` (usage fields on xAI `/v1/responses`; Chat Completions reports only `num_sources_used`).
 
 Note: images are stored per turn but never re-sent on continuation (`get_conversation_image_list` has no callers). Media deliberately differs; aligning images is a separate backlog item.
 
@@ -95,7 +97,13 @@ Note: images are stored per turn but never re-sent on continuation (`get_convers
 **Caching:**
 - OpenAI, xAI and Gemini get automatic prefix caching from the layout.
 - Claude: `cache_control: {type: "ephemeral"}` on the last media block.
-- Each provider reports `cached_input_tokens` into `ModelResponse.usage` (Gemini `cachedContentTokenCount`, Claude `cache_read_input_tokens`, OpenAI `prompt_tokens_details.cached_tokens`, xAI `cached_prompt_text_tokens`). Visible in `--json`.
+- Each provider reports `cached_input_tokens` into `ModelResponse.usage`, read from the field its endpoint returns (checked 2026-09-27):
+  - Chat Completions (OpenAI, xAI, OpenRouter): `usage.prompt_tokens_details.cached_tokens`
+  - Responses API (OpenAI, xAI): `usage.input_tokens_details.cached_tokens`
+  - Gemini: `usage_metadata.cached_content_token_count` in the Python SDK (`cachedContentTokenCount` over REST)
+  - Claude: `usage.cache_read_input_tokens`
+
+  xAI's server-side tool counters (`num_server_side_tools_used`, `num_sources_used`) are separate usage fields, not cache metrics. Visible in `--json`.
 
 **Errors:**
 
@@ -107,7 +115,7 @@ Note: images are stored per turn but never re-sent on continuation (`get_convers
 | Gemini upload timeout / `FAILED` | Error with the Files API state; nothing half-cached. |
 | Cached URI 404 | Evict, re-upload once, then error. |
 | Provider rejects media | Provider error verbatim plus model name. No silent retry without the media. |
-| xAI `server_side_tools_used > 0` | Succeeds; logged warning that paid retrieval mode was used. |
+| xAI `num_server_side_tools_used > 0` | Succeeds; logged warning that paid retrieval mode was used. |
 
 ## 5. Testing and rollout
 
