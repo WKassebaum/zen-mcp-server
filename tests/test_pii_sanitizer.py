@@ -71,7 +71,31 @@ class TestPIISanitizer(unittest.TestCase):
         self.assertEqual(sanitized["API-Key"], "sk-SANITIZED")
         self.assertEqual(sanitized["Content-Type"], "application/json")
         self.assertEqual(sanitized["User-Agent"], "MyApp/1.0")
+        # The request Cookie header is intentionally NOT in ACCOUNT_IDENTIFYING_HEADERS:
+        # it keeps pattern-based sanitization (the email is scrubbed, the rest survives).
         self.assertIn("user@example.com", sanitized["Cookie"])
+
+    def test_account_identifying_response_headers_fully_blanked(self):
+        """Account/org identifiers and Set-Cookie are replaced wholesale, whatever the header case."""
+        headers = {
+            "Set-Cookie": "__cf_bm=abc123def456; path=/; expires=Sat, 26-Sep-26 20:00:00 GMT; HttpOnly; Secure",
+            "OpenAI-Organization": "org-abc123def456",
+            "openai-project": "proj_AbC123dEf456",
+            "Anthropic-Organization-Id": "0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b",
+            "openai-processing-ms": "812",
+        }
+
+        # The values carry no API-key/email/IP shapes, so only the header rule can blank them.
+        for name in ("Set-Cookie", "OpenAI-Organization", "openai-project", "Anthropic-Organization-Id"):
+            self.assertNotEqual(self.sanitizer.sanitize_string(headers[name]), "SANITIZED")
+
+        sanitized = self.sanitizer.sanitize_headers(headers)
+
+        for name in ("Set-Cookie", "OpenAI-Organization", "openai-project", "Anthropic-Organization-Id"):
+            with self.subTest(header=name):
+                self.assertEqual(sanitized[name], "SANITIZED")
+        # Non-identifying response headers pass through pattern-based sanitization unchanged
+        self.assertEqual(sanitized["openai-processing-ms"], "812")
 
     def test_nested_structure_sanitization(self):
         """Test sanitization of nested data structures."""
