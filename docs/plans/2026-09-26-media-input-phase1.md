@@ -130,6 +130,8 @@ git commit -m "test(media): add PDF/audio/video probe fixtures and generator"
 
 ### Task 2: `utils/media.py` — classification
 
+> **Amended after code review (implemented in the Task 2 follow-up commit):** `MediaAttachment` gained `source_path: str`, the resolved path that passed validation. Every later open, read or upload uses `source_path`; `path` stays the caller's string for display and comparisons. Sizes come from the resolved file (`OSError` means not media), `classify_media` dedupes on the resolved path, rejects a bare `str` with `TypeError`, and `FILE_ARGUMENT_KEYS` no longer includes `files` (no request model reads it). Positive and negative header tests were added for ogg, webm, mpg/mpeg (program stream), mov and m4a. The code blocks below are the original task text; the committed module is authoritative.
+
 **Files:**
 - Create: `utils/media.py`
 - Test: `tests/test_media_utils.py`
@@ -766,7 +768,7 @@ def _bmff_duration_s(handle: BinaryIO, file_size: int) -> float | None:
 def _duration_s(attachment: MediaAttachment) -> float | None:
     """Exact duration where the container header makes it cheap (WAV, MP4/MOV/M4A), else None."""
     try:
-        with open(attachment.path, "rb") as handle:
+        with open(attachment.source_path, "rb") as handle:
             if attachment.mime_type == "audio/wav":
                 return _wav_duration_s(handle)
             if attachment.mime_type in ("video/mp4", "video/quicktime", "audio/mp4"):
@@ -2317,6 +2319,8 @@ git commit -m "feat(tools): validate and pass native media in simple tools" -m "
 
 ### Task 12: Auto mode and the MCP boundary
 
+> **Also required (from the Task 2 review):** `server.py` `reconstruct_thread_context` (~line 1119) catches `ValueError` from `ModelContext.from_arguments` and calls `get_preferred_fallback_model(tool.get_model_category())` to size history on continuations. Pass `required_media=media_kinds_from_arguments(arguments)` there as well, and if that call raises `MediaNotSupportedError`, surface it as the same `ToolExecutionError` the auto-mode block raises — never swallow it into a different fallback. Add a continuation test with media and `model=auto` where no provider can take the media: it must fail with the media message, not pick an incapable model.
+
 **Files:**
 - Modify: `server.py` — the auto-mode block (line 812) and the file-size check (line 856)
 - Modify: `tools/shared/base_tool.py` — `_resolve_model_context` CLI auto branch (line 1414)
@@ -2582,6 +2586,8 @@ git commit -m "feat(auto-mode): route media requests to capable models" -m "Co-A
 ---
 
 ### Task 13: Workflow tools (debug, analyze, codereview, …)
+
+> **Also required (from the Task 2 review):** `tools/shared/base_models.py` `convert_string_to_list` (~line 126) turns a bare string in `files_checked` / `relevant_files` / `relevant_context` into `[]` with only a log warning, which silently drops a media file (and any text file). Change it to wrap the string: `return [v]` (keep the warning, reworded). Update any existing test that asserts the empty-list conversion, and add one that a bare-string `relevant_files` pointing at `otter.mp4` reaches media validation.
 
 **Files:**
 - Modify: `tools/workflow/workflow_mixin.py`
@@ -3111,7 +3117,7 @@ Helpers, directly above `_process_image`:
         in the response metadata (media_attached[*]["file_name"]) so a user can delete one sooner.
         """
         uploaded = self.client.files.upload(
-            file=attachment.path, config={"mime_type": attachment.mime_type, "display_name": attachment.name}
+            file=attachment.source_path, config={"mime_type": attachment.mime_type, "display_name": attachment.name}
         )
         deadline = time.monotonic() + self.UPLOAD_TIMEOUT_S
         while uploaded.state is not None and uploaded.state.name == "PROCESSING":
@@ -3144,7 +3150,7 @@ Helpers, directly above `_process_image`:
                 parts.append({"file_data": file_data})
                 record.update(transport="uploaded", file_name=uploaded.name)
             else:
-                data = base64.b64encode(Path(attachment.path).read_bytes()).decode()
+                data = base64.b64encode(Path(attachment.source_path).read_bytes()).decode()
                 parts.append({"inline_data": {"mime_type": attachment.mime_type, "data": data}})
                 record["transport"] = "inline"
             attached.append(record)
