@@ -3378,7 +3378,7 @@ from utils.media import classify_media, estimate_media_tokens
 FIXTURES = Path(__file__).parent / "fixtures" / "media"
 CASES = {
     "pdf": ("zebra.pdf", "What code is written in this PDF? Reply with only the code.", ("ZEBRA-42",)),
-    "audio": ("pelican.wav", "What code word and number are spoken? Reply with only them.", ("PELICAN",)),
+    "audio": ("pelican.wav", "What code word and number are spoken? Reply with only them.", ("PELICAN", ("7", "SEVEN"))),
     "video": ("otter.mp4", "What text is shown in this video? Reply with only that text.", ("OTTER-9",)),
 }
 GEMINI = [
@@ -3397,7 +3397,11 @@ def test_gemini_reads_media(model, kind):
         question, model, system_prompt="Answer tersely.", media=media
     )
     text = response.content.upper().replace(" ", "")
-    assert all(marker in text for marker in markers), response.content
+    # A marker is a string, or a tuple of acceptable alternatives. The audio probe must include the number,
+    # not just "pelican", which also appears in the fixture's filename.
+    assert all(
+        any(alt in text for alt in marker) if isinstance(marker, tuple) else marker in text for marker in markers
+    ), response.content
     # The estimate reserved from the text budget (utils/media.py) must not undercount real usage.
     input_tokens = response.usage.get("input_tokens")
     estimate = estimate_media_tokens(media)
