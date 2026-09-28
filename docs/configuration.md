@@ -63,7 +63,7 @@ CUSTOM_MODEL_NAME=llama3.2                          # Default model
 
 **Default Model Selection:**
 ```env
-# Options: 'auto', 'pro', 'flash', 'gpt5.2', 'gpt5.1-codex', 'gpt5.1-codex-mini', 'o3', 'o3-mini', 'o4-mini', etc.
+# Options: 'auto', 'pro', 'flash', 'sol', 'luna', 'gpt5.2', 'o3', 'o3-mini', 'o4-mini', etc.
 DEFAULT_MODEL=auto  # Claude picks best model for each task (recommended)
 ```
 
@@ -81,13 +81,13 @@ DEFAULT_MODEL=auto  # Claude picks best model for each task (recommended)
 
   | Provider | Canonical Models | Notable Aliases |
   |----------|-----------------|-----------------|
-  | OpenAI | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5-pro`, `gpt-5.5`, `gpt-5.2`, `gpt-5.1-codex`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `o3`, `o3-mini`, `o4-mini` | `gpt-6`, `astra`, `sol`, `luna`, `terra`, `codex`, `gpt5.2`, `codex-mini`, `mini`, `nano`, `o3mini`, `o4mini` |
+  | OpenAI | `gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5-pro`, `gpt-5.5`, `gpt-5.2`, `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-4.1`, `o3`, `o3-mini`, `o4-mini` | `gpt-6`, `astra`, `sol`, `luna`, `terra`, `codex`, `gpt5.2`, `mini`, `nano`, `o3mini`, `o4mini` |
   | Gemini | `gemini-3.1-pro-preview`, `gemini-3.8-flash`, `gemini-3.7-flash`, `gemini-3.6-flash`, `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-2.5-pro`, `gemini-2.5-flash` | `pro`, `gemini-pro`, `flash`, `flashlite`, `flash-2.5` |
   | X.AI | `grok-4.7`, `grok-4.6`, `grok-4.5`, `grok-4.3`, `grok-4.20-0309-reasoning`, `grok-build-0.1` | `grok`, `grok4`, `grok-code`, `grokbuild` |
   | OpenRouter | See `conf/openrouter_models.json` for the continually evolving catalogue | e.g., `opus`, `sonnet`, `flash`, `pro`, `mistral` |
   | Custom | User-managed entries such as `llama3.2` | Define your own aliases per entry |
 
-  Latest OpenAI entries (`gpt-5.2`, `gpt-5.1-codex`, `gpt-5.1-codex-mini`, `gpt-5.2-pro`) expose 400K-token contexts with large outputs, reasoning-token support, and multimodal inputs. `gpt-5.1-codex` and `gpt-5.2-pro` are Responses-only with streaming disabled, while the base `gpt-5.2` and Codex mini support streaming along with full code-generation flags. Update your manifests if you run custom deployments so these capability bits stay accurate.
+  The GPT-6 entries (`gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`) expose 1.05M-token contexts and are called through the Responses API (`use_openai_response_api`). The older GPT-5.2 entries (`gpt-5.2`, `gpt-5.2-pro`) expose 400K-token contexts; `gpt-5.2-pro` is Responses-only with streaming disabled, while the base `gpt-5.2` supports streaming along with full code-generation flags. OpenAI shut down the native `gpt-5-codex`, `gpt-5.1-codex` and `gpt-5.1-codex-mini` models on 2026-07-23, so they are no longer in `conf/openai_models.json`; the `codex` alias now resolves to `gpt-5.6-sol`, and `openai/gpt-5.1-codex(-mini)` remain available through OpenRouter. Update your manifests if you run custom deployments so these capability bits stay accurate.
 
   > **Tip:** Copy the JSON file you need, customise it, and point the corresponding `*_MODELS_CONFIG_PATH` environment variable to your version. This lets you enable or disable capabilities (JSON mode, function calling, temperature support, code generation) without editing Python.
 
@@ -173,7 +173,7 @@ Control which models can be used from each provider for cost control, compliance
 # Empty or unset = all models allowed (default)
 
 # OpenAI model restrictions
-OPENAI_ALLOWED_MODELS=gpt-5.1-codex-mini,gpt-5-mini,o3-mini,o4-mini,mini
+OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o3-mini,o4-mini,mini
 
 # Gemini model restrictions  
 GOOGLE_ALLOWED_MODELS=flash,pro
@@ -198,7 +198,7 @@ OPENAI_ALLOWED_MODELS=o4-mini
 GOOGLE_ALLOWED_MODELS=flash
 
 # High-performance setup
-OPENAI_ALLOWED_MODELS=gpt-5.1-codex,gpt-5.2
+OPENAI_ALLOWED_MODELS=gpt-6-astra,gpt-6-sol
 GOOGLE_ALLOWED_MODELS=pro
 
 # Single model standardization
@@ -207,7 +207,7 @@ GOOGLE_ALLOWED_MODELS=pro
 
 # Balanced selection
 GOOGLE_ALLOWED_MODELS=flash,pro
-OPENAI_ALLOWED_MODELS=gpt-5.1-codex-mini,gpt-5-mini,o4-mini
+OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o4-mini
 XAI_ALLOWED_MODELS=grok,grok-4.1-fast-reasoning
 ```
 
@@ -250,7 +250,7 @@ DEFAULT_MODEL=auto
 GEMINI_API_KEY=your-gemini-key
 OPENAI_API_KEY=your-openai-key
 GOOGLE_ALLOWED_MODELS=flash,pro
-OPENAI_ALLOWED_MODELS=gpt-5.1-codex-mini,gpt-5-mini,o4-mini
+OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o4-mini
 XAI_API_KEY=your-xai-key
 LOG_LEVEL=DEBUG
 CONVERSATION_TIMEOUT_HOURS=1
@@ -263,7 +263,7 @@ DEFAULT_MODEL=auto
 GEMINI_API_KEY=your-gemini-key
 OPENAI_API_KEY=your-openai-key
 GOOGLE_ALLOWED_MODELS=flash
-OPENAI_ALLOWED_MODELS=gpt-5.1-codex-mini,o4-mini
+OPENAI_ALLOWED_MODELS=gpt-6-luna,o4-mini
 LOG_LEVEL=INFO
 CONVERSATION_TIMEOUT_HOURS=3
 ```

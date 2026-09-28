@@ -214,8 +214,9 @@ class TestOpenAIProvider:
         assert provider.validate_model_name("o4mini")
         assert provider.validate_model_name("o4-mini")
         assert provider.validate_model_name("gpt-5.2")
-        assert provider.validate_model_name("gpt-5.1-codex")
-        assert provider.validate_model_name("gpt-5.1-codex-mini")
+        # Native Codex models were shut down 2026-07-23 and pruned from the catalog
+        assert not provider.validate_model_name("gpt-5.1-codex")
+        assert not provider.validate_model_name("gpt-5.1-codex-mini")
         assert not provider.validate_model_name("gpt-4o")
         assert not provider.validate_model_name("invalid-model")
 
@@ -234,12 +235,3 @@ class TestOpenAIProvider:
         base = provider.get_capabilities("gpt-5.2")
         assert base.supports_streaming
         assert base.allow_code_generation
-
-        codex = provider.get_capabilities("gpt-5.1-codex")
-        assert not codex.supports_streaming
-        assert codex.use_openai_response_api
-        assert codex.allow_code_generation
-
-        codex_mini = provider.get_capabilities("gpt-5.1-codex-mini")
-        assert codex_mini.supports_streaming
-        assert codex_mini.allow_code_generation

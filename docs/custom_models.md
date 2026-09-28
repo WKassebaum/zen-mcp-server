@@ -82,15 +82,13 @@ Native catalogues (`conf/openai_models.json`, `conf/gemini_models.json`, `conf/x
 
 ### Latest OpenAI releases
 
-OpenAI's November 13, 2025 drop introduced `gpt-5.1-codex` and `gpt-5.1-codex-mini`, while the flagship base model is now `gpt-5.2`. All of these ship in `conf/openai_models.json`:
+`gpt-5.2` still ships in `conf/openai_models.json`. OpenAI shut down the native `gpt-5-codex`, `gpt-5.1-codex` and `gpt-5.1-codex-mini` models on 2026-07-23, so they were removed from that manifest; the `codex` alias now resolves to `gpt-5.6-sol`, and `openai/gpt-5.1-codex` / `openai/gpt-5.1-codex-mini` remain in `conf/openrouter_models.json`:
 
 | Model | Highlights | Notes |
 |-------|------------|-------|
 | `gpt-5.2` | 400K context, 128K output, multimodal IO, configurable reasoning effort | Streaming enabled; use for balanced agent/coding flows |
-| `gpt-5.1-codex` | Responses-only agentic coding version of GPT-5.1 | Streaming disabled; `use_openai_response_api=true`; `allow_code_generation=true` |
-| `gpt-5.1-codex-mini` | Cost-efficient Codex variant | Streaming enabled, retains 400K context and code-generation flag |
 
-These entries include pricing-friendly aliases (`gpt5.2`, `codex-5.1`, `codex-mini`) plus updated capability flags (`supports_extended_thinking`, `allow_code_generation`). Copy the manifest if you operate custom deployment names so downstream providers inherit the same metadata.
+These entries include aliases (`gpt5.2`) plus capability flags (`supports_extended_thinking`, `allow_code_generation`). Copy the manifest if you operate custom deployment names so downstream providers inherit the same metadata.
 
 Because providers load the manifests on import, you can tweak capabilities without touching Python. Restart the server after editing the JSON files so changes are picked up.
 

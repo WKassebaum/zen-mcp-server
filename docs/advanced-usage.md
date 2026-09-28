@@ -41,8 +41,6 @@ Regardless of your default configuration, you can specify models per request:
 | **`o4-mini`** | OpenAI | 200K tokens | Latest reasoning model | Optimized for shorter contexts |
 | **`gpt4.1`** | OpenAI | 1M tokens | Latest GPT-4 with extended context | Large codebase analysis, comprehensive reviews |
 | **`gpt5.2`** (GPT-5.2) | OpenAI | 400K tokens | Flagship reasoning model with configurable thinking effort | Complex problems, balanced agent/coding flows |
-| **`gpt5.1-codex`** (GPT-5.1 Codex) | OpenAI | 400K tokens | Agentic coding specialization (Responses API) | Advanced coding tasks, structured code generation |
-| **`gpt5.1-codex-mini`** (GPT-5.1 Codex mini) | OpenAI | 400K tokens | Cost-efficient Codex variant with streaming | Balanced coding tasks, cost-conscious development |
 | **`gpt5`** (GPT-5) | OpenAI | 400K tokens | Advanced model with reasoning support | Complex problems requiring advanced reasoning |
 | **`gpt5-mini`** (GPT-5 Mini) | OpenAI | 400K tokens | Efficient variant with reasoning | Balanced performance and capability |
 | **`gpt5-nano`** (GPT-5 Nano) | OpenAI | 400K tokens | Fastest, cheapest GPT-5 variant | Summarization and classification tasks |
@@ -165,7 +163,7 @@ All tools that work with files support **both individual files and entire direct
 **`analyze`** - Analyze files or directories
 - `files`: List of file paths or directories (required)
 - `question`: What to analyze (required)  
-- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5.1-codex|gpt5.1-codex-mini|gpt5|gpt5-mini|gpt5-nano (default: server default)
+- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5|gpt5-mini|gpt5-nano (default: server default)
 - `analysis_type`: architecture|performance|security|quality|general
 - `output_format`: summary|detailed|actionable
 - `thinking_mode`: minimal|low|medium|high|max (default: medium, Gemini only)
@@ -180,7 +178,7 @@ All tools that work with files support **both individual files and entire direct
 
 **`codereview`** - Review code files or directories
 - `files`: List of file paths or directories (required)
-- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5.1-codex|gpt5.1-codex-mini|gpt5|gpt5-mini|gpt5-nano (default: server default)
+- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5|gpt5-mini|gpt5-nano (default: server default)
 - `review_type`: full|security|performance|quick
 - `focus_on`: Specific aspects to focus on
 - `standards`: Coding standards to enforce
@@ -196,7 +194,7 @@ All tools that work with files support **both individual files and entire direct
 
 **`debug`** - Debug with file context
 - `error_description`: Description of the issue (required)
-- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5.1-codex|gpt5.1-codex-mini|gpt5|gpt5-mini|gpt5-nano (default: server default)
+- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5|gpt5-mini|gpt5-nano (default: server default)
 - `error_context`: Stack trace or logs
 - `files`: Files or directories related to the issue
 - `runtime_info`: Environment details
@@ -212,7 +210,7 @@ All tools that work with files support **both individual files and entire direct
 
 **`thinkdeep`** - Extended analysis with file context
 - `current_analysis`: Your current thinking (required)
-- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5.1-codex|gpt5.1-codex-mini|gpt5|gpt5-mini|gpt5-nano (default: server default)
+- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5|gpt5-mini|gpt5-nano (default: server default)
 - `problem_context`: Additional context
 - `focus_areas`: Specific aspects to focus on
 - `files`: Files or directories for context
@@ -228,7 +226,7 @@ All tools that work with files support **both individual files and entire direct
 **`testgen`** - Comprehensive test generation with edge case coverage
 - `files`: Code files or directories to generate tests for (required)
 - `prompt`: Description of what to test, testing objectives, and scope (required)
-- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5.1-codex|gpt5.1-codex-mini|gpt5|gpt5-mini|gpt5-nano (default: server default)
+- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5|gpt5-mini|gpt5-nano (default: server default)
 - `test_examples`: Optional existing test files as style/pattern reference
 - `thinking_mode`: minimal|low|medium|high|max (default: medium, Gemini only)
 
@@ -243,7 +241,7 @@ All tools that work with files support **both individual files and entire direct
 - `files`: Code files or directories to analyze for refactoring opportunities (required)
 - `prompt`: Description of refactoring goals, context, and specific areas of focus (required)
 - `refactor_type`: codesmells|decompose|modernize|organization (required)
-- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5.1-codex|gpt5.1-codex-mini|gpt5|gpt5-mini|gpt5-nano (default: server default)
+- `model`: auto|pro|flash|flashlite|o3|o3-mini|o4-mini|gpt4.1|gpt5.2|gpt5|gpt5-mini|gpt5-nano (default: server default)
 - `focus_areas`: Specific areas to focus on (e.g., 'performance', 'readability', 'maintainability', 'security')
 - `style_guide_examples`: Optional existing code files to use as style/pattern reference
 - `thinking_mode`: minimal|low|medium|high|max (default: medium, Gemini only)

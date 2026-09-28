@@ -53,8 +53,11 @@ class TestOpenAIProvider:
         assert provider.validate_model_name("gpt-5") is True
         assert provider.validate_model_name("gpt-5-mini") is True
         assert provider.validate_model_name("gpt-5.2") is True
-        assert provider.validate_model_name("gpt-5.1-codex") is True
-        assert provider.validate_model_name("gpt-5.1-codex-mini") is True
+        # The native Codex models were shut down 2026-07-23 (model_not_found) and pruned
+        # from the native catalog; OpenRouter still serves openai/gpt-5.1-codex(-mini).
+        assert provider.validate_model_name("gpt-5.1-codex") is False
+        assert provider.validate_model_name("gpt-5.1-codex-mini") is False
+        assert provider.validate_model_name("gpt-5-codex") is False
 
         # Test valid aliases
         assert provider.validate_model_name("mini") is True
@@ -66,8 +69,9 @@ class TestOpenAIProvider:
         assert provider.validate_model_name("gpt5mini") is True
         assert provider.validate_model_name("gpt5.2") is True
         assert provider.validate_model_name("gpt5.1") is True
-        assert provider.validate_model_name("gpt5.1-codex") is True
-        assert provider.validate_model_name("codex-mini") is True
+        assert provider.validate_model_name("codex") is True  # now served by gpt-5.6-sol
+        assert provider.validate_model_name("gpt5.1-codex") is False
+        assert provider.validate_model_name("codex-mini") is False
 
         # Test invalid model
         assert provider.validate_model_name("invalid-model") is False
@@ -88,8 +92,7 @@ class TestOpenAIProvider:
         assert provider._resolve_model_name("gpt5mini") == "gpt-5-mini"
         assert provider._resolve_model_name("gpt5.2") == "gpt-5.2"
         assert provider._resolve_model_name("gpt5.1") == "gpt-5.1"
-        assert provider._resolve_model_name("gpt5.1-codex") == "gpt-5.1-codex"
-        assert provider._resolve_model_name("codex-mini") == "gpt-5.1-codex-mini"
+        assert provider._resolve_model_name("codex") == "gpt-5.6-sol"
 
         # Test full name passthrough
         assert provider._resolve_model_name("o3") == "o3"
@@ -101,8 +104,6 @@ class TestOpenAIProvider:
         assert provider._resolve_model_name("gpt-5-mini") == "gpt-5-mini"
         assert provider._resolve_model_name("gpt-5.2") == "gpt-5.2"
         assert provider._resolve_model_name("gpt-5.1") == "gpt-5.1"
-        assert provider._resolve_model_name("gpt-5.1-codex") == "gpt-5.1-codex"
-        assert provider._resolve_model_name("gpt-5.1-codex-mini") == "gpt-5.1-codex-mini"
 
     def test_get_capabilities_o3(self):
         """Test getting model capabilities for O3."""
@@ -174,24 +175,22 @@ class TestOpenAIProvider:
         assert capabilities.supports_json_mode is True
         assert capabilities.allow_code_generation is True
 
-    def test_get_capabilities_gpt51_codex(self):
-        """Test GPT-5.1 Codex is responses-only and non-streaming."""
+    def test_shut_down_codex_models_not_in_native_catalog(self):
+        """gpt-5-codex, gpt-5.1-codex and gpt-5.1-codex-mini return model_not_found natively.
+
+        They were pruned from conf/openai_models.json and every route list, so neither
+        explicit requests nor auto mode can send them to the native OpenAI API.
+        """
+        from tools.models import ToolModelCategory
+
         provider = OpenAIModelProvider("test-key")
+        shut_down = {"gpt-5-codex", "gpt-5.1-codex", "gpt-5.1-codex-mini"}
 
-        capabilities = provider.get_capabilities("gpt-5.1-codex")
-        assert capabilities.model_name == "gpt-5.1-codex"
-        assert capabilities.supports_streaming is False
-        assert capabilities.use_openai_response_api is True
-        assert capabilities.allow_code_generation is True
-
-    def test_get_capabilities_gpt51_codex_mini(self):
-        """Test GPT-5.1 Codex mini exposes streaming and code generation."""
-        provider = OpenAIModelProvider("test-key")
-
-        capabilities = provider.get_capabilities("gpt-5.1-codex-mini")
-        assert capabilities.model_name == "gpt-5.1-codex-mini"
-        assert capabilities.supports_streaming is True
-        assert capabilities.allow_code_generation is True
+        assert shut_down.isdisjoint(provider.MODEL_CAPABILITIES)
+        # Codex IDs listed first: if any route list still named one, it would win over gpt-5
+        allowed = ["gpt-5.1-codex", "gpt-5-codex", "gpt-5.1-codex-mini", "gpt-5"]
+        for category in ToolModelCategory:
+            assert provider.get_preferred_model(category, allowed) == "gpt-5"
 
     @patch("providers.openai_compatible.OpenAI")
     def test_generate_content_resolves_alias_before_api_call(self, mock_openai_class):
