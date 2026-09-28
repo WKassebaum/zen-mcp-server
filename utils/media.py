@@ -298,7 +298,8 @@ def _wav_duration_s(handle: BinaryIO) -> float | None:
         if chunk_id == b"fmt ":
             byte_rate = int.from_bytes(handle.read(body_size)[8:12], "little")
         elif chunk_id == b"data":
-            return chunk_size / byte_rate if byte_rate else None
+            # A data size of 0 means a streaming writer never patched the header: treat as unknown.
+            return chunk_size / byte_rate if byte_rate and chunk_size else None
         else:
             handle.seek(body_size, 1)
 
@@ -326,7 +327,8 @@ def _bmff_duration_s(handle: BinaryIO, file_size: int) -> float | None:
                 timescale, duration = int.from_bytes(body[20:24], "big"), int.from_bytes(body[24:32], "big")
             else:
                 timescale, duration = int.from_bytes(body[12:16], "big"), int.from_bytes(body[16:20], "big")
-            return duration / timescale if timescale else None
+            # Fragmented MP4s often leave the duration at 0 (it lives in the fragments): unknown.
+            return duration / timescale if timescale and duration else None
         offset += size
     return None
 

@@ -64,6 +64,34 @@ def test_estimate_falls_back_to_size_without_a_header(tmp_path):
     assert estimate_media_tokens(classify_media([str(clip)])[1]) == 300 * 33  # 2 MiB at 64 kB/s = 32.8 s
 
 
+def test_estimate_treats_zero_movie_duration_as_unknown(tmp_path):
+    # Fragmented MP4s often leave the mvhd duration at 0; the real length lives in the fragments.
+    mvhd = _box(b"mvhd", b"\x00" * 12 + (1000).to_bytes(4, "big") + (0).to_bytes(4, "big") + b"\x00" * 80)
+    clip = tmp_path / "fragmented.mp4"
+    with clip.open("wb") as handle:
+        handle.write(_box(b"ftyp", b"iso5\x00\x00\x02\x00iso5") + _box(b"moov", mvhd))
+        handle.truncate(10 * 1024 * 1024)
+    assert estimate_media_tokens(classify_media([str(clip)])[1]) == 300 * 164  # 10 MiB at 64 kB/s = 163.8 s
+
+
+def test_estimate_treats_zero_wav_data_size_as_unknown(tmp_path):
+    # Streaming WAV writers may never patch the data chunk size, leaving it at 0.
+    fmt = (
+        (1).to_bytes(2, "little")  # PCM
+        + (1).to_bytes(2, "little")  # mono
+        + (16_000).to_bytes(4, "little")  # sample rate
+        + (32_000).to_bytes(4, "little")  # byte rate
+        + (2).to_bytes(2, "little")  # block align
+        + (16).to_bytes(2, "little")  # bits per sample
+    )
+    recording = tmp_path / "streamed.wav"
+    with recording.open("wb") as handle:
+        handle.write(b"RIFF" + (0).to_bytes(4, "little") + b"WAVE")
+        handle.write(b"fmt " + len(fmt).to_bytes(4, "little") + fmt + b"data" + (0).to_bytes(4, "little"))
+        handle.truncate(1024 * 1024)
+    assert estimate_media_tokens(classify_media([str(recording)])[1]) == 32 * 132  # 1 MiB at 8 kB/s = 131.1 s
+
+
 def test_media_prompt_section_lists_every_attachment():
     section = media_prompt_section(classify_media([PDF, MP4])[1])
     assert section.count("--- MEDIA FILE:") == 2
