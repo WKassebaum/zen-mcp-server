@@ -107,7 +107,7 @@ The `allow_code_generation` capability enables models to generate complete, prod
 
 **When to Enable:**
 
-- **Enable for**: Models MORE capable than your primary CLI's model (e.g., GPT-5.1 Codex, GPT-5.2 Pro, GPT-5.2 when using Claude Code with Sonnet 4.5)
+- **Enable for**: Models MORE capable than your primary CLI's model (e.g., GPT-6 Astra, GPT-5.2 Pro, GPT-5.2 when using Claude Code with Sonnet 4.5)
 - **Purpose**: Get complete implementations from a more powerful reasoning model that your primary CLI can then review and apply
 - **Use case**: Large-scale implementations, major refactoring, complete module creation
 
@@ -151,8 +151,8 @@ The `allow_code_generation` capability enables models to generate complete, prod
 
 **Default Thinking Mode for ThinkDeep:**
 ```env
-# Only applies to models supporting extended thinking (e.g., Gemini 3.0 Pro)
-# Starting with Gemini 3.0 Pro, `thinking level` should stick to `high`
+# Only applies to models supporting extended thinking (e.g., Gemini 3.1 Pro)
+# Starting with Gemini 3 Pro, `thinking level` should stick to `high`
 
 DEFAULT_THINKING_MODE_THINKDEEP=high
 
@@ -179,7 +179,7 @@ OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o3-mini,o4-mini,mini
 GOOGLE_ALLOWED_MODELS=flash,pro
 
 # X.AI GROK model restrictions
-XAI_ALLOWED_MODELS=grok-4,grok-4.1-fast-reasoning
+XAI_ALLOWED_MODELS=grok-4,grok-4.20-0309-non-reasoning
 
 # OpenRouter model restrictions (affects models via custom provider)
 OPENROUTER_ALLOWED_MODELS=opus,sonnet,mistral
@@ -187,7 +187,7 @@ OPENROUTER_ALLOWED_MODELS=opus,sonnet,mistral
 
 **Supported Model Names:** The names/aliases listed in the JSON manifests above are the authoritative source. Keep in mind:
 
-- Aliases are case-insensitive and defined per entry (for example, `mini` maps to `gpt-5-mini` by default, while `flash` maps to `gemini-2.5-flash`).
+- Aliases are case-insensitive and defined per entry (for example, `mini` maps to `gpt-5-mini` by default, while `flash` maps to `gemini-3.8-flash`).
 - When you override the manifest files you can add or remove aliases as needed; restriction policies (`*_ALLOWED_MODELS`) automatically pick up those changes.
 - Models omitted from a manifest fall back to generic capability detection (where supported) and may have limited feature metadata.
 
@@ -208,7 +208,7 @@ GOOGLE_ALLOWED_MODELS=pro
 # Balanced selection
 GOOGLE_ALLOWED_MODELS=flash,pro
 OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o4-mini
-XAI_ALLOWED_MODELS=grok,grok-4.1-fast-reasoning
+XAI_ALLOWED_MODELS=grok,grok-4.20-0309-non-reasoning
 ```
 
 ### Advanced Configuration

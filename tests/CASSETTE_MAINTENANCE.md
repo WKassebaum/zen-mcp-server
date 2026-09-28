@@ -6,29 +6,31 @@ This project uses HTTP cassettes (recorded HTTP interactions) to test API integr
 
 ## How Cassette Matching Works
 
-### Standard Matching (Non-o3 Models)
+### Standard Matching (All Other Models)
 
-For most models, cassettes match requests using:
+For every model not covered by semantic matching (below), cassettes match requests using:
 - HTTP method (GET, POST, etc.)
 - Request path (/v1/chat/completions, etc.)
 - **Exact hash of the request body**
 
 If ANY part of the request changes, the hash changes and the cassette won't match.
 
-### Semantic Matching (o3 Models)
+### Semantic Matching (o3* and gpt-6* Models)
 
-**Problem**: o3 models use system prompts and conversation memory instructions that change frequently with code updates. Using exact hash matching would require re-recording cassettes after every prompt change.
+**Scope**: requests whose `model` starts with `o3` or `gpt-6` (see `_is_o3_model_request()`). The only semantic-matching cassette in the repo today is `responses_gpt6_luna_basic_math.json` (gpt-6-luna over the Responses API).
 
-**Solution**: o3 models use **semantic matching** that only compares:
-- Model name (e.g., "o3-pro", "o3-mini")
-- User's actual question (extracted from request)
-- Core parameters (reasoning effort, temperature)
+**Problem**: these requests carry system prompts and conversation memory instructions that change frequently with code updates. Using exact hash matching would require re-recording cassettes after every prompt change.
+
+**Solution**: semantic-matching models compare only:
+- `model` (e.g., "gpt-6-luna", "o3-mini")
+- `reasoning` (the whole object, e.g. `{"effort": "medium"}`)
+- `user_question`: the text of the **last** `input` message when it is a user message, cut down to the part between `=== USER REQUEST ===` and `=== END REQUEST ===` when those markers are present
 
 **Ignored fields** (can change without breaking cassettes):
-- System prompts
-- Conversation memory instructions
-- Follow-up guidance text
-- Token limits and other metadata
+- The system prompt (on the Responses API path it is sent as an earlier user message, so it is not the last message)
+- Every earlier `input` message, including replayed conversation turns
+- Conversation memory instructions and follow-up guidance outside the USER REQUEST markers
+- `temperature`, `store`, token limits and any other top-level parameter
 
 ### Example
 
@@ -37,7 +39,7 @@ These two requests will match with semantic matching:
 ```json
 // Request 1 - Old system prompt
 {
-  "model": "o3-pro",
+  "model": "gpt-6-luna",
   "reasoning": {"effort": "medium"},
   "input": [{
     "role": "user",
@@ -49,7 +51,7 @@ These two requests will match with semantic matching:
 
 // Request 2 - New system prompt (DIFFERENT)
 {
-  "model": "o3-pro",
+  "model": "gpt-6-luna",
   "reasoning": {"effort": "medium"},
   "input": [{
     "role": "user",
@@ -63,7 +65,7 @@ These two requests will match with semantic matching:
 Both extract the same semantic content:
 ```json
 {
-  "model": "o3-pro",
+  "model": "gpt-6-luna",
   "reasoning": {"effort": "medium"},
   "user_question": "What is 2 + 2?"
 }
@@ -77,13 +79,13 @@ Both extract the same semantic content:
    - Example: Changing "What is 2 + 2?" to "What is 3 + 3?"
 
 2. **Core parameters change**
-   - Model name changes (o3-pro → o3-mini)
+   - Model name changes (gpt-6-luna → gpt-6-sol)
    - Reasoning effort changes (medium → high)
-   - Temperature changes
+   - For standard-matching models only: temperature or any other parameter changes
 
-3. **For non-o3 models: ANY request body change**
+3. **For standard-matching models: ANY request body change**
 
-### You DON'T need to re-record when (o3 models only):
+### You DON'T need to re-record when (semantic-matching models only: o3*, gpt-6*):
 
 1. **System prompts change**
    - Semantic matching ignores these
@@ -92,7 +94,10 @@ Both extract the same semantic content:
    - Follow-up guidance text changes
    - Token limit instructions change
 
-3. **Response format instructions change**
+3. **Sampling or storage parameters change**
+   - `temperature`, `store`, token limits (not part of the semantic signature)
+
+4. **Response format instructions change**
    - As long as the user's actual question stays the same
 
 ## How to Re-Record a Cassette
@@ -139,12 +144,12 @@ git commit -m "chore: re-record cassette for <test_name>"
 
 **Cause**: The request body has changed in a way that affects the hash.
 
-**For o3 models**: This should NOT happen due to semantic matching. If it does:
+**For semantic-matching models (o3*, gpt-6*)**: This should NOT happen due to semantic matching. If it does:
 1. Check if the user question changed
 2. Check if model name or reasoning effort changed
 3. Verify semantic matching is working (run `test_cassette_semantic_matching.py`)
 
-**For non-o3 models**: This is expected when request changes. Re-record the cassette.
+**For standard-matching models**: This is expected when request changes. Re-record the cassette.
 
 **Solution**: Re-record the cassette following the steps above.
 
@@ -176,7 +181,7 @@ git commit -m "chore: re-record cassette for <test_name>"
 - Note any special setup required
 
 ### 3. Use Semantic Matching for Prompt-Heavy Tests
-- If your test involves lots of system prompts, use o3 models
+- If your test involves lots of system prompts, use a semantic-matching model (o3*, gpt-6*)
 - Or extend semantic matching to other models if needed
 
 ### 4. Test Both Record and Replay Modes
@@ -193,7 +198,7 @@ git commit -m "chore: re-record cassette for <test_name>"
 
 The semantic matching is implemented in `tests/http_transport_recorder.py`:
 
-- `_is_o3_model_request()`: Detects o3 and GPT-6 model requests
+- `_is_o3_model_request()`: Detects o3* and gpt-6* model requests (the name predates gpt-6)
 - `_extract_semantic_fields()`: Extracts only essential fields
 - `_get_request_signature()`: Generates hash from semantic fields
 
@@ -208,9 +213,9 @@ To add semantic matching for other models:
 Example:
 ```python
 def _is_o3_model_request(self, content_dict: dict) -> bool:
-    """Check if this is an o3 or other semantic-matching model request."""
+    """Check if this request should use semantic matching."""
     model = content_dict.get("model", "")
-    return model.startswith("o3") or model.startswith("gpt-5")  # Add more models
+    return model.startswith(("o3", "gpt-6", "your-model-prefix"))  # add prefixes here
 ```
 
 ## Questions?

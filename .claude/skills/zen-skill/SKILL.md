@@ -193,7 +193,7 @@ zen testgen <goal> [-f <file>]... [--framework <name>] [--test-type unit|integra
 ```bash
 zen thinkdeep <question> [--thinking-budget <128-32768>] [-m <model>]
 ```
-- Requires a model that supports extended thinking (gpt-6-astra, claude-opus-5-5, gemini-3.1-pro-preview, grok-4.7).
+- Requires a model that supports extended thinking (gpt-6-astra, opus, gemini-3.1-pro-preview, grok-4.7).
 
 #### tracer — code-flow / dependency tracing
 ```bash
@@ -208,7 +208,7 @@ Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BAL
 
 | Provider | Top model | Aliases |
 |---|---|---|
-| Anthropic | `claude-fable-5-1` / `claude-opus-5-5` | `fable`, `opus`, `sonnet` (via OpenRouter/native) |
+| Anthropic | Claude Fable 5.1 / Claude Opus 5.5 — pass `fable` / `opus` | `fable`, `opus`, `sonnet` (native in the CLI, OpenRouter in MCP) |
 | OpenAI | `gpt-6-astra` / `gpt-6-sol` / `gpt-6-luna` | `gpt-6`, `astra`, `sol`, `luna` |
 | Google | `gemini-3.1-pro-preview` / `gemini-3.8-flash` | `pro`, `flash`, `flashlite` |
 | xAI | `grok-4.7` | `grok`, `grok4`, `grok-4.7` |
@@ -216,6 +216,8 @@ Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BAL
 | DeepSeek (OpenRouter) | `deepseek/deepseek-v4.1-flash` | `deepseek-flash`, `deepseek-v4.1-flash` |
 
 Verify with `zen listmodels --format simple` — config lives in `conf/*_models.json` in the zen-cli project and changes over time.
+
+**Anthropic names:** use the aliases `fable`, `opus`, `sonnet`. They resolve in both the CLI (native Anthropic provider) and the MCP server (OpenRouter). The dash-form native IDs (`claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5`, ...) resolve only in the CLI; the MCP tools answer "not available" for them.
 
 **Picking a model explicitly:**
 ```bash
@@ -283,7 +285,7 @@ Use `mcp__zen__*` tools instead of CLI when:
 2. You will iterate ≥3 times against the same workflow tool in this conversation, **and**
 3. You need structured tool-result types (not just JSON strings) for downstream reasoning.
 
-Otherwise prefer CLI. The MCP and CLI tools share the same backend, models, and quality.
+Otherwise prefer CLI. The MCP and CLI tools share the same backend and tools, but not exactly the same models: the MCP server does not register the native Anthropic provider, so Claude models there come from OpenRouter. Use `fable` / `opus` / `sonnet` (or `anthropic/claude-opus-5.5`-style OpenRouter IDs) with `mcp__zen__*`; dash-form IDs such as `claude-opus-5-5` work only in the CLI.
 
 **MCP tool naming:** `mcp__zen__chat`, `mcp__zen__consensus`, `mcp__zen__debug`, `mcp__zen__codereview`, `mcp__zen__analyze`, `mcp__zen__planner`, `mcp__zen__thinkdeep`, `mcp__zen__refactor`, `mcp__zen__testgen`, `mcp__zen__precommit`, `mcp__zen__secaudit`, `mcp__zen__tracer`, `mcp__zen__docgen`, `mcp__zen__clink`, `mcp__zen__listmodels`, `mcp__zen__challenge`, `mcp__zen__apilookup`. Workflow tools require structured params (`step`, `step_number`, `total_steps`, `next_step_required`, `findings`, `confidence`, `model`, `relevant_files`).
 

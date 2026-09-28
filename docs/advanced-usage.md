@@ -44,8 +44,8 @@ Regardless of your default configuration, you can specify models per request:
 | **`gpt5`** (GPT-5) | OpenAI | 400K tokens | Advanced model with reasoning support | Complex problems requiring advanced reasoning |
 | **`gpt5-mini`** (GPT-5 Mini) | OpenAI | 400K tokens | Efficient variant with reasoning | Balanced performance and capability |
 | **`gpt5-nano`** (GPT-5 Nano) | OpenAI | 400K tokens | Fastest, cheapest GPT-5 variant | Summarization and classification tasks |
-| **`grok-4`** | X.AI | 256K tokens | Latest flagship Grok model with reasoning, vision | Complex analysis, reasoning tasks |
-| **`grok-4.1-fast-reasoning`** | X.AI | 2M tokens | High-performance Grok 4.1 Fast Reasoning with vision | Fast responses and light reasoning |
+| **`grok`** (Grok 4.7) | X.AI | 500K tokens | Latest flagship Grok model with reasoning, vision | Complex analysis, reasoning tasks |
+| **`grok-4.20-non-reasoning`** (Grok 4.20 Non-Reasoning) | X.AI | 1M tokens | Direct responses without thinking, with vision | Fast responses and light tasks |
 | **`llama`** (Llama 3.2) | Custom/Local | 128K tokens | Local inference, privacy | On-device analysis, cost-free processing |
 | **Any model** | OpenRouter | Varies | Access to GPT-4, Claude, Llama, etc. | User-specified or based on task requirements |
 
@@ -54,16 +54,14 @@ cloud models (expensive/powerful) AND local models (free/private) in the same co
 
 **Model Capabilities:**
 - **Gemini Models**: Support thinking modes (minimal to max), web search, 1M context
-  - **Pro 3.0**: Deep analysis with max 32K thinking tokens
-  - **Flash 2.5**: Ultra-fast with thinking support (24K thinking tokens)
-  - **Flash 2.0**: Latest fast model with audio/video input (24K thinking tokens)
-  - **Flash Lite 2.0**: Text-only lightweight model (no thinking support)
+  - **Pro 3.1** (`pro`): Deep analysis with max 32K thinking tokens
+  - **Flash 3.8** (`flash`): Latest fast model with thinking support (32K thinking tokens)
+  - **Flash-Lite 3.5** (`flashlite`): Lightweight, lowest-cost model with thinking support (24K thinking tokens)
+  - **Flash 2.5** (`flash-2.5`): Older fast model with thinking support (24K thinking tokens)
 - **O3/O4 Models**: Excellent reasoning, systematic analysis, 200K context
 - **GPT-4.1**: Extended context window (1M tokens), general capabilities
 - **GPT-5.2 Series**: Latest flagship reasoning models, 400K context
   - **GPT-5.2**: Flagship model with configurable thinking effort and vision
-  - **GPT-5.1 Codex**: Agentic coding specialization (Responses API, non-streaming)
-  - **GPT-5.1 Codex mini**: Cost-efficient Codex variant with streaming support
 - **GPT-5 Series**: Advanced reasoning models, 400K context
   - **GPT-5**: Full-featured with reasoning support and vision
   - **GPT-5 Mini**: Balanced efficiency and capability
@@ -102,7 +100,7 @@ OPENAI_ALLOWED_MODELS=o3,o4-mini
 
 ### Thinking Modes & Token Budgets
 
-These only apply to models that support customizing token usage for extended thinking, such as Gemini 3.0 Pro.
+These only apply to models that support customizing token usage for extended thinking, such as Gemini 3.1 Pro.
 
 | Mode | Token Budget | Use Case | Cost Impact |
 |------|-------------|----------|-------------|
@@ -150,7 +148,7 @@ These only apply to models that support customizing token usage for extended thi
 # Complex debugging, letting claude pick the best model
 "Use zen to debug this race condition with max thinking mode"
 
-# Architecture analysis with Gemini 3.0 Pro
+# Architecture analysis with Gemini 3.1 Pro
 "Analyze the entire src/ directory architecture with high thinking using pro"
 ```
 
@@ -341,7 +339,7 @@ To help choose the right tool for your needs:
 The ZEN MCP server supports vision-capable models for analyzing images, diagrams, screenshots, and visual content. Vision support works seamlessly with all tools and conversation threading.
 
 **Supported Models:**
-- **Gemini 3.0 Pro & Flash**: Excellent for diagrams, architecture analysis, UI mockups (up to 20MB total)
+- **Gemini 3.1 Pro & 3.8 Flash**: Excellent for diagrams, architecture analysis, UI mockups (up to 20MB total)
 - **OpenAI O3/O4 series**: Strong for visual debugging, error screenshots (up to 20MB total)
 - **Claude models via OpenRouter**: Good for code screenshots, visual analysis (up to 5MB total)
 - **Custom models**: Support varies by model, with 40MB maximum enforced for abuse prevention
