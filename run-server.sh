@@ -946,7 +946,12 @@ install_dependencies() {
         return 1
     fi
 
-    # Check required packages
+    # Check required packages. This only picks the progress message: the
+    # requirements install below always runs, because "the packages import" does
+    # not mean they satisfy requirements.txt. A venv built while mcp 2.x was the
+    # latest release imports fine but crashes in server.py; re-applying
+    # requirements.txt downgrades it to the capped range. When nothing needs to
+    # change the install is a quick no-op.
     local packages=("mcp" "google.genai" "openai" "pydantic" "dotenv")
     for package in "${packages[@]}"; do
         if ! check_package "$python_cmd" "$package"; then
@@ -955,25 +960,26 @@ install_dependencies() {
         fi
     done
 
-    if [[ "$deps_needed" == false ]]; then
-        print_success "Dependencies already installed"
-        return 0
+    if [[ "$deps_needed" == true ]]; then
+        echo ""
+        print_info "Setting up Zen MCP Server..."
+        echo "Installing required components:"
+        echo "  • MCP protocol library"
+        echo "  • AI model connectors"
+        echo "  • Data validation tools"
+        echo "  • Environment configuration"
+        echo ""
     fi
-
-    echo ""
-    print_info "Setting up Zen MCP Server..."
-    echo "Installing required components:"
-    echo "  • MCP protocol library"
-    echo "  • AI model connectors"
-    echo "  • Data validation tools"
-    echo "  • Environment configuration"
-    echo ""
 
     # Determine installation method and execute directly to handle paths with spaces
     local install_output
     local exit_code=0
 
-    echo -n "Downloading packages..."
+    if [[ "$deps_needed" == true ]]; then
+        echo -n "Downloading packages..."
+    else
+        echo -n "Checking installed packages against requirements.txt..."
+    fi
 
     if command -v uv &> /dev/null && [[ -f "$VENV_PATH/uv_created" ]]; then
         print_info "Using uv for faster package installation..."
@@ -1029,7 +1035,11 @@ install_dependencies() {
         fi
         return 1
     else
-        echo -e "\r${GREEN}✓ Setup complete!${NC}                    "
+        if [[ "$deps_needed" == true ]]; then
+            echo -e "\r${GREEN}✓ Setup complete!${NC}                    "
+        else
+            echo -e "\r${GREEN}✓ Dependencies match requirements.txt${NC}                    "
+        fi
 
         # Verify critical imports work
         if ! check_package "$python_cmd" "dotenv"; then
