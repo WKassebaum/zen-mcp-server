@@ -45,8 +45,9 @@ MEDIA_TYPES: dict[str, tuple[MediaKind, str]] = {
     ".mpg": (MediaKind.VIDEO, "video/mpeg"),
 }
 
-# Argument keys that carry file paths, across simple tools, workflow tools and the CLI.
-FILE_ARGUMENT_KEYS = ("absolute_file_paths", "relevant_files", "files")
+# Argument keys that carry file paths: simple tools read absolute_file_paths, workflow tools
+# relevant_files, and the CLI sends the same two keys. No request model reads a "files" field.
+FILE_ARGUMENT_KEYS = ("absolute_file_paths", "relevant_files")
 
 # How far into a file to look for "%PDF-" (some writers put a BOM, whitespace or junk first).
 PDF_HEADER_SEARCH_BYTES = 1024
@@ -92,6 +93,40 @@ def _magic_matches(extension: str, head: bytes) -> bool:
     return False
 
 
+def _validated_path(path: str) -> Path | None:
+    """``path`` resolved and checked like a text file (absolute, not a dangerous directory), else None."""
+    from .file_utils import resolve_and_validate_path  # file_utils imports this module
+
+    try:
+        return resolve_and_validate_path(path)
+    except (ValueError, PermissionError, RuntimeError, OSError):  # RuntimeError: symlink loop
+        return None
+
+
+def _detect_media(path: str, resolved: Path) -> tuple[MediaKind, str, int] | None:
+    """(kind, mime, size in bytes) if the validated file ``resolved`` is correctly signed media.
+
+    A media extension on either the caller's ``path`` or the resolved target counts. The file is
+    only opened and measured through ``resolved``; ``path`` is never re-followed.
+    """
+    candidates = [s for s in dict.fromkeys((Path(path).suffix.lower(), resolved.suffix.lower())) if s in MEDIA_TYPES]
+    if not candidates:
+        return None
+    try:
+        # is_file() keeps a FIFO or device named like media from being opened: reading one would
+        # block or never end. Directories need no check here: opening one raises OSError below.
+        if not resolved.is_file():
+            return None
+        for extension in candidates:
+            with resolved.open("rb") as handle:
+                if _magic_matches(extension, _read_signature(handle, extension)):
+                    kind, mime = MEDIA_TYPES[extension]
+                    return kind, mime, resolved.stat().st_size
+    except OSError:  # includes a file that disappears after validation
+        return None
+    return None
+
+
 def media_type_for(path: str) -> tuple[MediaKind, str] | None:
     """Return (kind, mime) if ``path`` is an existing, correctly signed media file.
 
@@ -100,33 +135,30 @@ def media_type_for(path: str) -> tuple[MediaKind, str] | None:
     target counts, so ``latest -> recording.mp4`` and ``clip.mp4 -> blob`` are both media;
     the magic bytes must match that extension either way.
     """
-    from .file_utils import resolve_and_validate_path  # file_utils imports this module
-
-    try:
-        resolved = resolve_and_validate_path(path)
-    except (ValueError, PermissionError, RuntimeError, OSError):  # RuntimeError: symlink loop
+    resolved = _validated_path(path)
+    if resolved is None:
         return None
-    candidates = [s for s in dict.fromkeys((Path(path).suffix.lower(), resolved.suffix.lower())) if s in MEDIA_TYPES]
-    if not candidates:
+    detected = _detect_media(path, resolved)
+    if detected is None:
         return None
-    try:
-        if not resolved.is_file():
-            return None
-        for extension in candidates:
-            with resolved.open("rb") as handle:
-                if _magic_matches(extension, _read_signature(handle, extension)):
-                    return MEDIA_TYPES[extension]
-    except OSError:
-        return None
-    return None
+    kind, mime, _ = detected
+    return kind, mime
 
 
 @dataclass(frozen=True)
 class MediaAttachment:
+    """A media file to send with the prompt.
+
+    ``path`` is the caller's string, kept for display and comparisons. ``source_path`` is the
+    resolved, security-validated file: read the bytes from it, never from ``path``, so symlinks
+    are not followed again after validation.
+    """
+
     path: str
     kind: MediaKind
     mime_type: str
     size_bytes: int
+    source_path: str
 
     @property
     def name(self) -> str:
@@ -137,20 +169,30 @@ class MediaAttachment:
 
 
 def classify_media(paths: Iterable[str] | None) -> tuple[list[str], list[MediaAttachment]]:
-    """Split explicit paths into (text_paths, media_attachments). Order preserved, media deduped."""
+    """Split explicit paths into (text_paths, media_attachments), preserving order.
+
+    Media is deduped on the resolved file: the first caller path for a file is kept, and later
+    spellings of it (``dir/./x.mp4``, a symlink, a trailing slash) are dropped without re-reading it.
+    """
+    if isinstance(paths, str):
+        raise TypeError("classify_media expects a list of paths, not a single path string")
     text_paths: list[str] = []
     media: list[MediaAttachment] = []
-    seen: set[str] = set()
+    seen: set[Path] = set()
     for path in paths or []:
-        detected = media_type_for(path)
+        resolved = _validated_path(path)
+        if resolved is None:
+            text_paths.append(path)
+            continue
+        if resolved in seen:
+            continue
+        detected = _detect_media(path, resolved)
         if detected is None:
             text_paths.append(path)
             continue
-        if path in seen:
-            continue
-        seen.add(path)
-        kind, mime = detected
-        media.append(MediaAttachment(path=path, kind=kind, mime_type=mime, size_bytes=os.path.getsize(path)))
+        seen.add(resolved)
+        kind, mime, size = detected
+        media.append(MediaAttachment(path=path, kind=kind, mime_type=mime, size_bytes=size, source_path=str(resolved)))
     return text_paths, media
 
 

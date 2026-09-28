@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import utils.media
 import utils.security_config
 from utils.media import (
     MediaAttachment,
@@ -83,12 +84,33 @@ def test_media_suffix_symlink_to_blob(tmp_path):
     assert media_type_for(str(link)) == (MediaKind.VIDEO, "video/mp4")
     _, media = classify_media([str(link)])
     assert media[0].path == str(link) and media[0].size_bytes == blob.stat().st_size
+    assert media[0].source_path == str(blob.resolve())  # opened through the validated target, not the link
 
 
 def test_symlink_loop_is_not_media(tmp_path):
     loop = tmp_path / "loop.mp4"
     loop.symlink_to(loop)
     assert media_type_for(str(loop)) is None
+
+
+@pytest.mark.parametrize(
+    "name,header,expected",
+    [
+        ("a.ogg", b"OggS\x00\x02" + b"\x00" * 26, (MediaKind.AUDIO, "audio/ogg")),
+        ("a.webm", b"\x1a\x45\xdf\xa3" + b"\x00" * 28, (MediaKind.VIDEO, "video/webm")),
+        ("a.mpg", b"\x00\x00\x01\xba" + b"\x00" * 28, (MediaKind.VIDEO, "video/mpeg")),
+        ("a.mpeg", b"\x00\x00\x01\xb3" + b"\x00" * 28, (MediaKind.VIDEO, "video/mpeg")),
+        ("a.mov", b"\x00\x00\x00\x14ftypqt  " + b"\x00" * 20, (MediaKind.VIDEO, "video/quicktime")),
+        ("a.m4a", b"\x00\x00\x00\x1cftypM4A " + b"\x00" * 20, (MediaKind.AUDIO, "audio/mp4")),
+    ],
+)
+def test_format_signatures(tmp_path, name, header, expected):
+    media = tmp_path / name
+    media.write_bytes(header)
+    assert media_type_for(str(media)) == expected
+    impostor = tmp_path / f"impostor{media.suffix}"
+    impostor.write_text("plain text wearing a media extension\n")
+    assert media_type_for(str(impostor)) is None
 
 
 @pytest.mark.parametrize("footer", [False, True])
@@ -147,6 +169,50 @@ def test_classify_media_handles_none_and_dedupes():
     assert len(media) == 1
 
 
+def test_classify_media_rejects_bare_string():
+    with pytest.raises(TypeError):
+        classify_media(PDF)  # a str would otherwise be iterated one character at a time
+
+
+def test_trailing_slash_media_path(tmp_path):
+    clip = tmp_path / "clip.mp4"
+    clip.write_bytes(Path(MP4).read_bytes())
+    text_paths, media = classify_media([f"{clip}/"])
+    assert text_paths == []
+    assert len(media) == 1
+    assert media[0].path == f"{clip}/"  # the caller's string is kept for display
+    assert media[0].source_path == str(clip.resolve())
+    assert media[0].size_bytes == clip.stat().st_size
+
+
+def test_classify_media_dedupes_on_resolved_file(tmp_path):
+    clip = tmp_path / "x.mp4"
+    clip.write_bytes(Path(MP4).read_bytes())
+    link = tmp_path / "link.mp4"
+    link.symlink_to(clip)
+    text_paths, media = classify_media([str(clip), f"{tmp_path}/./x.mp4", str(link)])
+    assert text_paths == []
+    assert len(media) == 1
+    assert media[0].path == str(clip)  # the first caller path wins
+    assert media[0].source_path == str(clip.resolve())
+
+
+def test_media_file_vanishing_before_size_is_not_media(tmp_path, monkeypatch):
+    clip = tmp_path / "clip.mp4"
+    real_magic_matches = utils.media._magic_matches
+
+    def matches_then_vanishes(extension, head):
+        matched = real_magic_matches(extension, head)
+        clip.unlink()  # deleted after validation and the signature check, before the size is read
+        return matched
+
+    monkeypatch.setattr(utils.media, "_magic_matches", matches_then_vanishes)
+    clip.write_bytes(Path(MP4).read_bytes())
+    assert media_type_for(str(clip)) is None
+    clip.write_bytes(Path(MP4).read_bytes())
+    assert classify_media([str(clip)]) == ([str(clip)], [])
+
+
 def test_required_kinds_and_describe():
     _, media = classify_media([PDF, WAV, MP4])
     assert required_kinds(media) == frozenset({MediaKind.PDF, MediaKind.AUDIO, MediaKind.VIDEO})
@@ -187,11 +253,16 @@ def test_no_bom(tmp_path):
     assert bom_encoding(str(plain)) is None
 
 
-@pytest.mark.parametrize("key", ["absolute_file_paths", "relevant_files", "files"])
+@pytest.mark.parametrize("key", ["absolute_file_paths", "relevant_files"])
 def test_media_kinds_from_arguments(key):
     assert media_kinds_from_arguments({key: [MP4]}) == frozenset({MediaKind.VIDEO})
     assert media_kinds_from_arguments({key: None}) == frozenset()
     assert media_kinds_from_arguments({}) == frozenset()
+
+
+def test_media_kinds_from_arguments_ignores_files_key():
+    # No request model reads a "files" field; the CLI sends absolute_file_paths / relevant_files.
+    assert media_kinds_from_arguments({"files": [MP4]}) == frozenset()
 
 
 def test_media_kinds_from_arguments_expands_home(tmp_path, monkeypatch):
