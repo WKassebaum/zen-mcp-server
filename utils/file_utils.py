@@ -45,6 +45,7 @@ from pathlib import Path
 from typing import Optional
 
 from .file_types import BINARY_EXTENSIONS, CODE_EXTENSIONS, IMAGE_EXTENSIONS, TEXT_EXTENSIONS
+from .media import bom_encoding, format_size, looks_binary, media_type_for
 from .security_config import EXCLUDED_DIRS, is_dangerous_path
 from .token_utils import DEFAULT_CONTEXT_WINDOW, estimate_tokens
 
@@ -463,6 +464,27 @@ def read_file_content(
             content = f"\n--- NOT A FILE: {file_path} ---\nError: Path is not a file\n--- END FILE ---\n"
             return content, estimate_tokens(content)
 
+        # Media is sent natively by providers that support it (utils/media.py); never embed it as text.
+        # Check the path as given: a media name on a symlink counts even when the target has none.
+        media = media_type_for(file_path)
+        if media is not None:
+            kind, mime = media
+            content = (
+                f"\n--- MEDIA FILE: {file_path} ({kind.value}, {mime}, {format_size(path.stat().st_size)}) ---\n"
+                f"Not embedded as text. It is attached as native {kind.value} input only when its path is "
+                "passed directly in the request's file list.\n"
+                "--- END FILE ---\n"
+            )
+            return content, estimate_tokens(content)
+
+        if looks_binary(str(path)):
+            content = (
+                f"\n--- BINARY FILE: {file_path} ---\n"
+                "Not embedded: binary content that is not a supported media type (pdf, audio, video).\n"
+                "--- END FILE ---\n"
+            )
+            return content, estimate_tokens(content)
+
         # Check file size to prevent memory exhaustion
         stat_result = path.stat()
         file_size = stat_result.st_size
@@ -484,7 +506,7 @@ def read_file_content(
         # Read the file with UTF-8 encoding, replacing invalid characters
         # This ensures we can handle files with mixed encodings
         logger.debug(f"[FILES] Reading file content for {file_path}")
-        with open(path, encoding="utf-8", errors="replace") as f:
+        with open(path, encoding=bom_encoding(str(path)) or "utf-8", errors="replace") as f:
             file_content = f.read()
 
         logger.debug(f"[FILES] Successfully read {len(file_content)} characters from {file_path}")

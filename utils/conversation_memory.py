@@ -113,6 +113,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from utils.env import get_env
+from utils.media import media_type_for
 
 logger = logging.getLogger(__name__)
 
@@ -492,6 +493,11 @@ def get_conversation_file_list(context: ThreadContext) -> list[str]:
         if turn.files:
             logger.debug(f"[FILES] Turn {i + 1} has {len(turn.files)} files: {turn.files}")
             for file_path in turn.files:
+                # Media is never embedded as text in history; it reaches a model only as an attachment.
+                # Phase 1: first-turn media is re-sent via initial_context when a follow-up omits its file
+                # list (server.py reconstruct_thread_context); later-turn media is re-attached in phase 5.
+                if media_type_for(file_path) is not None:
+                    continue
                 if file_path not in seen_files:
                     # First time seeing this file - add it (this is the NEWEST reference)
                     seen_files.add(file_path)

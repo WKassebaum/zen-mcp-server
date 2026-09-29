@@ -937,7 +937,7 @@ class BaseTool(ABC):
                     else:
                         # Fallback: if it's already raw content (from tests or direct input)
                         # and doesn't have error markers, use it directly
-                        if not content.startswith("\n--- ERROR"):
+                        if not content.startswith(("\n--- ERROR", "\n--- MEDIA FILE:", "\n--- BINARY FILE:")):
                             prompt_content = content
                         else:
                             prompt_content = None
