@@ -594,6 +594,8 @@ git commit -m "feat(media): add media classification helpers" -m "Co-Authored-By
 
 ### Task 3: Media size limit, token estimate and prompt announcement
 
+> **Amended after code review (commits 0b09625, b08d3d3, 00bff8e):** the committed `utils/media.py` is authoritative over the code below. Container parsers never trust header sizes (WAV `fmt` reads capped, `data` size 0/oversized = rest of file; BMFF child limits clamped to the parent, size-0 and 64-bit boxes handled, <= 1024 boxes per level, only the first `mvex` walked; `mvhd` length-checked, all-ones duration = unknown, `mvex` uses `mehd` or falls back). PDFs cost `PDF_TOKENS_PER_PAGE = 560` (Gemini 3 default media resolution, ai.google.dev/gemini-api/docs/media-resolution) and pages are counted from page objects in the raw bytes and in FlateDecode object streams (chunked inflate with a running cap, results cached on path/size/mtime), capped at 1000; unreadable streams, caps hit or files > 64 MiB fall back to the size estimate, erring high. `MEDIA_MAX_BYTES = 2_000_000_000`. The public `format_size()` (decimal units) is used for every size shown to users; the size error reads `limited to {format_size(MEDIA_MAX_BYTES)} each (...)` and lists each file's full path with its exact byte count. `media_prompt_section` numbers attachments ("attachment i of N; the media parts follow in this order") — every provider encoder must attach media parts in list order.
+
 > **Amended during implementation (commit d866932):** a header that records a duration of 0 (fragmented MP4 `mvhd`, an unfinished WAV `data` chunk) is treated as unknown, so the estimate falls back to the size-based value instead of the 1-second minimum — the estimate must err high. `_bmff_duration_s` returns `duration / timescale if timescale and duration else None`; `_wav_duration_s` returns `chunk_size / byte_rate if byte_rate and chunk_size else None`. Two tests in `tests/test_media_limits.py` pin this.
 
 **Files:**
@@ -974,7 +976,7 @@ Expected: 10 failed, 3 passed (`test_media_under_dangerous_path_gets_access_erro
 In `utils/file_utils.py`, add to the imports, directly under the `from .file_types import …` line:
 
 ```python
-from .media import bom_encoding, looks_binary, media_type_for
+from .media import bom_encoding, format_size, looks_binary, media_type_for
 ```
 
 Insert after the `if not path.is_file():` block (before `# Check file size to prevent memory exhaustion`):
@@ -985,9 +987,8 @@ Insert after the `if not path.is_file():` block (before `# Check file size to pr
         media = media_type_for(file_path)
         if media is not None:
             kind, mime = media
-            size_mb = path.stat().st_size / (1024 * 1024)
             content = (
-                f"\n--- MEDIA FILE: {file_path} ({kind.value}, {mime}, {size_mb:.1f} MB) ---\n"
+                f"\n--- MEDIA FILE: {file_path} ({kind.value}, {mime}, {format_size(path.stat().st_size)}) ---\n"
                 f"Not embedded as text. It is attached as native {kind.value} input only when its path is "
                 "passed directly in the request's file list.\n"
                 "--- END FILE ---\n"
@@ -1830,7 +1831,7 @@ from providers.shared import ModelCapabilities, ProviderType
 from tools.chat import ChatTool
 from tools.shared.exceptions import ToolExecutionError
 from utils.conversation_memory import add_turn, create_thread
-from utils.media import MEDIA_MAX_BYTES, MediaKind
+from utils.media import MEDIA_MAX_BYTES, MediaKind, format_size
 
 FIXTURES = Path(__file__).parent / "fixtures" / "media"
 MP4 = str(FIXTURES / "otter.mp4")
@@ -1885,8 +1886,9 @@ def test_validate_media_support_rejects_oversized_file(tmp_path):
         tool._validate_media_support(
             tool._media_from_paths([str(huge)]), _context("m", {"supports_video": True}, {MediaKind.VIDEO})
         )
-    assert "huge.mp4 (2.00 GB)" in _error(exc)["content"]
-    assert "limited to 2 GB each" in _error(exc)["content"]
+    content = _error(exc)["content"]
+    assert f"limited to {format_size(MEDIA_MAX_BYTES)} each" in content
+    assert "huge.mp4" in content and f"{MEDIA_MAX_BYTES + 1:,} bytes" in content
 
 
 def test_validate_media_support_explains_first_turn_carry_over():
