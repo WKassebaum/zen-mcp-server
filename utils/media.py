@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
@@ -284,52 +284,114 @@ def check_media_sizes(media: Iterable[MediaAttachment]) -> None:
         )
 
 
-def _wav_duration_s(handle: BinaryIO) -> float | None:
-    """Duration from a RIFF/WAVE header: data chunk size / byte rate."""
+# Header walks stop after this many chunks or boxes at one level, so a crafted file cannot make the
+# estimate step through millions of tiny entries; the size-based fallback applies instead.
+MAX_CONTAINER_ENTRIES = 1024
+
+
+def _wav_duration_s(handle: BinaryIO, file_size: int) -> float | None:
+    """Duration from a RIFF/WAVE header: data size / byte rate. Declared chunk sizes are not trusted."""
     if handle.read(12)[8:12] != b"WAVE":
         return None
     byte_rate = 0
-    while True:
+    for _ in range(MAX_CONTAINER_ENTRIES):
         chunk = handle.read(8)
         if len(chunk) < 8:
             return None
         chunk_id, chunk_size = chunk[:4], int.from_bytes(chunk[4:8], "little")
         body_size = chunk_size + (chunk_size & 1)  # RIFF chunks are word-aligned
         if chunk_id == b"fmt ":
-            byte_rate = int.from_bytes(handle.read(body_size)[8:12], "little")
+            fmt = handle.read(min(body_size, 16))  # the byte rate is at offset 8; never read a huge size
+            byte_rate = int.from_bytes(fmt[8:12], "little") if len(fmt) >= 12 else 0
+            handle.seek(body_size - len(fmt), 1)
         elif chunk_id == b"data":
-            # A data size of 0 means a streaming writer never patched the header: treat as unknown.
+            # Streaming writers leave 0 or a placeholder past the end of the file (0xFFFFFFFF,
+            # 0x7FFFFFFF) when they never patch the header: the audio then runs to the end of the file.
+            remaining = max(0, file_size - handle.tell())
+            if chunk_size == 0 or chunk_size > remaining:
+                chunk_size = remaining
             return chunk_size / byte_rate if byte_rate and chunk_size else None
         else:
             handle.seek(body_size, 1)
+    return None
+
+
+def _bmff_boxes(handle: BinaryIO, start: int, end: int) -> Iterator[tuple[bytes, int, int]]:
+    """(type, body start, body end) of up to MAX_CONTAINER_ENTRIES boxes in ``[start, end)``.
+
+    Each box is clamped to its parent, so a declared size past the end of the file (up to 2**64 - 1)
+    never moves a seek outside it. Stops at a box too small for its own header.
+    """
+    offset = start
+    for _ in range(MAX_CONTAINER_ENTRIES):
+        if offset + 8 > end:
+            return
+        handle.seek(offset)
+        header = handle.read(16)
+        if len(header) < 8:
+            return
+        size, header_size = int.from_bytes(header[:4], "big"), 8
+        if size == 1:  # 64-bit box size follows the type
+            if len(header) < 16:
+                return
+            size, header_size = int.from_bytes(header[8:16], "big"), 16
+        elif size == 0:  # box runs to the end of its parent
+            size = end - offset
+        if size < header_size or offset + header_size > end:
+            return
+        box_end = min(offset + size, end)
+        yield header[4:8], offset + header_size, box_end
+        offset = box_end
+
+
+def _known_duration(field: bytes) -> int | None:
+    """A duration field's value, or None when it is 0 or all ones (both mean unknown)."""
+    value = int.from_bytes(field, "big")
+    return None if value == 0 or value == (1 << (8 * len(field))) - 1 else value
+
+
+def _mvhd_timing(handle: BinaryIO, start: int, end: int) -> tuple[int, int | None]:
+    """(timescale, duration) from a movie header body; (0, None) if the body is too short."""
+    handle.seek(start)
+    body = handle.read(min(end - start, 32))
+    if body[:1] == b"\x01":  # version 1: 64-bit creation/modification times and duration
+        if len(body) < 32:
+            return 0, None
+        return int.from_bytes(body[20:24], "big"), _known_duration(body[24:32])
+    if len(body) < 20:
+        return 0, None
+    return int.from_bytes(body[12:16], "big"), _known_duration(body[16:20])
+
+
+def _mehd_duration(handle: BinaryIO, start: int, end: int) -> int | None:
+    """fragment_duration from a movie extends header body (in the mvhd timescale), or None."""
+    handle.seek(start)
+    body = handle.read(min(end - start, 12))
+    width = 8 if body[:1] == b"\x01" else 4
+    return _known_duration(body[4 : 4 + width]) if len(body) >= 4 + width else None
 
 
 def _bmff_duration_s(handle: BinaryIO, file_size: int) -> float | None:
-    """Duration from the movie header ('moov' -> 'mvhd') of an MP4/MOV/M4A file, wherever moov sits."""
-    offset, limit = 0, file_size
-    while offset + 8 <= limit:
-        handle.seek(offset)
-        header = handle.read(16)
-        size, box, header_size = int.from_bytes(header[:4], "big"), header[4:8], 8
-        if size == 1:  # 64-bit box size follows the type
-            size, header_size = int.from_bytes(header[8:16], "big"), 16
-        elif size == 0:  # box runs to the end of its parent
-            size = limit - offset
-        if size < header_size:
-            return None
-        if box == b"moov":
-            offset, limit = offset + header_size, offset + size  # descend into the movie box
+    """Duration from the movie header ('moov' -> 'mvhd') of an MP4/MOV/M4A file, wherever moov sits.
+
+    In a fragmented file (moov holds an 'mvex' box) mvhd may cover only the first fragment, so the
+    'mehd' fragment duration is used instead, and without one the duration is unknown.
+    """
+    for box, start, end in _bmff_boxes(handle, 0, file_size):
+        if box != b"moov":
             continue
-        if box == b"mvhd":
-            handle.seek(offset + header_size)
-            body = handle.read(32)
-            if body[:1] == b"\x01":  # version 1: 64-bit creation/modification times and duration
-                timescale, duration = int.from_bytes(body[20:24], "big"), int.from_bytes(body[24:32], "big")
-            else:
-                timescale, duration = int.from_bytes(body[12:16], "big"), int.from_bytes(body[16:20], "big")
-            # Fragmented MP4s often leave the duration at 0 (it lives in the fragments): unknown.
-            return duration / timescale if timescale and duration else None
-        offset += size
+        timescale, duration, fragmented, fragment_duration = 0, None, False, None
+        for child, child_start, child_end in _bmff_boxes(handle, start, end):
+            if child == b"mvhd":
+                timescale, duration = _mvhd_timing(handle, child_start, child_end)
+            elif child == b"mvex":
+                fragmented = True
+                for grandchild, mehd_start, mehd_end in _bmff_boxes(handle, child_start, child_end):
+                    if grandchild == b"mehd":
+                        fragment_duration = _mehd_duration(handle, mehd_start, mehd_end)
+        if fragmented:
+            duration = fragment_duration
+        return duration / timescale if timescale and duration else None
     return None
 
 
@@ -338,7 +400,7 @@ def _duration_s(attachment: MediaAttachment) -> float | None:
     try:
         with open(attachment.source_path, "rb") as handle:
             if attachment.mime_type == "audio/wav":
-                return _wav_duration_s(handle)
+                return _wav_duration_s(handle, attachment.size_bytes)
             if attachment.mime_type in ("video/mp4", "video/quicktime", "audio/mp4"):
                 return _bmff_duration_s(handle, attachment.size_bytes)
     except OSError:
