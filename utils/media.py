@@ -7,6 +7,7 @@ that declare support for them (``ModelProvider.MEDIA_KINDS``).
 
 from __future__ import annotations
 
+import functools
 import math
 import os
 import re
@@ -149,6 +150,17 @@ def media_type_for(path: str) -> tuple[MediaKind, str] | None:
     return kind, mime
 
 
+def format_size(num_bytes: int) -> str:
+    """'7.9 KB' below 1 MB, '12.3 MB' below 1 GB, else '2.1 GB'.
+
+    Decimal units (1 KB = 1000 bytes), like MEDIA_MAX_BYTES, so the 2 GB limit reads "2.0 GB".
+    """
+    for unit, scale in (("KB", 10**3), ("MB", 10**6)):
+        if round(num_bytes / scale, 1) < 1000:
+            return f"{num_bytes / scale:.1f} {unit}"
+    return f"{num_bytes / 10**9:.1f} GB"
+
+
 @dataclass(frozen=True)
 class MediaAttachment:
     """A media file to send with the prompt.
@@ -169,7 +181,7 @@ class MediaAttachment:
         return Path(self.path).name
 
     def describe(self) -> str:
-        return f"{self.kind.value} {self.name}, {self.size_bytes / (1024 * 1024):.1f} MB"
+        return f"{self.kind.value} {self.name}, {format_size(self.size_bytes)}"
 
 
 def classify_media(paths: Iterable[str] | None) -> tuple[list[str], list[MediaAttachment]]:
@@ -285,7 +297,13 @@ PDF_MAX_PAGES = 1000
 PDF_SCAN_MAX_BYTES = 64 * 1024 * 1024
 PDF_INFLATE_MAX_BYTES = 64 * 1024 * 1024
 PDF_MAX_OBJECT_STREAMS = 4096
-_PDF_PAGE_OBJECT = re.compile(rb"/Type\s*/Page(?![A-Za-z])")  # not /Pages
+# Object streams are inflated a piece at a time (input slice, output piece), so memory stays near the
+# output piece size whatever a stream expands to. The last _PDF_MATCH_CARRY bytes of each output piece
+# are searched again with the next one, so a page object split between pieces is still found.
+_PDF_INFLATE_INPUT_BYTES = 64 * 1024
+_PDF_INFLATE_OUTPUT_BYTES = 1024 * 1024
+_PDF_MATCH_CARRY = 64
+_PDF_PAGE_OBJECT = re.compile(rb"/Type\s*/Page(?![A-Za-z0-9_])")  # not /Pages, /Page1, /Page_x
 _PDF_OBJECT_STREAM = re.compile(rb"/Type\s*/ObjStm(?![A-Za-z])")
 _PDF_STREAM_DATA = re.compile(rb"(?<!end)stream(?:\r\n|\n|\r)")
 _PDF_DICT_MAX_BYTES = 4096  # how far past '/Type /ObjStm' its 'stream' keyword may be
@@ -295,55 +313,120 @@ def check_media_sizes(media: Iterable[MediaAttachment]) -> None:
     """Fail fast, naming each file by the caller's path, if any attachment is larger than MEDIA_MAX_BYTES."""
     too_large = [attachment for attachment in media if attachment.size_bytes > MEDIA_MAX_BYTES]
     if too_large:
-        names = ", ".join(f"{a.path} ({a.size_bytes / 10**9:.2f} GB)" for a in too_large)
+        names = ", ".join(f"{a.path} ({format_size(a.size_bytes)}, {a.size_bytes:,} bytes)" for a in too_large)
         raise MediaNotSupportedError(
-            f"Media files are limited to {MEDIA_MAX_BYTES // 10**9} GB each "
-            f"(Gemini Files API per-file limit): {names}."
+            f"Media files are limited to {format_size(MEDIA_MAX_BYTES)} each "
+            f"(Gemini Files API per-file limit; {MEDIA_MAX_BYTES:,} bytes): {names}."
         )
 
 
-def _pdf_object_stream_pages(data: bytes, max_pages: int) -> int:
-    """Page objects inside FlateDecode object streams (``/Type /ObjStm``), within the inflate limits."""
-    view, pages, budget, consumed_to = memoryview(data), 0, PDF_INFLATE_MAX_BYTES, 0
-    for candidate, marker in enumerate(_PDF_OBJECT_STREAM.finditer(data)):
-        if candidate >= PDF_MAX_OBJECT_STREAMS or budget <= 0 or pages >= max_pages:
+def _inflated_pages(stream: memoryview, budget: int, max_pages: int) -> tuple[int, int, bool]:
+    """(page objects, bytes inflated, finished) for one FlateDecode stream, inflated in pieces.
+
+    ``finished`` is False when the budget or the data ran out before the end of the zlib stream.
+    Raises zlib.error for data that is not a zlib stream.
+    """
+    inflater = zlib.decompressobj()
+    pages, inflated, carry = 0, 0, b""
+    for offset in range(0, len(stream), _PDF_INFLATE_INPUT_BYTES):
+        pending = stream[offset : offset + _PDF_INFLATE_INPUT_BYTES]
+        while not inflater.eof and pages < max_pages:
+            room = min(budget - inflated, _PDF_INFLATE_OUTPUT_BYTES)
+            if room <= 0:
+                return pages, inflated, False
+            output = inflater.decompress(pending, room)
+            pending = inflater.unconsumed_tail
+            if not output:  # this input slice is used up
+                break
+            inflated += len(output)
+            window = carry + output
+            del output  # hold one inflated piece at a time
+            searched = max(0, len(window) - _PDF_MATCH_CARRY)  # matches starting later are re-searched
+            pages += sum(1 for match in _PDF_PAGE_OBJECT.finditer(window) if match.start() < searched)
+            carry = window[searched:]
+            del window
+        if inflater.eof or pages >= max_pages:
             break
-        if marker.start() < consumed_to:  # inside a stream already inflated
+    pages += sum(1 for _ in _PDF_PAGE_OBJECT.finditer(carry))
+    return min(pages, max_pages), inflated, inflater.eof or pages >= max_pages
+
+
+def _pdf_object_stream_pages(data: bytes, max_pages: int) -> tuple[int, bool]:
+    """(page objects inside FlateDecode object streams, whether every object stream was read).
+
+    Not every stream is read when one does not inflate (encrypted, another filter, damaged), uses a
+    predictor (its inflated bytes are not objects), has no end, or a limit stops the walk.
+    """
+    view, pages, budget, consumed_to, complete = memoryview(data), 0, PDF_INFLATE_MAX_BYTES, 0, True
+    for candidate, marker in enumerate(_PDF_OBJECT_STREAM.finditer(data)):
+        if pages >= max_pages:
+            break
+        if candidate >= PDF_MAX_OBJECT_STREAMS or budget <= 0:
+            return pages, False
+        if marker.start() < consumed_to:  # inside a stream already read
             continue
         start = _PDF_STREAM_DATA.search(data, marker.end(), marker.end() + _PDF_DICT_MAX_BYTES)
-        if start is None:
+        if start is None:  # not a stream dictionary
             continue
         end = data.find(b"endstream", start.end())
         if end < 0:
-            break
+            return pages, False
         consumed_to = end
-        try:
-            inflated = zlib.decompressobj().decompress(view[start.end() : end], budget)
-        except zlib.error:  # not FlateDecode, or damaged
+        lookback = max(0, marker.start() - _PDF_DICT_MAX_BYTES)
+        dictionary = data.rfind(b"obj", lookback, marker.start())
+        if data.find(b"/DecodeParms", dictionary if dictionary >= 0 else lookback, start.start()) >= 0:
+            complete = False
             continue
-        budget -= len(inflated)
-        pages += sum(1 for _ in islice(_PDF_PAGE_OBJECT.finditer(inflated), max_pages - pages))
-    return pages
+        try:
+            found, used, finished = _inflated_pages(view[start.end() : end], budget, max_pages - pages)
+        except zlib.error:
+            complete = False
+            continue
+        pages, budget, complete = pages + found, budget - used, complete and finished
+    return pages, complete
+
+
+def _pdf_pages_by_size(size_bytes: int) -> int:
+    return min(max(1, math.ceil(size_bytes / FALLBACK_BYTES_PER_PDF_PAGE)), PDF_MAX_PAGES)
+
+
+@functools.lru_cache(maxsize=256)
+def _pdf_page_count(source_path: str, size_bytes: int, mtime_ns: int) -> int:
+    """Pages in the PDF at ``source_path``, counted from its page objects (plain and inside object
+    streams) and capped at PDF_MAX_PAGES.
+
+    Cached on (path, size, modification time), so the several estimates made for one request read the
+    file once. Size-based when the file is too large to scan or no page object is found, and never
+    below the size-based count when an object stream could not be read, so the estimate errs high.
+    """
+    by_size = _pdf_pages_by_size(size_bytes)
+    if size_bytes > PDF_SCAN_MAX_BYTES:
+        return by_size
+    try:
+        with open(source_path, "rb") as handle:
+            # read(n) allocates n bytes up front: ask for the file's size, not the scan limit.
+            data = handle.read(size_bytes + 1)
+    except OSError:
+        return by_size
+    if len(data) > PDF_SCAN_MAX_BYTES:
+        return by_size
+    pages = sum(1 for _ in islice(_PDF_PAGE_OBJECT.finditer(data), PDF_MAX_PAGES))
+    complete = True
+    if pages < PDF_MAX_PAGES:
+        found, complete = _pdf_object_stream_pages(data, PDF_MAX_PAGES - pages)
+        pages += found
+    if not pages or not complete:
+        pages = max(pages, by_size)
+    return min(pages, PDF_MAX_PAGES)
 
 
 def _pdf_pages(attachment: MediaAttachment) -> int:
-    """Pages in a PDF, counted from its page objects (plain and in object streams), capped at
-    PDF_MAX_PAGES. Size-based when the file is too large to scan or no page object is found."""
-    pages = 0
-    if attachment.size_bytes <= PDF_SCAN_MAX_BYTES:
-        try:
-            with open(attachment.source_path, "rb") as handle:
-                # read(n) allocates n bytes up front: ask for the file's size, not the scan limit.
-                data = handle.read(attachment.size_bytes + 1)
-        except OSError:
-            data = b""
-        if len(data) <= PDF_SCAN_MAX_BYTES:
-            pages = sum(1 for _ in islice(_PDF_PAGE_OBJECT.finditer(data), PDF_MAX_PAGES))
-            if pages < PDF_MAX_PAGES:
-                pages += _pdf_object_stream_pages(data, PDF_MAX_PAGES - pages)
-    if not pages:
-        pages = math.ceil(attachment.size_bytes / FALLBACK_BYTES_PER_PDF_PAGE)
-    return min(max(1, pages), PDF_MAX_PAGES)
+    """Pages in a PDF attachment (see _pdf_page_count)."""
+    try:
+        mtime_ns = os.stat(attachment.source_path).st_mtime_ns
+    except OSError:
+        return _pdf_pages_by_size(attachment.size_bytes)
+    return _pdf_page_count(attachment.source_path, attachment.size_bytes, mtime_ns)
 
 
 # Header walks stop after this many chunks or boxes at one level, so a crafted file cannot make the
@@ -446,7 +529,7 @@ def _bmff_duration_s(handle: BinaryIO, file_size: int) -> float | None:
         for child, child_start, child_end in _bmff_boxes(handle, start, end):
             if child == b"mvhd":
                 timescale, duration = _mvhd_timing(handle, child_start, child_end)
-            elif child == b"mvex":
+            elif child == b"mvex" and not fragmented:  # ISO 14496-12: at most one per moov
                 fragmented = True
                 for grandchild, mehd_start, mehd_end in _bmff_boxes(handle, child_start, child_end):
                     if grandchild == b"mehd":
@@ -489,13 +572,6 @@ def estimate_media_tokens(media: Iterable[MediaAttachment]) -> int:
     return total
 
 
-def _format_size(size_bytes: int) -> str:
-    """'7.7 KB' below 1 MB, '12.3 MB' from there (binary units)."""
-    if size_bytes < 1024 * 1024:
-        return f"{size_bytes / 1024:.1f} KB"
-    return f"{size_bytes / (1024 * 1024):.1f} MB"
-
-
 def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
     """Prompt text announcing attachments, built from the attachment list so the two cannot disagree.
 
@@ -504,7 +580,7 @@ def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
     """
     attachments = list(media)
     return "".join(
-        f"\n--- MEDIA FILE: {a.path} ({a.kind.value}, {a.mime_type}, {_format_size(a.size_bytes)}) ---\n"
+        f"\n--- MEDIA FILE: {a.path} ({a.kind.value}, {a.mime_type}, {format_size(a.size_bytes)}) ---\n"
         f"Not embedded as text: attached to this request as native {a.kind.value} input "
         f"(attachment {number} of {len(attachments)}; the media parts follow in this order).\n"
         "--- END FILE ---\n"

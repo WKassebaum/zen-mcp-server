@@ -2,6 +2,7 @@
 
 import math
 import os
+import time
 import tracemalloc
 import zlib
 from pathlib import Path
@@ -15,6 +16,7 @@ from utils.media import (
     check_media_sizes,
     classify_media,
     estimate_media_tokens,
+    format_size,
     media_prompt_section,
 )
 
@@ -73,6 +75,24 @@ def _video_by_size(path: str) -> int:
 def _audio_by_size(path: str) -> int:
     """The size-based audio estimate: 32 tokens/s at an assumed 8 kB/s."""
     return 32 * max(1, math.ceil(os.path.getsize(path) / 8_000))
+
+
+def _pdf_by_size(path: str) -> int:
+    """The size-based PDF estimate: 560 tokens per assumed 4,000-byte page, at most 1000 pages."""
+    return 560 * min(1000, max(1, math.ceil(os.path.getsize(path) / 4_000)))
+
+
+def _estimate_traced(path: str) -> tuple[int, int]:
+    """(tokens, peak bytes allocated while estimating) for one media file."""
+    media = classify_media([path])[1]
+    assert len(media) == 1, f"not classified as media: {path}"
+    tracemalloc.start()
+    try:
+        tokens = estimate_media_tokens(media)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    return tokens, peak
 
 
 # PCM mono, 16 kHz, 16-bit: 32,000 bytes per second.
@@ -155,8 +175,8 @@ def test_check_media_sizes_rejects_oversized_file(tmp_path):
     with pytest.raises(MediaNotSupportedError) as exc:
         check_media_sizes(media)
     message = str(exc.value)
-    assert f"{huge} (2.00 GB)" in message  # the caller's full path, not only the file name
-    assert "limited to 2 GB each (Gemini Files API per-file limit)" in message
+    assert f"{huge} (2.0 GB, 2,000,000,001 bytes)" in message  # the caller's full path, exact size
+    assert "limited to 2.0 GB each (Gemini Files API per-file limit; 2,000,000,000 bytes)" in message
 
 
 def test_file_exactly_at_the_limit_is_accepted(tmp_path):
@@ -172,7 +192,7 @@ def test_size_error_lists_every_oversized_file(tmp_path):
     with pytest.raises(MediaNotSupportedError) as exc:
         check_media_sizes(classify_media([str(first), MP4, str(second)])[1])
     message = str(exc.value)
-    assert f": {first} (2.00 GB), {second} (3.00 GB)." in message
+    assert f": {first} (2.0 GB, 2,000,000,001 bytes), {second} (3.0 GB, 3,000,000,000 bytes)." in message
     assert "otter.mp4" not in message
 
 
@@ -220,7 +240,7 @@ def test_pdf_pages_inside_an_object_stream_are_counted(tmp_path):
 
 
 def test_pdf_pages_both_plain_and_in_an_object_stream_are_counted(tmp_path):
-    # e.g. an incremental save that rewrote one page of a PDF whose pages sit in object streams
+    # one page stored as a plain object and three inside an object stream, all from one save
     assert _estimate(_write(tmp_path / "mixed.pdf", _pdf(4, compressed_pages=3))) == 560 * 4
 
 
@@ -241,22 +261,109 @@ def test_pdf_over_the_scan_limit_is_not_read(tmp_path):
 
 def test_pdf_scan_reads_only_the_file(tmp_path):
     # A small PDF must not cost a buffer the size of the 64 MiB scan limit.
-    media = classify_media([PDF])[1]
-    tracemalloc.start()
-    try:
-        tokens = estimate_media_tokens(media)
-        peak = tracemalloc.get_traced_memory()[1]
-    finally:
-        tracemalloc.stop()
+    tokens, peak = _estimate_traced(_write(tmp_path / "zebra.pdf", Path(PDF).read_bytes()))
     assert tokens == 560
     assert peak < 1024 * 1024
 
 
-@pytest.mark.parametrize("limit", ["PDF_INFLATE_MAX_BYTES", "PDF_MAX_OBJECT_STREAMS"])
-def test_pdf_object_stream_inflation_is_bounded(tmp_path, monkeypatch, limit):
-    doc = _write(tmp_path / "packed.pdf", _pdf(5, compressed_pages=5))
-    monkeypatch.setattr(utils.media, limit, 0)
-    assert _estimate(doc) == 560  # nothing inflated: size fallback for a small file, one page
+def test_pdf_page_object_spellings(tmp_path):
+    body = (
+        b"<</Type/Page>> <</Type /Page/Parent 1 0 R>> << /Type\n/Page >> "  # three pages
+        b"<</Type /Page1>> <</Type /Page_x>> <</Type /PageLabel>> <</Type /Pages>>"  # none
+    )
+    assert _estimate(_write(tmp_path / "forms.pdf", b"%PDF-1.4\n" + body + b"\n%%EOF\n")) == 560 * 3
+
+
+PLAIN_PAGE = b"1 0 obj\n<< /Type /Page /Parent 3 0 R >>\nendobj\n"
+PADDING = b"%" + b"x" * 40_000 + b"\n"  # a comment, so the size-based estimate is ~11 pages
+
+
+def test_pdf_with_an_undecodable_object_stream_errs_high(tmp_path):
+    # One plain page plus an object stream that is not zlib data (as when the PDF is encrypted): the
+    # pages it may hold cannot be counted, so the size-based estimate is the floor.
+    stream = b"2 0 obj\n<< /Type /ObjStm /N 300 /First 10 /Filter /FlateDecode >>\nstream\n"
+    doc = _write(
+        tmp_path / "enc.pdf", b"%PDF-1.5\n" + PLAIN_PAGE + stream + b"\xff" * 40_000 + b"\nendstream\nendobj\n"
+    )
+    assert _estimate(doc) == _pdf_by_size(doc) == 560 * 11
+
+
+def test_pdf_object_stream_with_a_predictor_errs_high(tmp_path):
+    # A predictor-filtered object stream inflates, but its bytes are not readable as objects.
+    data = zlib.compress(b"4 0\n<< /Type /Font >>")
+    stream = (
+        b"2 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode /DecodeParms << /Predictor 12 >> >>\nstream\n"
+    )
+    doc = _write(tmp_path / "pred.pdf", b"%PDF-1.5\n" + PLAIN_PAGE + stream + data + b"\nendstream\nendobj\n" + PADDING)
+    assert _estimate(doc) == _pdf_by_size(doc)
+
+
+@pytest.mark.parametrize("limit,value", [("PDF_INFLATE_MAX_BYTES", 10), ("PDF_MAX_OBJECT_STREAMS", 0)])
+def test_pdf_object_stream_limits_err_high(tmp_path, monkeypatch, limit, value):
+    # One plain page and five in an object stream, padded to ~41 KB. When a limit stops the walk,
+    # the pages it did not count are covered by the size-based estimate.
+    content = _pdf(6, compressed_pages=5) + PADDING
+    assert _estimate(_write(tmp_path / "counted.pdf", content)) == 560 * 6
+    monkeypatch.setattr(utils.media, limit, value)
+    limited = _write(tmp_path / "limited.pdf", content)
+    assert _estimate(limited) == _pdf_by_size(limited) == 560 * 11
+
+
+def test_pdf_markers_inside_an_inflated_stream_are_skipped(tmp_path):
+    # A stored (level 0) deflate stream shows its contents verbatim in the file: here a dictionary
+    # that looks like another object stream. It must not be inflated again (that would fail and make
+    # the estimate fall back to the file size).
+    data = zlib.compress(b"4 0\n<< /Type /Font >>\n<< /Type /ObjStm >>\nstream\n" + b"y" * 200, 0)
+    stream = b"2 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode >>\nstream\n"
+    doc = _write(
+        tmp_path / "stored.pdf", b"%PDF-1.5\n" + PLAIN_PAGE + stream + data + b"\nendstream\nendobj\n" + PADDING
+    )
+    assert _estimate(doc) == 560
+
+
+def test_pdf_inflation_is_streamed(tmp_path):
+    # A zlib bomb (32 MiB of zeros) followed by 8 MiB of incompressible bytes in one object stream:
+    # inflating costs the file itself plus a few MiB, never the inflated size.
+    bomb = zlib.compressobj(9)
+    compressed = b"".join(bomb.compress(bytes(1 << 20)) for _ in range(32)) + bomb.flush()
+    head = b"%PDF-1.5\n1 0 obj\n<< /Type /ObjStm /N 1 /First 4 /Filter /FlateDecode >>\nstream\n"
+    doc = _write(tmp_path / "bomb.pdf", head + compressed + os.urandom(8 << 20) + b"\nendstream\nendobj\n")
+    tokens, peak = _estimate_traced(doc)
+    assert peak < os.path.getsize(doc) + 4 * 1024 * 1024
+    assert tokens == _pdf_by_size(doc)
+
+
+@pytest.mark.parametrize("input_bytes,output_bytes", [(5, 7), (64, 3), (64 * 1024, 1024 * 1024)])
+def test_pdf_page_objects_split_between_inflated_pieces_count_once(tmp_path, monkeypatch, input_bytes, output_bytes):
+    # With tiny pieces every page object straddles a boundary; the count must match a whole-stream search.
+    content = (
+        b"4 0\n<< /Type /Pages /Kids [] >>\n"
+        + b"<< /Type /Page >>\n" * 30
+        + b"<< /Type /Page1 >>\n<< /Type\n/Page /Parent 4 0 R >>\n"
+    )
+    stream = b"2 0 obj\n<< /Type /ObjStm /N 33 /First 4 /Filter /FlateDecode >>\nstream\n"
+    doc = b"%PDF-1.5\n" + stream + zlib.compress(content) + b"\nendstream\nendobj\n"
+    monkeypatch.setattr(utils.media, "_PDF_INFLATE_INPUT_BYTES", input_bytes)
+    monkeypatch.setattr(utils.media, "_PDF_INFLATE_OUTPUT_BYTES", output_bytes)
+    assert _estimate(_write(tmp_path / "split.pdf", doc)) == 560 * 31
+
+
+def test_pdf_page_count_is_cached_until_the_file_changes(tmp_path, monkeypatch):
+    doc = _write(tmp_path / "doc.pdf", _pdf(3))
+    media = classify_media([doc])[1]
+    opened = []
+
+    def counting_open(file, *args, **kwargs):
+        opened.append(str(file))
+        return open(file, *args, **kwargs)
+
+    monkeypatch.setattr(utils.media, "open", counting_open, raising=False)
+    assert estimate_media_tokens(media) == estimate_media_tokens(media) == 560 * 3
+    assert opened.count(media[0].source_path) == 1
+    stat = os.stat(doc)
+    os.utime(doc, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1_000_000_000))
+    assert estimate_media_tokens(media) == 560 * 3
+    assert opened.count(media[0].source_path) == 2
 
 
 # --- WAV headers: declared sizes are never trusted ---------------------------------------------
@@ -335,6 +442,56 @@ def test_moov_with_size_zero_runs_to_end_of_file(tmp_path):
     moov = (0).to_bytes(4, "big") + b"moov" + _mvhd(1000, 3000)
     clip = _write(tmp_path / "tail.mp4", FTYP + _box(b"mdat", b"\x00" * 64) + moov)
     assert _estimate(clip) == 3 * 300
+
+
+def test_box_header_crossing_its_parents_end_is_not_read(tmp_path):
+    # moov ends 12 bytes into a 64-bit mvhd header. The walk must stop there: a body that starts past
+    # its end would make read() get a negative size and load the rest of the file.
+    moov_body = (1).to_bytes(4, "big") + b"mvhd" + bytes(4)
+    moov = (8 + len(moov_body)).to_bytes(4, "big") + b"moov" + moov_body
+    clip = _write(tmp_path / "crossing.mp4", FTYP + moov + (64).to_bytes(4, "big"), 32 * 1024 * 1024)
+    tokens, peak = _estimate_traced(clip)
+    assert peak < 1024 * 1024
+    assert tokens == _video_by_size(clip)
+
+
+class _CountingReader:
+    """A file handle that counts read() calls."""
+
+    def __init__(self, handle):
+        self._handle, self.reads = handle, 0
+
+    def read(self, *args):
+        self.reads += 1
+        return self._handle.read(*args)
+
+    def __getattr__(self, name):
+        return getattr(self._handle, name)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self._handle.close()
+
+
+def test_only_the_first_mvex_is_walked(tmp_path, monkeypatch):
+    # ISO 14496-12 allows one mvex per moov: 1024 of them with 1024 children each (about a million
+    # boxes) must not be walked. Reads are counted so the bound does not depend on machine speed.
+    mvex = _box(b"mvex", _box(b"free", b"") * 1024)
+    clip = _write(tmp_path / "nested.mp4", FTYP + _box(b"moov", mvex * 1024))
+    media = classify_media([clip])[1]
+    handles = []
+
+    def counting_open(*args, **kwargs):
+        handles.append(_CountingReader(open(*args, **kwargs)))
+        return handles[-1]
+
+    monkeypatch.setattr(utils.media, "open", counting_open, raising=False)
+    started = time.perf_counter()
+    assert estimate_media_tokens(media) == _video_by_size(clip)
+    assert time.perf_counter() - started < 1.0
+    assert sum(handle.reads for handle in handles) < 4 * 1024
 
 
 def test_box_smaller_than_its_header_falls_back_to_size(tmp_path):
@@ -438,5 +595,27 @@ def test_media_prompt_section_shows_small_files_in_kb(tmp_path):
     big = _sparse_mp4(tmp_path / "big.mp4", 3 * 1024 * 1024 + 200 * 1024)
     section = media_prompt_section(classify_media([PDF, MP4, str(big)])[1])
     assert f"--- MEDIA FILE: {PDF} (pdf, application/pdf, 0.6 KB) ---" in section  # 587 B
-    assert f"--- MEDIA FILE: {MP4} (video, video/mp4, 7.7 KB) ---" in section  # 7,856 B
-    assert f"--- MEDIA FILE: {big} (video, video/mp4, 3.2 MB) ---" in section
+    assert f"--- MEDIA FILE: {MP4} (video, video/mp4, 7.9 KB) ---" in section  # 7,856 B
+    assert f"--- MEDIA FILE: {big} (video, video/mp4, 3.4 MB) ---" in section  # 3,350,528 B
+
+
+@pytest.mark.parametrize(
+    "num_bytes,expected",
+    [
+        (0, "0.0 KB"),
+        (587, "0.6 KB"),
+        (7_856, "7.9 KB"),
+        (999_949, "999.9 KB"),
+        (999_999, "1.0 MB"),  # would round to "1000.0 KB"
+        (3_350_528, "3.4 MB"),
+        (999_999_999, "1.0 GB"),
+        (2_000_000_000, "2.0 GB"),
+        (3 * 10**9, "3.0 GB"),
+    ],
+)
+def test_format_size(num_bytes, expected):
+    assert format_size(num_bytes) == expected
+
+
+def test_describe_uses_format_size():
+    assert classify_media([MP4])[1][0].describe() == "video otter.mp4, 7.9 KB"
