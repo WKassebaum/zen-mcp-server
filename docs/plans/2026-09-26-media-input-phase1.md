@@ -594,6 +594,8 @@ git commit -m "feat(media): add media classification helpers" -m "Co-Authored-By
 
 ### Task 3: Media size limit, token estimate and prompt announcement
 
+> **Amended during implementation (commit d866932):** a header that records a duration of 0 (fragmented MP4 `mvhd`, an unfinished WAV `data` chunk) is treated as unknown, so the estimate falls back to the size-based value instead of the 1-second minimum — the estimate must err high. `_bmff_duration_s` returns `duration / timescale if timescale and duration else None`; `_wav_duration_s` returns `chunk_size / byte_rate if byte_rate and chunk_size else None`. Two tests in `tests/test_media_limits.py` pin this.
+
 **Files:**
 - Modify: `utils/media.py` (add `import math`; append one section)
 - Test: `tests/test_media_limits.py`
