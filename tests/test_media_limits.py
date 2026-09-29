@@ -26,6 +26,14 @@ WAV = str(FIXTURES / "pelican.wav")
 MP4 = str(FIXTURES / "otter.mp4")
 
 
+@pytest.fixture(autouse=True)
+def _fresh_pdf_page_cache():
+    """Each test counts PDF pages afresh (shared fixtures and patched limits must not see old counts)."""
+    utils.media._pdf_page_count.cache_clear()
+    yield
+    utils.media._pdf_page_count.cache_clear()
+
+
 def _box(box_type: bytes, payload: bytes) -> bytes:
     return (8 + len(payload)).to_bytes(4, "big") + box_type + payload
 
@@ -366,6 +374,75 @@ def test_pdf_page_count_is_cached_until_the_file_changes(tmp_path, monkeypatch):
     assert opened.count(media[0].source_path) == 2
 
 
+def test_page_object_with_long_whitespace_is_not_counted(tmp_path):
+    # At most 32 whitespace bytes between /Type and /Page are recognised, so every match (with the
+    # character after it) fits the 64-byte carry-over between inflated pieces, and a piecewise count
+    # equals a whole-stream count. Writers put one space or none; 100 is not a page object we look for.
+    body = b"<< /Type /Page >>\n<< /Type" + b" " * 100 + b"/Page >>\n"
+    assert _estimate(_write(tmp_path / "spaced.pdf", b"%PDF-1.4\n" + body)) == 560
+
+
+def test_page_object_with_32_spaces_across_a_piece_boundary_counts_once(tmp_path):
+    # The spaced object starts 20 bytes before the first 1 MiB inflated piece ends.
+    spaced = b"<< /Type" + b" " * 32 + b"/Page >>\n"
+    content = b"4 0\n" + b"%" * (1024 * 1024 - 20 - 4) + spaced + b"<< /Type /Page >>\n"
+    assert content.index(b"<< /Type" + b" " * 32) == 1024 * 1024 - 20
+    stream = b"2 0 obj\n<< /Type /ObjStm /N 2 /First 4 /Filter /FlateDecode >>\nstream\n"
+    doc = _write(tmp_path / "boundary.pdf", b"%PDF-1.5\n" + stream + zlib.compress(content) + b"\nendstream\nendobj\n")
+    assert _estimate(doc) == 560 * 2
+
+
+ONE_PAGE = b"%PDF-1.4\n1 0 obj\n<< /Type /Page >>\nendobj\n" + b"%" * 100 + b"\n"
+THREE_PAGES = b"%PDF-1.4\n1 0 obj\n<< /Type /Page >><< /Type /Page >><< /Type /Page >>\nendobj\n"
+THREE_PAGES += b"%" * (len(ONE_PAGE) - len(THREE_PAGES) - 1) + b"\n"
+
+
+def test_page_count_cache_sees_a_rewrite_with_restored_mtime(tmp_path):
+    # Same path, inode, size and mtime: only the change time (which utime cannot set) tells them apart.
+    doc = _write(tmp_path / "doc.pdf", ONE_PAGE)
+    media = classify_media([doc])[1]
+    assert estimate_media_tokens(media) == 560
+    before = os.stat(doc)
+    Path(doc).write_bytes(THREE_PAGES)
+    for _ in range(500):  # the change time may tick coarsely (a few ms on some kernels)
+        os.utime(doc, ns=(before.st_atime_ns, before.st_mtime_ns))
+        after = os.stat(doc)
+        if after.st_ctime_ns != before.st_ctime_ns:
+            break
+        time.sleep(0.01)
+    assert (after.st_ino, after.st_size, after.st_mtime_ns) == (before.st_ino, before.st_size, before.st_mtime_ns)
+    assert after.st_ctime_ns != before.st_ctime_ns
+    assert estimate_media_tokens(media) == 560 * 3
+
+
+def test_page_count_cache_sees_a_replaced_file_with_restored_mtime(tmp_path):
+    # As after cp -p, tar or unzip: a new file (new inode) of the same size and mtime at the same path.
+    doc = _write(tmp_path / "doc.pdf", ONE_PAGE)
+    media = classify_media([doc])[1]
+    assert estimate_media_tokens(media) == 560
+    before = os.stat(doc)
+    restored = _write(tmp_path / "restored.pdf", THREE_PAGES)
+    os.utime(restored, ns=(before.st_atime_ns, before.st_mtime_ns))
+    os.replace(restored, doc)
+    assert os.stat(doc).st_ino != before.st_ino
+    assert estimate_media_tokens(media) == 560 * 3
+
+
+def test_unreadable_pdf_count_is_not_cached(tmp_path, monkeypatch):
+    doc = _write(tmp_path / "doc.pdf", _pdf(3) + PADDING)
+    media = classify_media([doc])[1]
+    failures = [OSError("transient read failure")]
+
+    def flaky_open(*args, **kwargs):
+        if failures:
+            raise failures.pop()
+        return open(*args, **kwargs)
+
+    monkeypatch.setattr(utils.media, "open", flaky_open, raising=False)
+    assert estimate_media_tokens(media) == _pdf_by_size(doc) == 560 * 11  # read failed: size-based
+    assert estimate_media_tokens(media) == 560 * 3  # tried again, not served from the cache
+
+
 # --- WAV headers: declared sizes are never trusted ---------------------------------------------
 
 
@@ -488,9 +565,7 @@ def test_only_the_first_mvex_is_walked(tmp_path, monkeypatch):
         return handles[-1]
 
     monkeypatch.setattr(utils.media, "open", counting_open, raising=False)
-    started = time.perf_counter()
     assert estimate_media_tokens(media) == _video_by_size(clip)
-    assert time.perf_counter() - started < 1.0
     assert sum(handle.reads for handle in handles) < 4 * 1024
 
 

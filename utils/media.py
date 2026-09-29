@@ -299,11 +299,13 @@ PDF_INFLATE_MAX_BYTES = 64 * 1024 * 1024
 PDF_MAX_OBJECT_STREAMS = 4096
 # Object streams are inflated a piece at a time (input slice, output piece), so memory stays near the
 # output piece size whatever a stream expands to. The last _PDF_MATCH_CARRY bytes of each output piece
-# are searched again with the next one, so a page object split between pieces is still found.
+# are searched again with the next one, so a page object split between pieces is still found. The page
+# pattern allows at most 32 whitespace bytes between /Type and /Page, so a match plus the character
+# after it (at most 43 bytes) always fits the carry-over and a piecewise count equals a whole-stream one.
 _PDF_INFLATE_INPUT_BYTES = 64 * 1024
 _PDF_INFLATE_OUTPUT_BYTES = 1024 * 1024
 _PDF_MATCH_CARRY = 64
-_PDF_PAGE_OBJECT = re.compile(rb"/Type\s*/Page(?![A-Za-z0-9_])")  # not /Pages, /Page1, /Page_x
+_PDF_PAGE_OBJECT = re.compile(rb"/Type\s{0,32}/Page(?![A-Za-z0-9_])")  # not /Pages, /Page1, /Page_x
 _PDF_OBJECT_STREAM = re.compile(rb"/Type\s*/ObjStm(?![A-Za-z])")
 _PDF_STREAM_DATA = re.compile(rb"(?<!end)stream(?:\r\n|\n|\r)")
 _PDF_DICT_MAX_BYTES = 4096  # how far past '/Type /ObjStm' its 'stream' keyword may be
@@ -391,23 +393,24 @@ def _pdf_pages_by_size(size_bytes: int) -> int:
 
 
 @functools.lru_cache(maxsize=256)
-def _pdf_page_count(source_path: str, size_bytes: int, mtime_ns: int) -> int:
+def _pdf_page_count(source_path: str, size_bytes: int, mtime_ns: int, ctime_ns: int, inode: int) -> int:
     """Pages in the PDF at ``source_path``, counted from its page objects (plain and inside object
     streams) and capped at PDF_MAX_PAGES.
 
-    Cached on (path, size, modification time), so the several estimates made for one request read the
-    file once. Size-based when the file is too large to scan or no page object is found, and never
-    below the size-based count when an object stream could not be read, so the estimate errs high.
+    Cached on the path and the file's size, modification and change times and inode, so the several
+    estimates made for one request read the file once, while a rewrite with a restored mtime (the
+    change time moves) or a replaced file (cp -p, tar, unzip: a new inode) is counted again. Raises
+    OSError when the file cannot be read, so a failed read is never cached.
+
+    Size-based when the file is too large to scan or no page object is found, and never below the
+    size-based count when an object stream could not be read, so the estimate errs high.
     """
     by_size = _pdf_pages_by_size(size_bytes)
     if size_bytes > PDF_SCAN_MAX_BYTES:
         return by_size
-    try:
-        with open(source_path, "rb") as handle:
-            # read(n) allocates n bytes up front: ask for the file's size, not the scan limit.
-            data = handle.read(size_bytes + 1)
-    except OSError:
-        return by_size
+    with open(source_path, "rb") as handle:
+        # read(n) allocates n bytes up front: ask for the file's size, not the scan limit.
+        data = handle.read(size_bytes + 1)
     if len(data) > PDF_SCAN_MAX_BYTES:
         return by_size
     pages = sum(1 for _ in islice(_PDF_PAGE_OBJECT.finditer(data), PDF_MAX_PAGES))
@@ -421,12 +424,14 @@ def _pdf_page_count(source_path: str, size_bytes: int, mtime_ns: int) -> int:
 
 
 def _pdf_pages(attachment: MediaAttachment) -> int:
-    """Pages in a PDF attachment (see _pdf_page_count)."""
+    """Pages in a PDF attachment (see _pdf_page_count); size-based if the file cannot be read."""
     try:
-        mtime_ns = os.stat(attachment.source_path).st_mtime_ns
-    except OSError:
+        stat = os.stat(attachment.source_path)
+        return _pdf_page_count(
+            attachment.source_path, attachment.size_bytes, stat.st_mtime_ns, stat.st_ctime_ns, stat.st_ino
+        )
+    except OSError:  # not cached: the next estimate reads the file again
         return _pdf_pages_by_size(attachment.size_bytes)
-    return _pdf_page_count(attachment.source_path, attachment.size_bytes, mtime_ns)
 
 
 # Header walks stop after this many chunks or boxes at one level, so a crafted file cannot make the
