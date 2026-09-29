@@ -9,9 +9,12 @@ from __future__ import annotations
 
 import math
 import os
+import re
+import zlib
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from enum import Enum
+from itertools import islice
 from pathlib import Path
 from typing import Any, BinaryIO
 
@@ -257,31 +260,90 @@ def format_kinds(kinds: Iterable[MediaKind]) -> str:
 # Size limit, token estimate and prompt announcement
 # ---------------------------------------------------------------------------
 
-# Largest single media file zen sends: the Gemini Files API per-file limit (2 GB).
-MEDIA_MAX_BYTES = 2 * 1024**3
+# Largest single media file zen sends: the Gemini Files API per-file limit, "2 GB". Counted in decimal
+# bytes, so the check is conservative whichever unit the API means.
+MEDIA_MAX_BYTES = 2_000_000_000
 
 # Input-token planning figures from the Gemini media docs (video and audio checked 2026-09-27): a
 # video frame is 258 tokens at 1 frame/s (66 at low media resolution) plus 32 tokens/s of audio, so
-# 300/s covers the high-resolution case; audio is 32 tokens/s. ~258 tokens per PDF page is the older
-# documented figure; tests/test_media_live.py checks all three against real usage.
+# 300/s covers the high-resolution case; audio is 32 tokens/s. A PDF page is 560 tokens for Gemini 3
+# models at the default media resolution
+# (https://ai.google.dev/gemini-api/docs/media-resolution, checked 2026-09-28).
+# tests/test_media_live.py checks all three against real usage.
 VIDEO_TOKENS_PER_SECOND = 300
 AUDIO_TOKENS_PER_SECOND = 32
-PDF_TOKENS_PER_PAGE = 258
+PDF_TOKENS_PER_PAGE = 560
 # Used when the duration or page count is not cheaply readable: a low bitrate / small page, so the
 # estimate errs high and text files get less room, never more.
 FALLBACK_BYTES_PER_SECOND = {MediaKind.VIDEO: 64_000, MediaKind.AUDIO: 8_000}
 FALLBACK_BYTES_PER_PDF_PAGE = 4_000
 
+# PDF page counting: Gemini reads at most 1000 pages of a PDF. Only files up to PDF_SCAN_MAX_BYTES are
+# read, and compressed object streams are inflated to at most PDF_INFLATE_MAX_BYTES in total, from at
+# most PDF_MAX_OBJECT_STREAMS candidates.
+PDF_MAX_PAGES = 1000
+PDF_SCAN_MAX_BYTES = 64 * 1024 * 1024
+PDF_INFLATE_MAX_BYTES = 64 * 1024 * 1024
+PDF_MAX_OBJECT_STREAMS = 4096
+_PDF_PAGE_OBJECT = re.compile(rb"/Type\s*/Page(?![A-Za-z])")  # not /Pages
+_PDF_OBJECT_STREAM = re.compile(rb"/Type\s*/ObjStm(?![A-Za-z])")
+_PDF_STREAM_DATA = re.compile(rb"(?<!end)stream(?:\r\n|\n|\r)")
+_PDF_DICT_MAX_BYTES = 4096  # how far past '/Type /ObjStm' its 'stream' keyword may be
+
 
 def check_media_sizes(media: Iterable[MediaAttachment]) -> None:
-    """Fail fast, naming each file, if any attachment is larger than MEDIA_MAX_BYTES."""
+    """Fail fast, naming each file by the caller's path, if any attachment is larger than MEDIA_MAX_BYTES."""
     too_large = [attachment for attachment in media if attachment.size_bytes > MEDIA_MAX_BYTES]
     if too_large:
-        names = ", ".join(f"{a.name} ({a.size_bytes / 1024**3:.2f} GB)" for a in too_large)
+        names = ", ".join(f"{a.path} ({a.size_bytes / 10**9:.2f} GB)" for a in too_large)
         raise MediaNotSupportedError(
-            f"Media files are limited to {MEDIA_MAX_BYTES // 1024**3} GB each "
-            f"(the Gemini Files API per-file limit): {names}."
+            f"Media files are limited to {MEDIA_MAX_BYTES // 10**9} GB each "
+            f"(Gemini Files API per-file limit): {names}."
         )
+
+
+def _pdf_object_stream_pages(data: bytes, max_pages: int) -> int:
+    """Page objects inside FlateDecode object streams (``/Type /ObjStm``), within the inflate limits."""
+    view, pages, budget, consumed_to = memoryview(data), 0, PDF_INFLATE_MAX_BYTES, 0
+    for candidate, marker in enumerate(_PDF_OBJECT_STREAM.finditer(data)):
+        if candidate >= PDF_MAX_OBJECT_STREAMS or budget <= 0 or pages >= max_pages:
+            break
+        if marker.start() < consumed_to:  # inside a stream already inflated
+            continue
+        start = _PDF_STREAM_DATA.search(data, marker.end(), marker.end() + _PDF_DICT_MAX_BYTES)
+        if start is None:
+            continue
+        end = data.find(b"endstream", start.end())
+        if end < 0:
+            break
+        consumed_to = end
+        try:
+            inflated = zlib.decompressobj().decompress(view[start.end() : end], budget)
+        except zlib.error:  # not FlateDecode, or damaged
+            continue
+        budget -= len(inflated)
+        pages += sum(1 for _ in islice(_PDF_PAGE_OBJECT.finditer(inflated), max_pages - pages))
+    return pages
+
+
+def _pdf_pages(attachment: MediaAttachment) -> int:
+    """Pages in a PDF, counted from its page objects (plain and in object streams), capped at
+    PDF_MAX_PAGES. Size-based when the file is too large to scan or no page object is found."""
+    pages = 0
+    if attachment.size_bytes <= PDF_SCAN_MAX_BYTES:
+        try:
+            with open(attachment.source_path, "rb") as handle:
+                # read(n) allocates n bytes up front: ask for the file's size, not the scan limit.
+                data = handle.read(attachment.size_bytes + 1)
+        except OSError:
+            data = b""
+        if len(data) <= PDF_SCAN_MAX_BYTES:
+            pages = sum(1 for _ in islice(_PDF_PAGE_OBJECT.finditer(data), PDF_MAX_PAGES))
+            if pages < PDF_MAX_PAGES:
+                pages += _pdf_object_stream_pages(data, PDF_MAX_PAGES - pages)
+    if not pages:
+        pages = math.ceil(attachment.size_bytes / FALLBACK_BYTES_PER_PDF_PAGE)
+    return min(max(1, pages), PDF_MAX_PAGES)
 
 
 # Header walks stop after this many chunks or boxes at one level, so a crafted file cannot make the
@@ -417,8 +479,7 @@ def estimate_media_tokens(media: Iterable[MediaAttachment]) -> int:
     total = 0
     for attachment in media:
         if attachment.kind is MediaKind.PDF:
-            pages = max(1, math.ceil(attachment.size_bytes / FALLBACK_BYTES_PER_PDF_PAGE))
-            total += PDF_TOKENS_PER_PAGE * pages
+            total += PDF_TOKENS_PER_PAGE * _pdf_pages(attachment)
             continue
         seconds = _duration_s(attachment)
         if seconds is None:
@@ -428,11 +489,24 @@ def estimate_media_tokens(media: Iterable[MediaAttachment]) -> int:
     return total
 
 
+def _format_size(size_bytes: int) -> str:
+    """'7.7 KB' below 1 MB, '12.3 MB' from there (binary units)."""
+    if size_bytes < 1024 * 1024:
+        return f"{size_bytes / 1024:.1f} KB"
+    return f"{size_bytes / (1024 * 1024):.1f} MB"
+
+
 def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
-    """Prompt text announcing attachments, built from the attachment list so the two cannot disagree."""
+    """Prompt text announcing attachments, built from the attachment list so the two cannot disagree.
+
+    Media parts carry no file name, so each entry says its position; providers attach the media
+    parts in this same order.
+    """
+    attachments = list(media)
     return "".join(
-        f"\n--- MEDIA FILE: {a.path} ({a.kind.value}, {a.mime_type}, {a.size_bytes / (1024 * 1024):.1f} MB) ---\n"
-        f"Not embedded as text: attached to this request as native {a.kind.value} input.\n"
+        f"\n--- MEDIA FILE: {a.path} ({a.kind.value}, {a.mime_type}, {_format_size(a.size_bytes)}) ---\n"
+        f"Not embedded as text: attached to this request as native {a.kind.value} input "
+        f"(attachment {number} of {len(attachments)}; the media parts follow in this order).\n"
         "--- END FILE ---\n"
-        for a in media
+        for number, a in enumerate(attachments, 1)
     )

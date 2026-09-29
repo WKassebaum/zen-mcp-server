@@ -3,10 +3,12 @@
 import math
 import os
 import tracemalloc
+import zlib
 from pathlib import Path
 
 import pytest
 
+import utils.media
 from utils.media import (
     MEDIA_MAX_BYTES,
     MediaNotSupportedError,
@@ -98,6 +100,51 @@ def _wav_header(data_size: int, fmt: bytes = WAV_FMT, fmt_size: int | None = Non
     )
 
 
+def _pdf(pages: int, compressed_pages: int = 0) -> bytes:
+    """A valid PDF 1.5 with ``pages`` blank pages, indexed by a cross-reference stream.
+
+    The last ``compressed_pages`` page objects are stored only inside a FlateDecode object stream,
+    so their '/Type /Page' never appears in the file's raw bytes.
+    """
+    page_numbers = list(range(3, 3 + pages))
+    kids = b" ".join(b"%d 0 R" % number for number in page_numbers)
+    page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>"
+    plain = {1: b"<< /Type /Catalog /Pages 2 0 R >>", 2: b"<< /Type /Pages /Kids [%s] /Count %d >>" % (kids, pages)}
+    compressed = page_numbers[pages - compressed_pages :]
+    plain.update(dict.fromkeys(page_numbers[: pages - compressed_pages], page))
+    out, offsets, next_number = b"%PDF-1.5\n", {}, 3 + pages
+    for number, body in plain.items():
+        offsets[number] = len(out)
+        out += b"%d 0 obj\n%s\nendobj\n" % (number, body)
+    if compressed:
+        stream_number, next_number = next_number, next_number + 1
+        index = b" ".join(b"%d %d" % (number, i * (len(page) + 1)) for i, number in enumerate(compressed)) + b"\n"
+        data = zlib.compress(index + b"".join(page + b"\n" for _ in compressed))
+        offsets[stream_number] = len(out)
+        out += (
+            b"%d 0 obj\n<< /Type /ObjStm /N %d /First %d /Filter /FlateDecode /Length %d >>\nstream\n"
+            % (stream_number, len(compressed), len(index), len(data))
+            + data
+            + b"\nendstream\nendobj\n"
+        )
+    xref_number = next_number
+    offsets[xref_number] = len(out)
+    rows = [b"\x00\x00\x00\x00\x00\xff\xff"]
+    for number in range(1, xref_number + 1):
+        if number in offsets:
+            rows.append(b"\x01" + offsets[number].to_bytes(4, "big") + b"\x00\x00")
+        else:
+            rows.append(b"\x02" + stream_number.to_bytes(4, "big") + compressed.index(number).to_bytes(2, "big"))
+    xref = b"".join(rows)
+    out += (
+        b"%d 0 obj\n<< /Type /XRef /Size %d /W [1 4 2] /Root 1 0 R /Length %d >>\nstream\n"
+        % (xref_number, xref_number + 1, len(xref))
+        + xref
+        + b"\nendstream\nendobj\n"
+    )
+    return out + b"startxref\n%d\n%%%%EOF\n" % offsets[xref_number]
+
+
 def test_check_media_sizes_accepts_fixtures():
     check_media_sizes(classify_media([PDF, WAV, MP4])[1])
 
@@ -105,17 +152,36 @@ def test_check_media_sizes_accepts_fixtures():
 def test_check_media_sizes_rejects_oversized_file(tmp_path):
     huge = _sparse_mp4(tmp_path / "huge.mp4", MEDIA_MAX_BYTES + 1)
     media = classify_media([str(huge)])[1]
-    with pytest.raises(MediaNotSupportedError, match=r"huge\.mp4 \(2\.00 GB\)") as exc:
+    with pytest.raises(MediaNotSupportedError) as exc:
         check_media_sizes(media)
-    assert "limited to 2 GB each" in str(exc.value)
+    message = str(exc.value)
+    assert f"{huge} (2.00 GB)" in message  # the caller's full path, not only the file name
+    assert "limited to 2 GB each (Gemini Files API per-file limit)" in message
+
+
+def test_file_exactly_at_the_limit_is_accepted(tmp_path):
+    assert MEDIA_MAX_BYTES == 2_000_000_000  # decimal 2 GB: conservative whichever unit the API means
+    check_media_sizes(classify_media([str(_sparse_mp4(tmp_path / "limit.mp4", MEDIA_MAX_BYTES))])[1])
+
+
+def test_size_error_lists_every_oversized_file(tmp_path):
+    (tmp_path / "a").mkdir()
+    (tmp_path / "b").mkdir()
+    first = _sparse_mp4(tmp_path / "a" / "clip.mp4", MEDIA_MAX_BYTES + 1)
+    second = _sparse_mp4(tmp_path / "b" / "clip.mp4", 3 * 10**9)
+    with pytest.raises(MediaNotSupportedError) as exc:
+        check_media_sizes(classify_media([str(first), MP4, str(second)])[1])
+    message = str(exc.value)
+    assert f": {first} (2.00 GB), {second} (3.00 GB)." in message
+    assert "otter.mp4" not in message
 
 
 def test_estimate_reads_exact_durations():
     _, (pdf, wav, mp4) = classify_media([PDF, WAV, MP4])
     assert estimate_media_tokens([mp4]) == 3 * 300  # mvhd: 3 s, stored after mdat
     assert estimate_media_tokens([wav]) == 2 * 32  # 1.96 s of 16 kHz mono, rounded up
-    assert estimate_media_tokens([pdf]) == 258  # one page
-    assert estimate_media_tokens([pdf, wav, mp4]) == 258 + 64 + 900
+    assert estimate_media_tokens([pdf]) == 560  # one page
+    assert estimate_media_tokens([pdf, wav, mp4]) == 560 + 64 + 900
     assert estimate_media_tokens([]) == 0
 
 
@@ -139,6 +205,58 @@ def test_estimate_treats_zero_movie_duration_as_unknown(tmp_path):
         10 * 1024 * 1024,
     )
     assert _estimate(clip) == 300 * 164  # 10 MiB at 64 kB/s = 163.8 s
+
+
+# --- PDF pages: counted from page objects, size-based only when they cannot be ---------------------
+
+
+@pytest.mark.parametrize("pages", [1, 3, 12])
+def test_pdf_pages_are_counted(tmp_path, pages):
+    assert _estimate(_write(tmp_path / "doc.pdf", _pdf(pages))) == 560 * pages
+
+
+def test_pdf_pages_inside_an_object_stream_are_counted(tmp_path):
+    assert _estimate(_write(tmp_path / "packed.pdf", _pdf(5, compressed_pages=5))) == 560 * 5
+
+
+def test_pdf_pages_both_plain_and_in_an_object_stream_are_counted(tmp_path):
+    # e.g. an incremental save that rewrote one page of a PDF whose pages sit in object streams
+    assert _estimate(_write(tmp_path / "mixed.pdf", _pdf(4, compressed_pages=3))) == 560 * 4
+
+
+def test_pdf_page_count_is_capped_at_gemini_limit(tmp_path):
+    assert _estimate(_write(tmp_path / "long.pdf", _pdf(1200))) == 560 * 1000
+
+
+def test_pdf_without_page_objects_falls_back_to_size(tmp_path):
+    doc = _write(tmp_path / "odd.pdf", b"%PDF-1.7\n" + b"x" * (40_000 - 9))
+    assert _estimate(doc) == 560 * 10  # 40,000 B at 4,000 B/page
+
+
+def test_pdf_over_the_scan_limit_is_not_read(tmp_path):
+    # Three real page objects, then a hole past 64 MiB: estimated by size (capped), not by scanning.
+    doc = _write(tmp_path / "huge.pdf", _pdf(3), 64 * 1024 * 1024 + 1)
+    assert _estimate(doc) == 560 * 1000
+
+
+def test_pdf_scan_reads_only_the_file(tmp_path):
+    # A small PDF must not cost a buffer the size of the 64 MiB scan limit.
+    media = classify_media([PDF])[1]
+    tracemalloc.start()
+    try:
+        tokens = estimate_media_tokens(media)
+        peak = tracemalloc.get_traced_memory()[1]
+    finally:
+        tracemalloc.stop()
+    assert tokens == 560
+    assert peak < 1024 * 1024
+
+
+@pytest.mark.parametrize("limit", ["PDF_INFLATE_MAX_BYTES", "PDF_MAX_OBJECT_STREAMS"])
+def test_pdf_object_stream_inflation_is_bounded(tmp_path, monkeypatch, limit):
+    doc = _write(tmp_path / "packed.pdf", _pdf(5, compressed_pages=5))
+    monkeypatch.setattr(utils.media, limit, 0)
+    assert _estimate(doc) == 560  # nothing inflated: size fallback for a small file, one page
 
 
 # --- WAV headers: declared sizes are never trusted ---------------------------------------------
@@ -306,3 +424,19 @@ def test_media_prompt_section_lists_every_attachment():
     section = media_prompt_section(classify_media([PDF, MP4])[1])
     assert section.count("--- MEDIA FILE:") == 2
     assert "attached to this request as native video input" in section
+    assert media_prompt_section([]) == ""
+
+
+def test_media_prompt_section_numbers_attachments_in_order():
+    section = media_prompt_section(classify_media([PDF, MP4])[1])
+    assert section.index(f"--- MEDIA FILE: {PDF} ") < section.index(f"--- MEDIA FILE: {MP4} ")
+    assert "native pdf input (attachment 1 of 2; the media parts follow in this order)." in section
+    assert "native video input (attachment 2 of 2; the media parts follow in this order)." in section
+
+
+def test_media_prompt_section_shows_small_files_in_kb(tmp_path):
+    big = _sparse_mp4(tmp_path / "big.mp4", 3 * 1024 * 1024 + 200 * 1024)
+    section = media_prompt_section(classify_media([PDF, MP4, str(big)])[1])
+    assert f"--- MEDIA FILE: {PDF} (pdf, application/pdf, 0.6 KB) ---" in section  # 587 B
+    assert f"--- MEDIA FILE: {MP4} (video, video/mp4, 7.7 KB) ---" in section  # 7,856 B
+    assert f"--- MEDIA FILE: {big} (video, video/mp4, 3.2 MB) ---" in section
