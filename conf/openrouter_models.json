@@ -106,10 +106,30 @@
       "allow_code_generation": true
     },
     {
-      "model_name": "anthropic/claude-sonnet-5",
+      "model_name": "anthropic/claude-sonnet-5.5",
       "aliases": [
         "sonnet",
         "claude-sonnet",
+        "sonnet-5.5",
+        "sonnet5.5",
+        "claude-sonnet-5.5"
+      ],
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "Claude Sonnet 5.5 (released 2026-09-28) - Current Sonnet, roughly Opus 5.5 capability at half the price and 30%+ faster than Sonnet 5; adaptive thinking always on. 1M context, 128K output, $2/$10 per 1M tokens (via OpenRouter)",
+      "intelligence_score": 19,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "anthropic/claude-sonnet-5",
+      "aliases": [
         "sonnet-5"
       ],
       "context_window": 1000000,
@@ -121,8 +141,8 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": false,
       "temperature_constraint": "fixed",
-      "description": "Claude Sonnet 5 (released 2026-06-30) - Near-Opus-4.8 capability at Sonnet pricing, adaptive thinking with effort levels, intro $2/$10 per 1M through 2026-08-31 then $3/$15 (via OpenRouter)",
-      "intelligence_score": 19,
+      "description": "Claude Sonnet 5 (released 2026-06-30) - Previous Sonnet, superseded by Sonnet 5.5. Near-Opus-4.8 capability at Sonnet pricing, adaptive thinking with effort levels, intro $2/$10 per 1M through 2026-08-31 then $3/$15 (via OpenRouter)",
+      "intelligence_score": 18,
       "allow_code_generation": true
     },
     {

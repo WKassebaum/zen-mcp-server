@@ -93,7 +93,7 @@ class TestOpenRouterModelRegistry:
             ("claude-opus", "anthropic/claude-opus-5.5"),
             ("opus4.5", "anthropic/claude-opus-4.5"),
             ("opus4.1", "anthropic/claude-opus-4.1"),  # 4.1 still accessible
-            ("sonnet", "anthropic/claude-sonnet-5"),
+            ("sonnet", "anthropic/claude-sonnet-5.5"),
             ("o3", "openai/o3"),
             ("deepseek", "deepseek/deepseek-r1-0528"),
             ("mistral", "mistralai/mistral-large-2512"),

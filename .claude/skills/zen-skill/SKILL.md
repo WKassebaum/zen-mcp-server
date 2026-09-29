@@ -208,7 +208,7 @@ Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BAL
 
 | Provider | Top model | Aliases |
 |---|---|---|
-| Anthropic | Claude Fable 5.1 / Claude Opus 5.5 — pass `fable` / `opus` | `fable`, `opus`, `sonnet` (native in the CLI, OpenRouter in MCP) |
+| Anthropic | Claude Fable 5.1 / Claude Opus 5.5 / Claude Sonnet 5.5 — pass `fable` / `opus` / `sonnet` | `fable`, `opus`, `sonnet` (native in the CLI, OpenRouter in MCP) |
 | OpenAI | `gpt-6-astra` / `gpt-6-sol` / `gpt-6-luna` | `gpt-6`, `astra`, `sol`, `luna` |
 | Google | `gemini-3.1-pro-preview` / `gemini-3.8-flash` | `pro`, `flash`, `flashlite` |
 | xAI | `grok-4.7` | `grok`, `grok4`, `grok-4.7` |

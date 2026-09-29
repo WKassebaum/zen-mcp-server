@@ -82,7 +82,7 @@ class TestOpenRouterProvider:
         assert provider._resolve_model_name("opus") == "anthropic/claude-opus-5.5"
         assert provider._resolve_model_name("opus4.5") == "anthropic/claude-opus-4.5"
         assert provider._resolve_model_name("opus4.1") == "anthropic/claude-opus-4.1"
-        assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-5"
+        assert provider._resolve_model_name("sonnet") == "anthropic/claude-sonnet-5.5"
         assert provider._resolve_model_name("sonnet4.5") == "anthropic/claude-sonnet-4.5"
         assert provider._resolve_model_name("o3") == "openai/o3"
         assert provider._resolve_model_name("o3-mini") == "openai/o3-mini"
@@ -101,7 +101,7 @@ class TestOpenRouterProvider:
 
         # Test case-insensitive
         assert provider._resolve_model_name("OPUS") == "anthropic/claude-opus-5.5"
-        assert provider._resolve_model_name("SONNET") == "anthropic/claude-sonnet-5"
+        assert provider._resolve_model_name("SONNET") == "anthropic/claude-sonnet-5.5"
         assert provider._resolve_model_name("O3") == "openai/o3"
         assert provider._resolve_model_name("Mistral") == "mistralai/mistral-large-2512"
 
@@ -345,10 +345,11 @@ class TestOpenRouterRegistry:
 
         registry = OpenRouterModelRegistry()
 
-        # "sonnet" now resolves to Claude Sonnet 5 (latest)
+        # "sonnet" now resolves to Claude Sonnet 5.5 (latest); "sonnet-5" still pins Sonnet 5
         config = registry.resolve("sonnet")
         assert config is not None
-        assert config.model_name == "anthropic/claude-sonnet-5"
+        assert config.model_name == "anthropic/claude-sonnet-5.5"
+        assert registry.resolve("sonnet-5").model_name == "anthropic/claude-sonnet-5"
 
         # "sonnet4.5" still resolves to Claude Sonnet 4.5 (previous version)
         config = registry.resolve("sonnet4.5")

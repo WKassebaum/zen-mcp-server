@@ -213,6 +213,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                         "claude-fable-5-1",
                         "claude-fable-5",
                         "claude-opus-5-5",
+                        "claude-sonnet-5-5",
                         "claude-opus-5",
                         "claude-opus-4-8",
                         "claude-opus-4-7",
@@ -225,11 +226,12 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             )
 
         elif category == ToolModelCategory.FAST_RESPONSE:
-            # Haiku models are purpose-built for speed.
+            # Haiku is purpose-built for speed; Sonnet 5.5 is the fast capable fallback (30%+ faster than Sonnet 5).
             return (
                 find_first(
                     [
                         "claude-haiku-4-5-20251001",
+                        "claude-sonnet-5-5",
                         "claude-sonnet-4-6",
                     ]
                 )
@@ -237,10 +239,11 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             )
 
         else:  # BALANCED
-            # Opus 5.5 is the current Opus flagship and cheaper than Opus 5 ($4/$20).
+            # Sonnet 5.5 roughly matches Opus 5.5 (GDPval-AA 1844 vs 1846) at half the price ($2/$10).
             return (
                 find_first(
                     [
+                        "claude-sonnet-5-5",
                         "claude-opus-5-5",
                         "claude-opus-5",
                         "claude-opus-4-8",

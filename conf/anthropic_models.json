@@ -213,16 +213,40 @@
       "max_image_size_mb": 20.0
     },
     {
-      "model_name": "claude-sonnet-5",
-      "friendly_name": "Anthropic (Claude Sonnet 5)",
+      "model_name": "claude-sonnet-5-5",
+      "friendly_name": "Anthropic (Claude Sonnet 5.5)",
       "aliases": [
         "sonnet",
         "claude-sonnet",
+        "sonnet-5.5",
+        "sonnet5.5",
+        "claude-sonnet-5.5",
+        "claude-sonnet-5-5"
+      ],
+      "intelligence_score": 19,
+      "description": "Claude Sonnet 5.5 (released 2026-09-28) - Current Sonnet, roughly Opus 5.5 capability at half the price and 30%+ faster than Sonnet 5 (Terminal-Bench 4.0 70.6%, OSWorld 2.1 80.1%, GDPval-AA 1844 vs Opus 5.5's 1846). Adaptive thinking always on (cannot be disabled; use effort), default effort high. Rejects temperature/top_p/top_k and forced tool_choice. 1M context, 128K output, knowledge cutoff Jun 2026. $2/$10 per 1M tokens.",
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_system_prompts": true,
+      "supports_streaming": true,
+      "supports_function_calling": true,
+      "supports_json_mode": true,
+      "supports_images": true,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "allow_code_generation": true,
+      "max_image_size_mb": 20.0
+    },
+    {
+      "model_name": "claude-sonnet-5",
+      "friendly_name": "Anthropic (Claude Sonnet 5)",
+      "aliases": [
         "sonnet-5",
         "claude-sonnet-5"
       ],
-      "intelligence_score": 19,
-      "description": "Claude Sonnet 5 (released 2026-06-30) - Near-Opus-4.8 capability at Sonnet pricing, default agentic workhorse. Adaptive thinking with effort levels (low/medium/high/max/x-high, default high). Rejects non-default temperature/top_p. 1M context, 128K output. Intro pricing $2/$10 per 1M through 2026-08-31, then $3/$15.",
+      "intelligence_score": 18,
+      "description": "Claude Sonnet 5 (released 2026-06-30) - Previous Sonnet, superseded by Sonnet 5.5 at the same price. Near-Opus-4.8 capability at Sonnet pricing, default agentic workhorse. Adaptive thinking with effort levels (low/medium/high/max/x-high, default high). Rejects non-default temperature/top_p. 1M context, 128K output. Intro pricing $2/$10 per 1M through 2026-08-31, then $3/$15.",
       "context_window": 1000000,
       "max_output_tokens": 128000,
       "supports_extended_thinking": true,
