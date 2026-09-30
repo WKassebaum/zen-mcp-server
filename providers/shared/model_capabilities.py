@@ -2,10 +2,13 @@
 
 import math
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from .provider_type import ProviderType
 from .temperature import RangeTemperatureConstraint, TemperatureConstraint
+
+if TYPE_CHECKING:
+    from utils.media import MediaKind
 
 __all__ = ["ModelCapabilities"]
 
@@ -80,8 +83,10 @@ class ModelCapabilities:
 
         return self.temperature_constraint.get_corrected_value(requested_temperature)
 
-    def supported_media_kinds(self) -> frozenset:
+    def supported_media_kinds(self) -> frozenset["MediaKind"]:
         """Media kinds (utils.media.MediaKind) this model accepts as native input."""
+        # Local import keeps providers.shared importable without loading utils.media at
+        # module import time; check import order before moving it to the top level.
         from utils.media import MediaKind
 
         flags = {

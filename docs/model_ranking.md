@@ -10,6 +10,7 @@ computes a capability rank for every model at runtime using a simple recipe:
    - **Output budget:** +2 for ≥65K tokens, +1 for ≥32K.
    - **Extended thinking:** +3 when the provider supports it.
    - **Function calling / JSON / images:** +1 each when available.
+   - **PDF / audio / video:** +1 each (native media input).
    - **Custom endpoints:** −1 to nudge cloud-hosted defaults ahead unless tuned.
 3. Clamp the final score to 0–100 so downstream callers can rely on the range.
 
@@ -24,6 +25,7 @@ feature_bonus = (
     + (1 if supports_function_calling else 0)
     + (1 if supports_json_mode else 0)
     + (1 if supports_images else 0)
+    + len(supported_media_kinds())  # supports_pdf / supports_audio / supports_video
 )
 penalty = 1 if provider == CUSTOM else 0
 
