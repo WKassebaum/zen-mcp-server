@@ -8,6 +8,17 @@ Future work that has been scoped or discovered but deliberately not started. Add
 - **Recorded:** 2026-09-26
 - **Status:** Design validated — `docs/plans/2026-09-26-media-input-design.md`. Implementation not started.
 
+### Media input phase 1 follow-ups
+Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
+- **Duplicate attachments on case-insensitive disks and hard links:** `CLIP.mp4` and `clip.mp4`, or a hard link, attach twice. Dedupe on `(st_dev, st_ino)`.
+- **FIFO swap window:** a small gap between `is_file()` and `open()` in media detection. Open with `O_NONBLOCK` and `fstat` the handle.
+- **Exact audio durations:** MP3 (Xing/Info or CBR frames), FLAC (STREAMINFO) and Ogg (last page granule) fall back to a size-based estimate that undercounts voice-bitrate audio (the response reserve absorbs it).
+- **Gemini Files API limit on paid tiers:** the video docs table says 20 GB paid / 2 GB free; zen caps at 2,000,000,000 bytes. Verify and raise if paid accounts allow more.
+- **Token estimates vs Gemini 3 defaults:** the media-resolution table gives video 70 tokens/frame and audio 25 tokens/s; zen's 300/s and 32/s err high. If zen ever sets `media_resolution` explicitly, the "+ native text" PDF rows make 560/page low.
+- **PDF page overcount:** incremental saves are counted again (errs high); the largest `/Count` among `/Type /Pages` nodes would be exact.
+- **Prompt-file markers:** `handle_prompt_file` still uses `FILE NOT FOUND` / `NOT A FILE` / `FILE TOO LARGE` marker text as the prompt; only `--- ERROR` markers are skipped (pre-existing).
+- **Binary sniff on symlinks:** `read_file_content` sniffs the resolved path's extension while media detection checks both names, so `notes.txt -> blob` with NUL bytes reports binary (read_files already resolves paths, so rare).
+
 ## Future features
 
 ### Gemini Omni video generation (`zen videogen`)
