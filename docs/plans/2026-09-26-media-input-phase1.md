@@ -829,6 +829,8 @@ git commit -m "feat(media): add size limit, token estimate and prompt announceme
 
 ### Task 4: Never read media or binaries as text
 
+> **Amended after code review (commits f3dc0d8 and the follow-up):** the committed code is authoritative over the blocks below. `read_file_content`'s media placeholder header is `--- MEDIA FILE (NOT ATTACHED): <path> (...)` so it can never match the attached block's `--- MEDIA FILE:` header from `media_prompt_section`; the headers that are never prompt text live in `utils/file_utils.NOT_TEXT_FILE_HEADERS`, which `handle_prompt_file` checks. `media_type_for` returns early unless the name has a media suffix or is a symlink, and `read_file_content` reuses its validated path via `media_type_for_validated`. Text decodes as `utf-8-sig` unless a UTF-16/32 BOM names another codec. `looks_binary` also flags an unknown-extension file whose BOM-decoded sample contains U+0000, and MPEG-TS content (0x47 at every 188-byte packet start) under `.ts`, so it no longer "never flags a known text extension". BINARY placeholders tell image files to use the `images` field and call a media-named file with a bad signature invalid. A media or binary `prompt.txt` stays in the file list so `classify_media` attaches or rejects it.
+
 **Files:**
 - Modify: `utils/file_utils.py` — `read_file_content`: insert right after the `if not path.is_file():` block (line 461) and **before** the size check; change the decode at line 487
 - Modify: `utils/conversation_memory.py` — `get_conversation_file_list` (the `for file_path in turn.files:` loop, line 494)
@@ -2322,6 +2324,8 @@ git commit -m "feat(tools): validate and pass native media in simple tools" -m "
 ---
 
 ### Task 12: Auto mode and the MCP boundary
+
+> **Also required (from the Task 4 review):** `looks_binary` now opens some text-extension paths (the MPEG-TS check on `.ts`), so wherever this task calls it on raw argument paths (the MCP size-check filter), guard it with `os.path.isfile(path)` first so a FIFO or device named like a text file can never block the request.
 
 > **Also required (from the Task 2 review):** `server.py` `reconstruct_thread_context` (~line 1119) catches `ValueError` from `ModelContext.from_arguments` and calls `get_preferred_fallback_model(tool.get_model_category())` to size history on continuations. Pass `required_media=media_kinds_from_arguments(arguments)` there as well, and if that call raises `MediaNotSupportedError`, surface it as the same `ToolExecutionError` the auto-mode block raises — never swallow it into a different fallback. Add a continuation test with media and `model=auto` where no provider can take the media: it must fail with the media message, not pick an incapable model.
 
