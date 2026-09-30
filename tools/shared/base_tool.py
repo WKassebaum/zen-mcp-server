@@ -895,6 +895,9 @@ class BaseTool(ABC):
 
         If prompt.txt is found, reads its content and removes it from the files list.
         This file is treated specially as the main prompt, not as an embedded file.
+        A prompt.txt that holds media or binary content (read_file_content returns a
+        MEDIA FILE (NOT ATTACHED) or BINARY FILE placeholder) is not a prompt: it stays in
+        the files list, so classify_media can attach it as media or it is reported as binary.
 
         This mechanism allows us to work around MCP's ~25K token limit by having
         the CLI save large prompts to a file, effectively using the file transfer

@@ -45,7 +45,14 @@ from pathlib import Path
 from typing import Optional
 
 from .file_types import BINARY_EXTENSIONS, CODE_EXTENSIONS, IMAGE_EXTENSIONS, TEXT_EXTENSIONS
-from .media import MEDIA_TYPES, bom_encoding, format_size, looks_binary, media_type_for_validated
+from .media import (
+    MEDIA_TYPES,
+    bom_encoding,
+    format_size,
+    is_mpeg_transport_stream,
+    looks_binary,
+    media_type_for_validated,
+)
 from .security_config import EXCLUDED_DIRS, is_dangerous_path
 from .token_utils import DEFAULT_CONTEXT_WINDOW, estimate_tokens
 
@@ -433,6 +440,8 @@ def _binary_file_reason(file_path: str, path: Path) -> str:
     suffixes = [suffix for suffix in dict.fromkeys((Path(file_path).suffix.lower(), path.suffix.lower())) if suffix]
     if any(suffix in IMAGE_EXTENSIONS for suffix in suffixes):
         return "image file: pass it in the `images` field, not the file list"
+    if is_mpeg_transport_stream(str(path)):  # a .ts segment, or one saved as .mpg/.mpeg
+        return "MPEG transport streams (.ts) are not supported; convert to .mp4"
     media_suffix = next((suffix for suffix in suffixes if suffix in MEDIA_TYPES), None)
     if media_suffix is not None:
         return f"this does not look like a valid {media_suffix} file, so it is not attached as media either"

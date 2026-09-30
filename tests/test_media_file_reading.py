@@ -1,5 +1,8 @@
 """Media and binary files must never be embedded as text; BOM-marked text must stay readable."""
 
+import builtins
+import io
+import os
 from pathlib import Path
 
 import utils.file_utils
@@ -58,6 +61,8 @@ def test_mpeg_transport_stream_is_binary_not_media(tmp_path):
     capture.write_bytes(TS_PACKET * 3)
     content, _ = read_file_content(str(capture))
     assert content.startswith(f"\n--- BINARY FILE: {capture} ---")
+    assert "MPEG transport streams (.ts) are not supported; convert to .mp4" in content
+    assert "does not look like a valid" not in content
 
 
 def test_text_files_unchanged(tmp_path):
@@ -188,6 +193,7 @@ def test_mpeg_ts_named_ts_is_binary(tmp_path):
     segment.write_bytes(TS_PACKET * 3)
     content, _ = read_file_content(str(segment))
     assert content.startswith(f"\n--- BINARY FILE: {segment} ---")
+    assert "MPEG transport streams (.ts) are not supported; convert to .mp4" in content
 
 
 def test_typescript_named_ts_stays_text(tmp_path):
@@ -221,3 +227,23 @@ def test_binary_placeholder_names_invalid_media(tmp_path):
     assert content.startswith(f"\n--- BINARY FILE: {broken} ---")
     assert "does not look like a valid .mp4 file" in content
     assert "not a supported media type" not in content
+
+
+def test_text_file_open_count(tmp_path, monkeypatch):
+    code = tmp_path / "app.py"
+    code.write_text("x = 1\n")
+    targets = {str(code), str(code.resolve())}
+    opened = []
+    real_open = builtins.open
+
+    def counting_open(file, *args, **kwargs):
+        if isinstance(file, (str, os.PathLike)) and os.fspath(file) in targets:
+            opened.append(file)
+        return real_open(file, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "open", counting_open)
+    monkeypatch.setattr(io, "open", counting_open)  # Path.open goes through io.open
+    content, _ = read_file_content(str(code))
+    assert "x = 1" in content
+    # bom_encoding's 4-byte peek and the read itself: a text extension other than .ts is not sniffed.
+    assert len(opened) == 2

@@ -269,16 +269,33 @@ def _looks_like_mpeg_ts(sample: bytes) -> bool:
     return len(starts) >= _TS_MIN_PACKETS and all(sample[start] == _TS_SYNC_BYTE for start in starts)
 
 
+def is_mpeg_transport_stream(path: str, sample_size: int = 8192) -> bool:
+    """True if the file starts with MPEG transport stream packets (0x47 at every 188-byte packet start)."""
+    try:
+        with open(path, "rb") as handle:
+            return _looks_like_mpeg_ts(handle.read(sample_size))
+    except OSError:
+        return False
+
+
+# The one text extension that is also an MPEG transport stream extension (TypeScript vs. video).
+_TS_TEXT_EXTENSION = ".ts"
+
+
 def looks_binary(path: str, sample_size: int = 8192) -> bool:
     """True if the file is not text we can embed, judged from its first ``sample_size`` bytes.
 
-    - MPEG transport stream packets are binary whatever the extension: ".ts" is also TypeScript
-      (utils/file_types.TEXT_EXTENSIONS), so a video segment would otherwise be decoded as text.
-    - Otherwise a known text extension is never binary, even with a NUL byte.
+    - A known text extension (utils/file_types.TEXT_EXTENSIONS) is never binary, even with a NUL
+      byte, and is not opened, except ".ts": TypeScript source is text, MPEG transport stream
+      packets are binary.
+    - MPEG transport stream packets are binary under any other extension too.
     - A file that starts with a UTF-16/UTF-32 byte-order mark is decoded with that codec and is
       binary only if the text holds U+0000: FF FE also starts binary formats such as MPEG audio.
     - Any other file is binary if the sample holds a NUL byte.
     """
+    suffix = Path(path).suffix.lower()
+    if suffix in TEXT_EXTENSIONS and suffix != _TS_TEXT_EXTENSION:
+        return False
     try:
         with open(path, "rb") as handle:
             sample = handle.read(sample_size)
@@ -286,7 +303,7 @@ def looks_binary(path: str, sample_size: int = 8192) -> bool:
         return False
     if _looks_like_mpeg_ts(sample):
         return True
-    if Path(path).suffix.lower() in TEXT_EXTENSIONS:
+    if suffix in TEXT_EXTENSIONS:
         return False
     codec = _bom_codec(sample)
     if codec is not None:
