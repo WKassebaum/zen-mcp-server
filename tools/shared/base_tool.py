@@ -29,7 +29,7 @@ from utils.conversation_memory import (
     get_thread,
 )
 from utils.env import get_env
-from utils.file_utils import read_file_content, read_files
+from utils.file_utils import NOT_TEXT_FILE_HEADERS, read_file_content, read_files
 
 # Import models from tools.models for compatibility
 try:
@@ -920,6 +920,12 @@ class BaseTool(ABC):
                 try:
                     # Read prompt.txt content and extract just the text
                     content, _ = read_file_content(file_path)
+                    if content.startswith(NOT_TEXT_FILE_HEADERS):
+                        # Media or binary content behind the name prompt.txt is not a prompt. Keep it in the
+                        # file list so media detection attaches it (or reports it) instead of dropping it.
+                        logger.info(f"{self.name}: {file_path} is not a text prompt; keeping it in the file list")
+                        updated_files.append(file_path)
+                        continue
                     # Extract the content between the file markers
                     if "--- BEGIN FILE:" in content and "--- END FILE:" in content:
                         lines = content.split("\n")
@@ -937,7 +943,7 @@ class BaseTool(ABC):
                     else:
                         # Fallback: if it's already raw content (from tests or direct input)
                         # and doesn't have error markers, use it directly
-                        if not content.startswith(("\n--- ERROR", "\n--- MEDIA FILE:", "\n--- BINARY FILE:")):
+                        if not content.startswith("\n--- ERROR"):
                             prompt_content = content
                         else:
                             prompt_content = None

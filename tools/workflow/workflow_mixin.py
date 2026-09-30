@@ -341,7 +341,8 @@ class BaseWorkflowMixin(ABC):
 
                     thread_context = get_thread(continuation_id)
                     if thread_context:
-                        # Get all files from conversation (these were relevant_files in previous steps)
+                        # Get all files from conversation (these were relevant_files in previous steps).
+                        # Media files are excluded: get_conversation_file_list never returns them.
                         conversation_files = get_conversation_file_list(thread_context)
                         all_relevant_files.update(conversation_files)
                         logger.debug(

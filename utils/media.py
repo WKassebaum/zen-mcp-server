@@ -140,14 +140,29 @@ def media_type_for(path: str) -> tuple[MediaKind, str] | None:
     target counts, so ``latest -> recording.mp4`` and ``clip.mp4 -> blob`` are both media;
     the magic bytes must match that extension either way.
     """
+    given = Path(path)
+    # Only a media name, or a symlink whose target may carry one, can be media: skip the
+    # filesystem work for every other path (get_conversation_file_list calls this per file).
+    if given.suffix.lower() not in MEDIA_TYPES and not os.path.islink(given):
+        return None
     resolved = _validated_path(path)
     if resolved is None:
         return None
-    detected = _detect_media(path, resolved)
+    detected = media_type_for_validated(path, resolved)
     if detected is None:
         return None
     kind, mime, _ = detected
     return kind, mime
+
+
+def media_type_for_validated(path: str, resolved: Path) -> tuple[MediaKind, str, int] | None:
+    """(kind, mime, size in bytes) for a path the caller has already resolved and validated.
+
+    ``resolved`` must be ``utils.file_utils.resolve_and_validate_path(path)``; it is not validated
+    again. Same rules as media_type_for: a media name on ``path`` or ``resolved`` counts, and the
+    file is opened only through ``resolved``.
+    """
+    return _detect_media(path, resolved)
 
 
 def format_size(num_bytes: int) -> str:
@@ -216,37 +231,67 @@ def required_kinds(media: Iterable[MediaAttachment]) -> frozenset[MediaKind]:
     return frozenset(attachment.kind for attachment in media)
 
 
-def bom_encoding(path: str) -> str | None:
-    """Codec for a file that starts with a UTF-32 or UTF-16 byte-order mark, else None.
+def _bom_codec(head: bytes) -> str | None:
+    """Codec named by a UTF-32 or UTF-16 byte-order mark at the start of ``head``, else None.
 
     UTF-32 is checked first: the UTF-32-LE BOM (FF FE 00 00) starts with the UTF-16-LE BOM (FF FE).
     The "utf-32"/"utf-16" codecs read the BOM to pick the byte order and drop it from the text.
     """
-    try:
-        with open(path, "rb") as handle:
-            head = handle.read(4)
-    except OSError:
-        return None
-    if head in (b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"):
+    if head[:4] in (b"\xff\xfe\x00\x00", b"\x00\x00\xfe\xff"):
         return "utf-32"
     if head[:2] in (b"\xff\xfe", b"\xfe\xff"):
         return "utf-16"
     return None
 
 
-def looks_binary(path: str, sample_size: int = 8192) -> bool:
-    """True if the file is not text we can embed: a NUL byte in its first bytes.
+def bom_encoding(path: str) -> str | None:
+    """Codec for a file that starts with a UTF-32 or UTF-16 byte-order mark, else None.
 
-    Never true for a known text extension (utils/file_types.TEXT_EXTENSIONS) or a file that
-    starts with a UTF-16/UTF-32 byte-order mark: those are decoded as text.
+    A UTF-8 BOM is not reported: callers decode with "utf-8-sig", which drops it.
     """
-    if Path(path).suffix.lower() in TEXT_EXTENSIONS or bom_encoding(path) is not None:
-        return False
     try:
         with open(path, "rb") as handle:
-            return b"\x00" in handle.read(sample_size)
+            head = handle.read(4)
+    except OSError:
+        return None
+    return _bom_codec(head)
+
+
+# MPEG transport stream: 188-byte packets, each starting with the sync byte 0x47.
+_TS_PACKET_BYTES = 188
+_TS_SYNC_BYTE = 0x47
+_TS_MIN_PACKETS = 3
+
+
+def _looks_like_mpeg_ts(sample: bytes) -> bool:
+    """True if every 188-byte packet start in ``sample`` (at least three) holds the TS sync byte."""
+    starts = range(0, len(sample), _TS_PACKET_BYTES)
+    return len(starts) >= _TS_MIN_PACKETS and all(sample[start] == _TS_SYNC_BYTE for start in starts)
+
+
+def looks_binary(path: str, sample_size: int = 8192) -> bool:
+    """True if the file is not text we can embed, judged from its first ``sample_size`` bytes.
+
+    - MPEG transport stream packets are binary whatever the extension: ".ts" is also TypeScript
+      (utils/file_types.TEXT_EXTENSIONS), so a video segment would otherwise be decoded as text.
+    - Otherwise a known text extension is never binary, even with a NUL byte.
+    - A file that starts with a UTF-16/UTF-32 byte-order mark is decoded with that codec and is
+      binary only if the text holds U+0000: FF FE also starts binary formats such as MPEG audio.
+    - Any other file is binary if the sample holds a NUL byte.
+    """
+    try:
+        with open(path, "rb") as handle:
+            sample = handle.read(sample_size)
     except OSError:
         return False
+    if _looks_like_mpeg_ts(sample):
+        return True
+    if Path(path).suffix.lower() in TEXT_EXTENSIONS:
+        return False
+    codec = _bom_codec(sample)
+    if codec is not None:
+        return "\x00" in sample.decode(codec, errors="replace")
+    return b"\x00" in sample
 
 
 def media_kinds_from_paths(paths: Iterable[str]) -> frozenset[MediaKind]:

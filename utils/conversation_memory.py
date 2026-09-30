@@ -467,7 +467,8 @@ def get_conversation_file_list(context: ThreadContext) -> list[str]:
         context: ThreadContext containing all conversation turns to process
 
     Returns:
-        list[str]: Unique file paths ordered by newest reference first.
+        list[str]: Unique file paths ordered by newest reference first. Media files
+                   (utils.media.media_type_for) are excluded: they are never embedded as text.
                    Empty list if no turns exist or no files are referenced.
 
     Performance:

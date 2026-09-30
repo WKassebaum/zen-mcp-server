@@ -45,9 +45,15 @@ from pathlib import Path
 from typing import Optional
 
 from .file_types import BINARY_EXTENSIONS, CODE_EXTENSIONS, IMAGE_EXTENSIONS, TEXT_EXTENSIONS
-from .media import bom_encoding, format_size, looks_binary, media_type_for
+from .media import MEDIA_TYPES, bom_encoding, format_size, looks_binary, media_type_for_validated
 from .security_config import EXCLUDED_DIRS, is_dangerous_path
 from .token_utils import DEFAULT_CONTEXT_WINDOW, estimate_tokens
+
+# Headers of the read_file_content placeholders for files that are never embedded as text. The
+# not-attached media header differs from utils.media.media_prompt_section's "--- MEDIA FILE:".
+MEDIA_NOT_ATTACHED_HEADER = "\n--- MEDIA FILE (NOT ATTACHED): "
+BINARY_FILE_HEADER = "\n--- BINARY FILE: "
+NOT_TEXT_FILE_HEADERS = (MEDIA_NOT_ATTACHED_HEADER, BINARY_FILE_HEADER)
 
 
 def _is_builtin_custom_models_config(path_str: str) -> bool:
@@ -419,6 +425,20 @@ def expand_paths(paths: list[str], extensions: Optional[set[str]] = None) -> lis
     return expanded_files
 
 
+def _binary_file_reason(file_path: str, path: Path) -> str:
+    """Why a binary file is not embedded, for the BINARY FILE placeholder.
+
+    Like media detection, the extension of either the given name or the resolved target counts.
+    """
+    suffixes = [suffix for suffix in dict.fromkeys((Path(file_path).suffix.lower(), path.suffix.lower())) if suffix]
+    if any(suffix in IMAGE_EXTENSIONS for suffix in suffixes):
+        return "image file: pass it in the `images` field, not the file list"
+    media_suffix = next((suffix for suffix in suffixes if suffix in MEDIA_TYPES), None)
+    if media_suffix is not None:
+        return f"this does not look like a valid {media_suffix} file, so it is not attached as media either"
+    return "binary content that is not a supported media type (pdf, audio, video)"
+
+
 def read_file_content(
     file_path: str, max_size: int = 1_000_000, *, include_line_numbers: Optional[bool] = None
 ) -> tuple[str, int]:
@@ -465,12 +485,12 @@ def read_file_content(
             return content, estimate_tokens(content)
 
         # Media is sent natively by providers that support it (utils/media.py); never embed it as text.
-        # Check the path as given: a media name on a symlink counts even when the target has none.
-        media = media_type_for(file_path)
+        # The name as given counts: a media name on a symlink counts even when the target has none.
+        media = media_type_for_validated(file_path, path)
         if media is not None:
-            kind, mime = media
+            kind, mime, size = media
             content = (
-                f"\n--- MEDIA FILE: {file_path} ({kind.value}, {mime}, {format_size(path.stat().st_size)}) ---\n"
+                f"{MEDIA_NOT_ATTACHED_HEADER}{file_path} ({kind.value}, {mime}, {format_size(size)}) ---\n"
                 f"Not embedded as text. It is attached as native {kind.value} input only when its path is "
                 "passed directly in the request's file list.\n"
                 "--- END FILE ---\n"
@@ -479,8 +499,8 @@ def read_file_content(
 
         if looks_binary(str(path)):
             content = (
-                f"\n--- BINARY FILE: {file_path} ---\n"
-                "Not embedded: binary content that is not a supported media type (pdf, audio, video).\n"
+                f"{BINARY_FILE_HEADER}{file_path} ---\n"
+                f"Not embedded: {_binary_file_reason(file_path, path)}.\n"
                 "--- END FILE ---\n"
             )
             return content, estimate_tokens(content)
@@ -503,10 +523,10 @@ def read_file_content(
         add_line_numbers = should_add_line_numbers(file_path, include_line_numbers)
         logger.debug(f"[FILES] Line numbers for {file_path}: {'enabled' if add_line_numbers else 'disabled'}")
 
-        # Read the file with UTF-8 encoding, replacing invalid characters
-        # This ensures we can handle files with mixed encodings
+        # Read the file as UTF-8 (or the UTF-16/UTF-32 its byte-order mark names), replacing invalid
+        # characters so files with mixed encodings still load. "utf-8-sig" drops a leading UTF-8 BOM.
         logger.debug(f"[FILES] Reading file content for {file_path}")
-        with open(path, encoding=bom_encoding(str(path)) or "utf-8", errors="replace") as f:
+        with open(path, encoding=bom_encoding(str(path)) or "utf-8-sig", errors="replace") as f:
             file_content = f.read()
 
         logger.debug(f"[FILES] Successfully read {len(file_content)} characters from {file_path}")
