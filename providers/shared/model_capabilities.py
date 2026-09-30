@@ -50,6 +50,9 @@ class ModelCapabilities:
     supports_streaming: bool = True
     supports_function_calling: bool = False
     supports_images: bool = False
+    supports_pdf: bool = False
+    supports_audio: bool = False
+    supports_video: bool = False
     supports_json_mode: bool = False
     supports_temperature: bool = True
     use_openai_response_api: bool = False
@@ -76,6 +79,17 @@ class ModelCapabilities:
             return None
 
         return self.temperature_constraint.get_corrected_value(requested_temperature)
+
+    def supported_media_kinds(self) -> frozenset:
+        """Media kinds (utils.media.MediaKind) this model accepts as native input."""
+        from utils.media import MediaKind
+
+        flags = {
+            MediaKind.PDF: self.supports_pdf,
+            MediaKind.AUDIO: self.supports_audio,
+            MediaKind.VIDEO: self.supports_video,
+        }
+        return frozenset(kind for kind, enabled in flags.items() if enabled)
 
     def get_effective_capability_rank(self) -> int:
         """Calculate the runtime capability rank from intelligence + capabilities."""
@@ -107,6 +121,7 @@ class ModelCapabilities:
             score += 1
         if self.supports_images:
             score += 1
+        score += len(self.supported_media_kinds())
 
         return max(0, min(100, score))
 
