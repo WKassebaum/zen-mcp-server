@@ -47,6 +47,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -75,6 +78,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -101,6 +107,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -127,6 +136,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -153,6 +165,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -179,6 +194,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -203,6 +221,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -225,6 +246,9 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_audio": true,
+      "supports_video": true,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -246,6 +270,8 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": false,
+      "supports_pdf": true,
+      "supports_video": true,
       "supports_temperature": true
     },
     {
@@ -266,6 +292,8 @@
       "supports_function_calling": true,
       "supports_json_mode": true,
       "supports_images": true,
+      "supports_pdf": true,
+      "supports_video": true,
       "supports_temperature": true,
       "max_image_size_mb": 20.0
     }
