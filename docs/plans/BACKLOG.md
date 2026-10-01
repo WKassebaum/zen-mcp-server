@@ -91,6 +91,10 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Recorded:** 2026-09-28
 - **What:** `chat` requires `working_directory_absolute_path`, but no simulator test except `responses_api_endpoint` passes it, so their chat calls likely fail validation. The Responses endpoint test used to report exactly that validation error as a pass (fixed in b271101). Audit the others the same way: pass a temp directory and make every test fail on a tool error.
 
+### MCP follow-ups embed the conversation history twice
+- **Recorded:** 2026-10-01 (found during media input batch B2)
+- **What:** `tools/simple/base.py` decides whether `server.py` already embedded the history by looking for `"=== CONVERSATION HISTORY ==="`, but `build_conversation_history` writes `"=== CONVERSATION HISTORY (CONTINUATION) ==="`. The check never matches, so on every MCP follow-up a simple tool treats the server-built prompt as raw user input: after `server.py` has stored the user turn, the tool stores a second user turn whose text is the whole server prompt, history included, and then wraps that prompt in a freshly built history. Each follow-up therefore sends the history twice and nests it into the stored thread, so threads grow much faster than their content. Present since upstream 2025-06 (`2a067a7` added the check, `7462599`/`fccfb0d` the header); confirm with a test before fixing. Match the real header, or have `server.py` mark the arguments as already reconstructed, and add a test that runs a two-turn MCP conversation and counts the history blocks and stored turns.
+
 ## Routing and ranking
 
 ### Auto mode ignores the tool category for OpenRouter/Azure/DIAL/Custom-only setups
