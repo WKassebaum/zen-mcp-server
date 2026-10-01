@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Design validated — `docs/plans/2026-09-26-media-input-design.md`. Implementation not started.
+- **Status:** Phase 1 (core + Gemini) implemented on `feat/media-input`; phases 2–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -14,11 +14,13 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **FIFO swap window:** a small gap between `is_file()` and `open()` in media detection. Open with `O_NONBLOCK` and `fstat` the handle.
 - **Exact audio durations:** MP3 (Xing/Info or CBR frames), FLAC (STREAMINFO) and Ogg (last page granule) fall back to a size-based estimate that undercounts voice-bitrate audio (the response reserve absorbs it).
 - **Gemini Files API limit on paid tiers:** the video docs table says 20 GB paid / 2 GB free; zen caps at 2,000,000,000 bytes. Verify and raise if paid accounts allow more.
-- **Token estimates vs Gemini 3 defaults:** the media-resolution table gives video 70 tokens/frame and audio 25 tokens/s; zen's 300/s and 32/s err high. If zen ever sets `media_resolution` explicitly, the "+ native text" PDF rows make 560/page low.
+- **Token estimates per model family:** video is 400 tokens/s since B4 because Gemini 2.5 models measured 383/s on the 3 s fixture (321/s at 10 s, 304/s at 30 s with audio; `count_tokens`, 2026-10-01), while Gemini 3 models charge about 100–127/s, so Gemini 3 requests reserve roughly 3–4x too much text budget. A per-family rate (capabilities or provider) would fix it. Audio stays 32/s (Gemini 3 docs say 25/s). If zen ever sets `media_resolution` explicitly, the "+ native text" PDF rows make 560/page low.
 - **PDF page overcount:** incremental saves are counted again (errs high); the largest `/Count` among `/Type /Pages` nodes would be exact.
 - **Prompt-file markers:** `handle_prompt_file` still uses `FILE NOT FOUND` / `NOT A FILE` / `FILE TOO LARGE` marker text as the prompt; only `--- ERROR` markers are skipped (pre-existing).
 - **Binaries that start with a UTF-16/32 BOM:** the U+0000 check after BOM decoding catches few of them (about 8% of random UTF-16 payloads, 0% UTF-32). An incremental decoder with `errors="replace"` treating U+0000 or U+FFFD as binary caught all of them with no false positives in review probes; MPEG-1 Layer I audio with CRC additionally needs a C1-control check.
-- **Gemini 2.5 Flash / Flash-Lite audio is flaky:** in the 2026-09-30 live probe both misheard the spoken number ("Pelican 5", "Pelican") and passed on a single retry, so audio is left unflagged for them. Re-probe (several runs) before flagging. Separately, `gemini-2.5-flash-lite` is catalogued `supports_images: false` yet read the PDF and video frames; check its image support and fix the flag.
+- **Gemini 2.5 Flash / Flash-Lite audio is flaky:** in the 2026-09-30 live probe both misheard the spoken number ("Pelican 5", "Pelican") and passed on a single retry, so audio is left unflagged for them. Re-probe (several runs) before flagging. `gemini-2.5-pro` (flagged) misheard once in the B4 live run through zen ("Pelican 002") and passed on rerun; its raw probe was 3/3. Separately, `gemini-2.5-flash-lite` is catalogued `supports_images: false` yet read the PDF and video frames; check its image support and fix the flag.
+- **Files API upload names are not shown to users:** `media_attached` (with each upload's `files/...` name) is in `ModelResponse.metadata` and is persisted on simple-tool conversation turns, but it is not in `--json` or MCP output, and workflow and consensus tools do not persist it. Surface it so a user can delete an upload before Google's 48 h expiry.
+- **Re-upload on a tool-level retry:** the simple tool's empty-response retry calls `generate_content` again, which uploads above-cap media a second time (the provider's own retry loop reuses uploads). The design's upload cache (`~/.zen/media_uploads.json`) would remove the duplicate.
 - **Binary sniff on symlinks:** `read_file_content` sniffs the resolved path's extension while media detection checks both names, so `notes.txt -> blob` with NUL bytes reports binary (read_files already resolves paths, so rare).
 
 ## Future features

@@ -114,7 +114,7 @@ def test_media_tokens_are_reserved_from_text_budget(tmp_path):
     code.write_text("x = 1  # padding padding padding\n" * 250)  # roughly 2,000 tokens
     budget = {"remaining_budget": 10_000, "reserve_tokens": 1_000}
     content, _ = ChatTool()._prepare_file_content_for_prompt([str(code), MP4], None, **budget)
-    assert "SKIPPED FILES" not in content  # otter.mp4 is estimated at 900 tokens
+    assert "SKIPPED FILES" not in content  # otter.mp4 is estimated at 1,200 tokens
     with patch("utils.media.estimate_media_tokens", return_value=8_500):
         content, _ = ChatTool()._prepare_file_content_for_prompt([str(code), MP4], None, **budget)
     assert "SKIPPED FILES" in content and "--- MEDIA FILE:" in content

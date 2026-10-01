@@ -341,12 +341,14 @@ def format_kinds(kinds: Iterable[MediaKind]) -> str:
 MEDIA_MAX_BYTES = 2_000_000_000
 
 # Input-token planning figures from the Gemini media docs (video and audio checked 2026-09-27): a
-# video frame is 258 tokens at 1 frame/s (66 at low media resolution) plus 32 tokens/s of audio, so
-# 300/s covers the high-resolution case; audio is 32 tokens/s. A PDF page is 560 tokens for Gemini 3
-# models at the default media resolution
+# video frame is 258 tokens at 1 frame/s (66 at low media resolution) plus 32 tokens/s of audio;
+# audio is 32 tokens/s. A PDF page is 560 tokens for Gemini 3 models at the default media resolution
 # (https://ai.google.dev/gemini-api/docs/media-resolution, checked 2026-09-28).
+# Video is set from measured usage instead (count_tokens, 2026-10-01): Gemini 2.5 models charge more
+# than the documented figure, 1149 tokens for the 3 s fixture (383/s), 321/s at 10 s and 304/s at
+# 30 s with audio; Gemini 3 models charge about 100-127/s. 400/s covers the worst case measured.
 # tests/test_media_live.py checks all three against real usage.
-VIDEO_TOKENS_PER_SECOND = 300
+VIDEO_TOKENS_PER_SECOND = 400
 AUDIO_TOKENS_PER_SECOND = 32
 PDF_TOKENS_PER_PAGE = 560
 # Used when the duration or page count is not cheaply readable: a low bitrate / small page, so the

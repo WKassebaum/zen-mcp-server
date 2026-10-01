@@ -76,8 +76,8 @@ def _estimate(path: str) -> int:
 
 
 def _video_by_size(path: str) -> int:
-    """The size-based video estimate: 300 tokens/s at an assumed 64 kB/s."""
-    return 300 * max(1, math.ceil(os.path.getsize(path) / 64_000))
+    """The size-based video estimate: 400 tokens/s at an assumed 64 kB/s."""
+    return 400 * max(1, math.ceil(os.path.getsize(path) / 64_000))
 
 
 def _audio_by_size(path: str) -> int:
@@ -206,10 +206,10 @@ def test_size_error_lists_every_oversized_file(tmp_path):
 
 def test_estimate_reads_exact_durations():
     _, (pdf, wav, mp4) = classify_media([PDF, WAV, MP4])
-    assert estimate_media_tokens([mp4]) == 3 * 300  # mvhd: 3 s, stored after mdat
+    assert estimate_media_tokens([mp4]) == 3 * 400  # mvhd: 3 s, stored after mdat
     assert estimate_media_tokens([wav]) == 2 * 32  # 1.96 s of 16 kHz mono, rounded up
     assert estimate_media_tokens([pdf]) == 560  # one page
-    assert estimate_media_tokens([pdf, wav, mp4]) == 560 + 64 + 900
+    assert estimate_media_tokens([pdf, wav, mp4]) == 560 + 64 + 1200
     assert estimate_media_tokens([]) == 0
 
 
@@ -217,12 +217,12 @@ def test_estimate_reads_version_1_movie_header(tmp_path):
     mvhd = _box(b"mvhd", b"\x01\x00\x00\x00" + b"\x00" * 16 + (1000).to_bytes(4, "big") + (90_000).to_bytes(8, "big"))
     clip = tmp_path / "long.mov"
     clip.write_bytes(_box(b"ftyp", b"qt  \x00\x00\x02\x00qt  ") + _box(b"mdat", b"\x00" * 64) + _box(b"moov", mvhd))
-    assert estimate_media_tokens(classify_media([str(clip)])[1]) == 90 * 300
+    assert estimate_media_tokens(classify_media([str(clip)])[1]) == 90 * 400
 
 
 def test_estimate_falls_back_to_size_without_a_header(tmp_path):
     clip = _sparse_mp4(tmp_path / "raw.mp4", 2 * 1024 * 1024)  # no moov box
-    assert estimate_media_tokens(classify_media([str(clip)])[1]) == 300 * 33  # 2 MiB at 64 kB/s = 32.8 s
+    assert estimate_media_tokens(classify_media([str(clip)])[1]) == 400 * 33  # 2 MiB at 64 kB/s = 32.8 s
 
 
 def test_estimate_treats_zero_movie_duration_as_unknown(tmp_path):
@@ -232,7 +232,7 @@ def test_estimate_treats_zero_movie_duration_as_unknown(tmp_path):
         _box(b"ftyp", b"iso5\x00\x00\x02\x00iso5") + _box(b"moov", _mvhd(1000, 0)),
         10 * 1024 * 1024,
     )
-    assert _estimate(clip) == 300 * 164  # 10 MiB at 64 kB/s = 163.8 s
+    assert _estimate(clip) == 400 * 164  # 10 MiB at 64 kB/s = 163.8 s
 
 
 # --- PDF pages: counted from page objects, size-based only when they cannot be ---------------------
@@ -506,19 +506,19 @@ def test_huge_box_sizes_stay_inside_the_file(tmp_path):
 
 def test_huge_moov_still_finds_its_movie_header(tmp_path):
     clip = _write(tmp_path / "hugemoov.mp4", FTYP + _big_box(b"moov", 2**64 - 1, _mvhd(1000, 3000)))
-    assert _estimate(clip) == 3 * 300
+    assert _estimate(clip) == 3 * 400
 
 
 def test_64_bit_box_sizes_are_followed(tmp_path):
     moov = _big_box(b"moov", 16 + len(_mvhd(600, 6000)), _mvhd(600, 6000))
     clip = _write(tmp_path / "large.mp4", FTYP + _big_box(b"mdat", 16 + 64, b"\x00" * 64) + moov)
-    assert _estimate(clip) == 10 * 300
+    assert _estimate(clip) == 10 * 400
 
 
 def test_moov_with_size_zero_runs_to_end_of_file(tmp_path):
     moov = (0).to_bytes(4, "big") + b"moov" + _mvhd(1000, 3000)
     clip = _write(tmp_path / "tail.mp4", FTYP + _box(b"mdat", b"\x00" * 64) + moov)
-    assert _estimate(clip) == 3 * 300
+    assert _estimate(clip) == 3 * 400
 
 
 def test_box_header_crossing_its_parents_end_is_not_read(tmp_path):
@@ -573,13 +573,13 @@ def test_box_smaller_than_its_header_falls_back_to_size(tmp_path):
     clip = _write(
         tmp_path / "short.mp4", FTYP + (4).to_bytes(4, "big") + b"free" + _box(b"moov", _mvhd(1000, 3000)), 640_000
     )
-    assert _estimate(clip) == _video_by_size(clip) == 10 * 300
+    assert _estimate(clip) == _video_by_size(clip) == 10 * 400
 
 
 @pytest.mark.parametrize("version,all_ones", [(0, 0xFFFFFFFF), (1, 0xFFFFFFFFFFFFFFFF)])
 def test_all_ones_movie_duration_is_unknown(tmp_path, version, all_ones):
     clip = _write(tmp_path / "unknown.mp4", FTYP + _box(b"moov", _mvhd(1000, all_ones, version)), 640_000)
-    assert _estimate(clip) == _video_by_size(clip) == 10 * 300
+    assert _estimate(clip) == _video_by_size(clip) == 10 * 400
 
 
 def test_truncated_movie_header_is_unknown(tmp_path):
@@ -597,7 +597,7 @@ def test_fragmented_movie_without_mehd_falls_back_to_size(tmp_path):
     # mvhd covers only the first fragment (2 s) of a 20 MiB file.
     moov = _box(b"moov", _mvhd(1000, 2000) + _box(b"mvex", _box(b"trex", b"\x00" * 24)))
     clip = _write(tmp_path / "fragmented.mp4", FTYP + moov + _box(b"moof", b"\x00" * 8), 20 * 1024 * 1024)
-    assert _estimate(clip) == _video_by_size(clip) == 300 * 328
+    assert _estimate(clip) == _video_by_size(clip) == 400 * 328
 
 
 @pytest.mark.parametrize("version", [0, 1])
@@ -606,7 +606,7 @@ def test_fragmented_movie_uses_mehd_fragment_duration(tmp_path, version):
     mehd = _box(b"mehd", bytes([version]) + b"\x00" * 3 + (600_000).to_bytes(width, "big"))
     moov = _box(b"moov", _mvhd(1000, 2000) + _box(b"mvex", mehd))
     clip = _write(tmp_path / "fragmented.mp4", FTYP + moov + _box(b"moof", b"\x00" * 8), 20 * 1024 * 1024)
-    assert _estimate(clip) == 600 * 300  # mehd: 600,000 ticks at 1000/s
+    assert _estimate(clip) == 600 * 400  # mehd: 600,000 ticks at 1000/s
 
 
 def test_box_walk_is_bounded(tmp_path):
@@ -649,7 +649,7 @@ def test_estimate_reads_the_validated_file_not_the_callers_path(tmp_path):
     media = classify_media([str(latest)])[1]
     latest.unlink()
     latest.symlink_to(ninety_seconds)  # swapped after validation
-    assert estimate_media_tokens(media) == 3 * 300
+    assert estimate_media_tokens(media) == 3 * 400
 
 
 def test_media_prompt_section_lists_every_attachment():
