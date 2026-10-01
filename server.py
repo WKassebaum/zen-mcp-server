@@ -1262,10 +1262,14 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
     # Merge original context parameters (files, etc.) with new request
     if context.initial_context:
         logger.debug(f"[CONVERSATION_DEBUG] Merging initial context with {len(context.initial_context)} parameters")
+        merged_keys = []
         for key, value in context.initial_context.items():
             if key not in enhanced_arguments and key not in ["temperature", "thinking_mode", "model"]:
                 enhanced_arguments[key] = value
+                merged_keys.append(key)
                 logger.debug(f"[CONVERSATION_DEBUG] Merged initial context param: {key}")
+        # Lets tools say so when media the user did not attach this turn was carried over from the first turn
+        enhanced_arguments["_initial_context_keys"] = merged_keys
 
     logger.info(f"Reconstructed context for thread {continuation_id} (turn {len(context.turns)})")
     logger.debug(f"[CONVERSATION_DEBUG] Final enhanced arguments keys: {list(enhanced_arguments.keys())}")

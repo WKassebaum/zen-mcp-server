@@ -314,6 +314,13 @@ class SimpleTool(BaseTool):
 
             # Get images if present
             images = self.get_request_images(request)
+
+            # Native media (PDF/audio/video) among the request files: validated before any prompt work
+            media = self._media_from_paths(self.get_request_files(request))
+            self._validate_media_support(
+                media, self._model_context, self._paths_from_initial_context(arguments, "absolute_file_paths")
+            )
+
             continuation_id = self.get_request_continuation_id(request)
 
             # Handle conversation history and prompt preparation
@@ -375,6 +382,10 @@ class SimpleTool(BaseTool):
                 logger.debug(
                     f"Added follow-up instructions for new {self.get_name()} conversation"
                 )  # Validate images if any were provided
+
+            # The media list is final: tell the model about earlier-turn media that is not attached this time
+            prompt += self._unattached_thread_media_note(continuation_id, media)
+
             if images:
                 image_validation_error = self._validate_image_limits(
                     images, model_context=self._model_context, continuation_id=continuation_id
@@ -429,6 +440,7 @@ class SimpleTool(BaseTool):
             supports_thinking = capabilities.supports_extended_thinking
 
             # Generate content with provider abstraction
+            provider.ensure_media_encodable(media)
             model_response = provider.generate_content(
                 prompt=prompt,
                 model_name=self._current_model_name,
@@ -436,6 +448,7 @@ class SimpleTool(BaseTool):
                 temperature=temperature,
                 thinking_mode=thinking_mode if supports_thinking else None,
                 images=images if images else None,
+                media=media or None,
             )
 
             logger.info(f"Received response from {provider.get_provider_type().value} API for {self.get_name()}")
@@ -493,6 +506,7 @@ class SimpleTool(BaseTool):
                                 temperature=temperature,
                                 thinking_mode=thinking_mode if supports_thinking else None,
                                 images=images if images else None,
+                                media=media or None,
                             )
 
                             if retry_response.content:
