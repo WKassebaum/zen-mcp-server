@@ -14,12 +14,12 @@
 | Python | `.zen_venv/bin/python` in the worktree, pinned to the live venv's versions (do not reinstall) |
 | Lint | `ruff`, `black`, `isort` from PATH (`~/.local/bin`); not in the venv |
 | Tests | `.zen_venv/bin/python -m pytest tests/ -q -m "not integration" -p no:cacheprovider` |
-| Baseline | 1143 passed, 6 skipped, 3 failed (after B2) (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
+| Baseline | 1174 passed, 6 skipped, 3 failed (after B3) (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
 | Gemini key | exported in the user's shell (`GEMINI_API_KEY`); not in any repo `.env` |
 
 Never edit `/Users/wrk/WorkDev/MCP-Dev/zen-cli`: it backs the user's live zen MCP server.
 
-## Progress: tasks 1–11 of 17 done
+## Progress: tasks 1–14 of 17 done
 
 Tasks 1–6 each passed an implementer pass, a spec-compliance review and a code-quality review. From B1 on, each batch gets one implementer and one proportionate review (see below).
 
@@ -36,6 +36,9 @@ Tasks 1–6 each passed an implementer pass, a spec-compliance review and a code
 | 9 | Auto mode filters by required media; `find_media_capable_models`; hints and error text | `e20ab57`, `a6bebf1` |
 | 10 | `BaseTool` media helpers: validation (with first-turn carry-over message), prompt section, token reserve, MEDIA NOT ATTACHED note | `1d7a919` |
 | 11 | Simple tools validate and send media; `server.py` records `_initial_context_keys` | `dd73cf0` |
+| 12 | Auto mode (server, CLI, reconstruct fallbacks) routes on media incl. a workflow's earlier steps; MCP size check counts text only | `4bb6b09` |
+| 13 | Workflow tools validate media every step and before the expert call, then send it; bare-string file lists are wrapped, not dropped | `836aa71` |
+| 14 | Consensus refuses media any listed model cannot read before consulting anyone, and sends it per model | `d36f86b` |
 | B1 carry-over | Catalog guard covers every catalog and reports all mismatches; Gemini `_README` documents the flags | `bdc7a1c` |
 
 ## Process for the remaining tasks (decided 2026-09-30)
@@ -82,5 +85,5 @@ From earlier reviews, already in the plan as "Also required" notes: Task 12 (`se
 - Media is never deleted from the Gemini Files API by zen; uploads expire after 48 h (design).
 - 2026-09-30: the user approved backing up `feat/media-input` to `origin`, live Gemini calls in B4, and merging phase 1 into `zen-cli-v2` and pushing when done (fetch and rebase first; it is shared with John).
 - B1 review: `providers_hint` checks the provider's catalog before blaming an allow-list (`a6bebf1`). Nothing calls `ensure_media_encodable` or passes `required_media` yet; B2/B3 wire both in.
-- B2 state: simple tools validate and send media. `_prepare_file_content_for_prompt` now announces media as attached for every caller, but the workflow tools (`workflow_mixin.py`), `consensus` and `debug`'s expert context only attach and check it from Tasks 13–14, so between B2 and B3 those tools claim media they drop. B3 must close that before anything ships.
+- B2 state: simple tools validate and send media. `_prepare_file_content_for_prompt` now announces media as attached for every caller, but the workflow tools (`workflow_mixin.py`), `consensus` and `debug`'s expert context only attach and check it from Tasks 13–14, so between B2 and B3 those tools claimed media they dropped. Closed in B3: every caller now validates and sends it (debug's expert context is sent by `_call_expert_analysis`).
 - Found in B2, not media: MCP follow-ups embed the conversation history twice (BACKLOG, Maintenance).
