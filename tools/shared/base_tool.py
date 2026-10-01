@@ -1086,6 +1086,14 @@ class BaseTool(ABC):
                 # A loud error is logged, and we fall back to a safe default.
                 effective_max_tokens = 100_000 - reserve_tokens
 
+        # Native media (utils/media.py) is attached to the request by the caller, never read as text.
+        # Split it out with the same classification the caller uses, so the prompt announces exactly
+        # what is attached, and reserve its estimated tokens before sizing the text-file budget.
+        from utils.media import classify_media, estimate_media_tokens, media_prompt_section
+
+        request_files, media = classify_media(request_files)
+        effective_max_tokens -= estimate_media_tokens(media)
+
         # Ensure we have a reasonable minimum budget
         effective_max_tokens = max(1000, effective_max_tokens)
 
@@ -1171,6 +1179,10 @@ class BaseTool(ABC):
                 content_parts.append("\n".join(note_lines))
             else:
                 logger.debug(f"[FILES] {self.name}: No skipped files to note")
+
+        if media:
+            content_parts.append(media_prompt_section(media))
+            actually_processed_files.extend(attachment.path for attachment in media)
 
         result = "".join(content_parts) if content_parts else ""
         logger.debug(
@@ -1475,6 +1487,83 @@ When recommending searches, be specific about what information you need and why 
             # and log a warning (but don't fail the request)
             logger.warning(f"Temperature validation failed for {model_context.model_name}: {e}")
             return temperature, [f"Temperature validation failed: {e}"]
+
+    def _media_from_paths(self, paths) -> list:
+        """Media attachments (utils.media.MediaAttachment) among explicit file paths."""
+        from utils.media import classify_media
+
+        return classify_media(paths)[1]
+
+    def _paths_from_initial_context(self, arguments: dict, key: str) -> list[str]:
+        """Paths the server copied into this call from the thread's first turn (reconstruct_thread_context).
+
+        ``~`` is expanded, as the chat tool does to request paths before media is classified, so the
+        result compares equal to ``MediaAttachment.path``.
+        """
+        if key not in (arguments.get("_initial_context_keys") or ()):
+            return []
+        return [os.path.expanduser(str(path)) for path in arguments.get(key) or []]
+
+    def _validate_media_support(self, media: list, model_context: Any, carried_over=()) -> None:
+        """Fail fast unless every attachment is within size limits and the model's flags AND its
+        provider's encoder cover it. ``carried_over``: paths re-sent from the thread's first turn."""
+        if not media:
+            return
+        from providers.registry import ModelProviderRegistry
+        from tools.models import ToolOutput
+        from tools.shared.exceptions import ToolExecutionError
+        from utils.media import MediaNotSupportedError, check_media_sizes, format_media_error, required_kinds
+
+        metadata = {"tool_name": self.get_name(), "model": model_context.model_name}
+        try:
+            check_media_sizes(media)
+        except MediaNotSupportedError as exc:
+            output = ToolOutput(status="error", content=str(exc), content_type="text", metadata=metadata)
+            raise ToolExecutionError(output.model_dump_json()) from exc
+
+        required = required_kinds(media)
+        supported = model_context.capabilities.supported_media_kinds() & frozenset(model_context.provider.MEDIA_KINDS)
+        missing = required - supported
+        if not missing:
+            return
+        capable = ModelProviderRegistry.find_media_capable_models(required)
+        content = format_media_error(model_context.model_name, missing, media, capable)
+        carried_paths = set(carried_over)
+        carried = [a.name for a in media if a.kind in missing and a.path in carried_paths]
+        if carried:
+            content += (
+                f" {', '.join(carried)} came from the first turn of this conversation: its files are re-sent on "
+                "every follow-up that omits the file list. Pass the file list explicitly without the media, or "
+                "start a new conversation (no continuation_id)."
+            )
+        metadata.update({"missing_media": sorted(kind.value for kind in missing), "capable_models": capable})
+        output = ToolOutput(status="error", content=content, content_type="text", metadata=metadata)
+        raise ToolExecutionError(output.model_dump_json())
+
+    def _unattached_thread_media_note(self, continuation_id: Optional[str], media: list) -> str:
+        """Prompt note naming media that earlier turns of this thread attached but this request does not."""
+        if not continuation_id:
+            return ""
+        thread = get_thread(continuation_id)
+        if not thread:
+            return ""
+        from utils.media import classify_media
+
+        # Compare resolved files, not spellings: a symlink or "~/clip.mp4" names the same attachment.
+        attached = {attachment.source_path for attachment in media}
+        earlier_paths = [os.path.expanduser(str(path)) for turn in thread.turns for path in (turn.files or [])]
+        missing = [
+            attachment for attachment in classify_media(earlier_paths)[1] if attachment.source_path not in attached
+        ]
+        if not missing:
+            return ""
+        listed = "; ".join(attachment.describe() for attachment in missing)
+        return (
+            "\n\n=== MEDIA NOT ATTACHED ===\n"
+            f"Earlier turns of this conversation attached: {listed}. They are NOT attached to this request, "
+            "so do not describe their contents from memory; ask for the file to be sent again if you need it.\n"
+            "=== END MEDIA NOT ATTACHED ==="
+        )
 
     def _validate_image_limits(
         self, images: Optional[list[str]], model_context: Optional[Any] = None, continuation_id: Optional[str] = None
