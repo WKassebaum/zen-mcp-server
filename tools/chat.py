@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_BALANCED
 from systemprompts import CHAT_PROMPT, GENERATE_CODE_PROMPT
-from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, ToolRequest
+from tools.shared.base_models import COMMON_FIELD_DESCRIPTIONS, MEDIA_FILES_NOTE, ToolRequest
 
 from .simple.base import SimpleTool
 
@@ -31,7 +31,9 @@ CHAT_FIELD_DESCRIPTIONS = {
         "including your goal, what you've tried, and any specific challenges. "
         "WARNING: Large inline code must NOT be shared in prompt. Provide full-path to files on disk as separate parameter."
     ),
-    "absolute_file_paths": ("Full, absolute file paths to relevant code in order to share with external model"),
+    "absolute_file_paths": (
+        "Full, absolute file paths to relevant code in order to share with external model" + MEDIA_FILES_NOTE
+    ),
     "images": "Image paths (absolute) or base64 strings for optional visual context.",
     "working_directory_absolute_path": (
         "Absolute path to an existing directory where generated code artifacts can be saved."

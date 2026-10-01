@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import TESTGEN_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -53,6 +53,7 @@ TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS = {
     ),
     "images": "Optional absolute paths to diagrams or visuals that clarify the system under test.",
 }
+TESTGEN_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class TestGenRequest(WorkflowRequest):

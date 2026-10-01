@@ -28,7 +28,7 @@ from mcp.types import TextContent
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import CONSENSUS_PROMPT
-from tools.shared.base_models import ConsolidatedFindings, WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, ConsolidatedFindings, WorkflowRequest
 from tools.shared.exceptions import ToolExecutionError
 from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
 
@@ -58,6 +58,7 @@ CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS = {
     "model_responses": "Internal log of responses gathered so far.",
     "images": "Optional absolute image paths or base64 references that add helpful visual context.",
 }
+CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class ConsensusRequest(WorkflowRequest):

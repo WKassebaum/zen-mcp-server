@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import CODEREVIEW_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -59,6 +59,7 @@ CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS = {
     "standards": "Coding standards or style guides to enforce.",
     "severity_filter": "Lowest severity to include when reporting issues (critical/high/medium/low/all).",
 }
+CODEREVIEW_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class CodeReviewRequest(WorkflowRequest):

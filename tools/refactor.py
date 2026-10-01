@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import REFACTOR_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -89,6 +89,7 @@ REFACTOR_FIELD_DESCRIPTIONS = {
         "folders - DO NOT SHORTEN). These files represent the target coding style and patterns for the project."
     ),
 }
+REFACTOR_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class RefactorRequest(WorkflowRequest):

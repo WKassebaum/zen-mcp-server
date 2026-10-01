@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_CREATIVE
 from systemprompts import THINKDEEP_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WORKFLOW_FIELD_DESCRIPTIONS, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -139,6 +139,11 @@ class ThinkDeepTool(WorkflowTool):
 
         # ThinkDeep workflow-specific field overrides
         thinkdeep_field_overrides = {
+            "relevant_files": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"] + MEDIA_FILES_NOTE,
+            },
             "problem_context": {
                 "type": "string",
                 "description": "Additional context about problem/goal. Be expressive.",

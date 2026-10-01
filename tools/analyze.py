@@ -26,7 +26,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import ANALYZE_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -78,6 +78,7 @@ ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS = {
     "analysis_type": "Type of analysis to perform (architecture, performance, security, quality, general)",
     "output_format": "How to format the output (summary, detailed, actionable)",
 }
+ANALYZE_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class AnalyzeWorkflowRequest(WorkflowRequest):

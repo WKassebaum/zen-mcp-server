@@ -32,6 +32,13 @@ COMMON_FIELD_DESCRIPTIONS = {
     "absolute_file_paths": "Full paths to relevant code",
 }
 
+# Appended to the file-list descriptions of tools that send files to a model (chat, and the workflow
+# tools with an expert or consensus model call); not to docgen/tracer, which never call a model with files.
+MEDIA_FILES_NOTE = (
+    " PDF, audio (wav/mp3/m4a/aac/ogg/flac) and video (mp4/mov/webm/mpeg) files are sent to the model as "
+    "native media when it supports them; the request fails with a list of capable models otherwise."
+)
+
 # Workflow-specific field descriptions
 WORKFLOW_FIELD_DESCRIPTIONS = {
     "step": "Current work step content and findings from your overall work",

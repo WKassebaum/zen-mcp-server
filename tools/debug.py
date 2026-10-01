@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import DEBUG_ISSUE_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -67,6 +67,7 @@ DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS = {
     ),
     "images": "Optional screenshots/visuals clarifying issue (absolute paths).",
 }
+DEBUG_INVESTIGATION_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class DebugInvestigationRequest(WorkflowRequest):

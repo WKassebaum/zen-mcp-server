@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import PRECOMMIT_PROMPT
-from tools.shared.base_models import WorkflowRequest
+from tools.shared.base_models import MEDIA_FILES_NOTE, WorkflowRequest
 
 from .workflow.base import WorkflowTool
 
@@ -59,6 +59,7 @@ PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS = {
     "focus_on": "Optional emphasis areas such as security, performance, or test coverage.",
     "severity_filter": "Lowest severity to include when reporting issues.",
 }
+PRECOMMIT_WORKFLOW_FIELD_DESCRIPTIONS["relevant_files"] += MEDIA_FILES_NOTE
 
 
 class PrecommitRequest(WorkflowRequest):
