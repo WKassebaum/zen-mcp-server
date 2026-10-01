@@ -3,7 +3,7 @@
 import logging
 import time
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Callable, Optional
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Optional
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
@@ -39,11 +39,35 @@ class ModelProvider(ABC):
     # All concrete providers must define their supported models
     MODEL_CAPABILITIES: dict[str, Any] = {}
 
+    # Media kinds (utils.media.MediaKind) this provider can encode into a request.
+    # Empty means the provider refuses media rather than silently dropping it.
+    MEDIA_KINDS: ClassVar[frozenset] = frozenset()
+
     def __init__(self, api_key: str, **kwargs):
         """Initialize the provider with API key and optional configuration."""
         self.api_key = api_key
         self.config = kwargs
         self._sorted_capabilities_cache: Optional[list[tuple[str, ModelCapabilities]]] = None
+
+    def ensure_media_encodable(self, media) -> None:
+        """Raise MediaNotSupportedError unless this provider can encode every attachment.
+
+        Called at every call site right before generate_content: each generate_content accepts
+        **kwargs, so media passed to a provider without an encoder would otherwise vanish.
+        """
+        media = list(media or ())  # an iterator would be used up by the size check below
+        if not media:
+            return
+        from utils.media import MediaNotSupportedError, check_media_sizes, format_kinds
+
+        check_media_sizes(media)
+        unsupported = [attachment for attachment in media if attachment.kind not in self.MEDIA_KINDS]
+        if unsupported:
+            kinds = format_kinds({attachment.kind for attachment in unsupported})
+            names = ", ".join(attachment.name for attachment in unsupported)
+            raise MediaNotSupportedError(
+                f"{self.get_provider_type().value} provider cannot send {kinds} input yet ({names})."
+            )
 
     # ------------------------------------------------------------------
     # Provider identity & capability surface
