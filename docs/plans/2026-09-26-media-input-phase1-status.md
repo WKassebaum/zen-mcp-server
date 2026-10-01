@@ -1,6 +1,6 @@
 # Media Input Phase 1: Status and Handoff
 
-**Updated:** 2026-09-30
+**Updated:** 2026-10-01
 **Plan:** `docs/plans/2026-09-26-media-input-phase1.md` (authoritative; each completed task has an "Amended" note recording review changes, and the committed code wins over the plan's code blocks for completed tasks)
 **Design:** `docs/plans/2026-09-26-media-input-design.md`
 **Follow-ups found in review:** `docs/plans/BACKLOG.md`, "Media input phase 1 follow-ups"
@@ -10,18 +10,18 @@
 | Item | Value |
 |---|---|
 | Worktree | `/Users/wrk/WorkDev/MCP-Dev/zen-media-input` |
-| Branch | `feat/media-input`, based on `zen-cli-v2` at `6ba5a9b`; **local only, not pushed** |
+| Branch | `feat/media-input`, based on `zen-cli-v2` at `6ba5a9b`; backed up to `origin/feat/media-input` |
 | Python | `.zen_venv/bin/python` in the worktree, pinned to the live venv's versions (do not reinstall) |
 | Lint | `ruff`, `black`, `isort` from PATH (`~/.local/bin`); not in the venv |
 | Tests | `.zen_venv/bin/python -m pytest tests/ -q -m "not integration" -p no:cacheprovider` |
-| Baseline | 1100 passed, 6 skipped, 3 failed (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
+| Baseline | 1124 passed, 6 skipped, 3 failed (after B1) (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
 | Gemini key | exported in the user's shell (`GEMINI_API_KEY`); not in any repo `.env` |
 
 Never edit `/Users/wrk/WorkDev/MCP-Dev/zen-cli`: it backs the user's live zen MCP server.
 
-## Progress: tasks 1–6 of 17 done
+## Progress: tasks 1–9 of 17 done
 
-Every completed task passed an implementer pass, a spec-compliance review and a code-quality review, with review fixes applied and re-checked.
+Tasks 1–6 each passed an implementer pass, a spec-compliance review and a code-quality review. From B1 on, each batch gets one implementer and one proportionate review (see below).
 
 | Task | What | Commits |
 |---|---|---|
@@ -31,6 +31,10 @@ Every completed task passed an implementer pass, a spec-compliance review and a 
 | 4 | Media and binaries never read as text; BOM decoding; `--- MEDIA FILE (NOT ATTACHED)` placeholder | `ded20f2`, `f3dc0d8`, `1bfe592` |
 | 5 | `supports_pdf/audio/video` flags, rank bonus | `6fd405d`, `d595c41` |
 | 6 | Live Gemini probe; flags set from results (8 models all three kinds; 2.5 Flash and Flash-Lite pdf+video, audio flaky) | `97d5f21` |
+| 7 | `MEDIA_KINDS` and `ensure_media_encodable` on every provider | `1d3c74f` |
+| 8 | listmodels tests no longer leak the Gemini key removal or the CUSTOM provider | `0f5a469` |
+| 9 | Auto mode filters by required media; `find_media_capable_models`; hints and error text | `e20ab57`, `a6bebf1` |
+| B1 carry-over | Catalog guard covers every catalog and reports all mismatches; Gemini `_README` documents the flags | `bdc7a1c` |
 
 ## Process for the remaining tasks (decided 2026-09-30)
 
@@ -64,7 +68,7 @@ EOF
 ## Carry-over items to fold into the batches
 
 From the Task 6 quality review (approved; these are plan-level):
-- **B1:** extend `tests/test_media_catalog_guard.py` to every `conf/*_models.json` (add `custom`, `dial`, `azure` with no `PROBED` entries, fail on an unmapped catalog), give a stale or misspelled `PROBED` entry a clear message instead of a bare `StopIteration`, and collect all mismatches. Document the three new fields in `conf/gemini_models.json` `_README.field_descriptions`.
+- **B1 (done):** extend `tests/test_media_catalog_guard.py` to every `conf/*_models.json` (add `custom`, `dial`, `azure` with no `PROBED` entries, fail on an unmapped catalog), give a stale or misspelled `PROBED` entry a clear message instead of a bare `StopIteration`, and collect all mismatches. Document the three new fields in `conf/gemini_models.json` `_README.field_descriptions`.
 - **B4 (before Task 17 runs):** add `--repeat N` and `--kinds` to `scripts/probe_media_support.py`, record errors separately from failures and exit non-zero on errors; re-probe audio three times on the eight flagged models; change Task 17's guidance so a single live miss is rerun before blaming the encoder. Consider a clearer audio fixture (slower speech, trailing silence) since the 1.96 s clip ends right after "seven".
 - **Phase 2 (not phase 1):** `providers/azure_openai.py` clones OpenAI capabilities with `dataclasses.replace`, so flagging an OpenAI model would flag Azure deployments without a probe; clear media flags in the clone or guard the built capabilities. The design's OpenRouter rule (flags from `architecture.input_modalities`) conflicts with "every flag needs a live probe"; decide before phase 4.
 
@@ -74,4 +78,5 @@ From earlier reviews, already in the plan as "Also required" notes: Task 12 (`se
 
 - Gemini 2.5 Flash and Flash-Lite are not flagged for audio (each misheard the number once; flaky, not unsupported).
 - Media is never deleted from the Gemini Files API by zen; uploads expire after 48 h (design).
-- `feat/media-input` stays local until the user decides to push a backup branch.
+- 2026-09-30: the user approved backing up `feat/media-input` to `origin`, live Gemini calls in B4, and merging phase 1 into `zen-cli-v2` and pushing when done (fetch and rebase first; it is shared with John).
+- B1 review: `providers_hint` checks the provider's catalog before blaming an allow-list (`a6bebf1`). Nothing calls `ensure_media_encodable` or passes `required_media` yet; B2/B3 wire both in.
