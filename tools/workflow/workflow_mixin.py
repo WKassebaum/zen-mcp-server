@@ -701,6 +701,7 @@ class BaseWorkflowMixin(ABC):
             continuation_id = request.continuation_id
 
             # Restore workflow state on continuation
+            state_restored = False
             if continuation_id:
                 from utils.conversation_memory import get_thread
 
@@ -715,10 +716,19 @@ class BaseWorkflowMixin(ABC):
                                 self.initial_request = state.get("initial_request")
                                 # Rebuild consolidated findings from restored history
                                 self._reprocess_consolidated_findings()
+                                state_restored = True
                                 logger.debug(
                                     f"[{self.get_name()}] Restored workflow state with {len(self.work_history)} history items"
                                 )
                                 break  # State restored, exit loop
+
+            # A workflow that starts here begins from empty state. Tool instances are shared across calls
+            # (server.TOOLS), so a previous run's history and files (media included) would otherwise leak
+            # into this one and be sent with its expert analysis.
+            if request.step_number == 1 and not state_restored:
+                self.work_history = []
+                self.consolidated_findings = ConsolidatedFindings()
+                self.initial_request = None
 
             # Adjust total steps if needed
             if request.step_number > request.total_steps:

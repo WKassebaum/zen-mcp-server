@@ -243,3 +243,24 @@ async def test_request_that_calls_no_model_is_not_refused():
         result = await AnalyzeTool().execute(arguments)
     generate.assert_not_called()
     assert json.loads(result[0].text)["status"] != "error"
+
+
+@pytest.mark.asyncio
+async def test_new_workflow_does_not_inherit_a_previous_runs_media(gemini_encodes_media, tmp_path):
+    # Tool instances are shared across calls (server.TOOLS). A fresh step 1 must start from empty state,
+    # or the first run's video leaks into the second, unrelated run and fails it on a non-Gemini model.
+    tool = AnalyzeTool()
+    with patch.object(GeminiModelProvider, "generate_content", return_value=_gemini_reply()):
+        await tool.execute(_args("gemini-3.8-flash", ModelContext("gemini-3.8-flash")))
+
+    source = tmp_path / "module.py"
+    source.write_text("def answer():\n    return 42\n")
+    reply = ModelResponse(
+        content='{"status": "analysis_complete"}', usage={}, model_name="o3", provider=ProviderType.OPENAI
+    )
+    with patch.object(OpenAIModelProvider, "generate_content", return_value=reply) as generate:
+        await tool.execute(_args("o3", ModelContext("o3"), relevant_files=(str(source),)))
+    assert not generate.call_args.kwargs.get("media")
+    assert _announced(generate.call_args.kwargs["prompt"]) == []
+    assert tool.consolidated_findings.relevant_files == {str(source)}
+    assert [step["step_number"] for step in tool.work_history] == [1]
