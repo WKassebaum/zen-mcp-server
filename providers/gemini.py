@@ -2,6 +2,8 @@
 
 import base64
 import logging
+import time
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional
 
 if TYPE_CHECKING:
@@ -12,6 +14,7 @@ from google.genai import types
 
 from utils.env import get_env
 from utils.image_utils import validate_image
+from utils.media import MediaKind
 
 from .base import ModelProvider
 from .registries.gemini import GeminiModelRegistry
@@ -41,6 +44,13 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         "high": 0.67,  # 67% of max - complex analysis
         "max": 1.0,  # 100% of max - full thinking budget
     }
+
+    MEDIA_KINDS = frozenset(MediaKind)
+    # Gemini caps a request at 100 MB; base64 inflates by 4/3 and the prompt needs room,
+    # so keep raw inline media under 70 MB and upload the rest to the Files API.
+    INLINE_MEDIA_MAX_BYTES = 70 * 1024 * 1024
+    UPLOAD_POLL_INTERVAL_S = 5
+    UPLOAD_TIMEOUT_S = 600
 
     # Model-specific thinking token limits (fallback when registry omits max_thinking_tokens)
     MAX_THINKING_TOKENS = {
@@ -133,6 +143,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         max_output_tokens: Optional[int] = None,
         thinking_mode: str = "medium",
         images: Optional[list[str]] = None,
+        media: Optional[list] = None,
         **kwargs,
     ) -> ModelResponse:
         """
@@ -146,6 +157,8 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             max_output_tokens: Optional maximum number of tokens to generate in the response
             thinking_mode: Thinking budget level for models that support it ("minimal", "low", "medium", "high", "max"), default "medium"
             images: Optional list of image paths or data URLs to include with the prompt (for vision models)
+            media: Optional list of utils.media.MediaAttachment (PDF, audio, video), sent as native parts
+                before the prompt text; files that do not fit inline are uploaded to the Files API
             **kwargs: Additional keyword arguments (reserved for future use)
 
         Returns:
@@ -161,13 +174,18 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         # Prepare content parts (text and potentially images)
         parts = []
 
-        # Add system and user prompts as text
-        if system_prompt:
-            full_prompt = f"{system_prompt}\n\n{prompt}"
+        # Media first, then the prompt text. With media the system prompt goes to system_instruction
+        # (a stable prefix); media-free requests keep today's layout byte for byte.
+        media = list(media) if media else []  # read more than once below; an iterator would be used up
+        media_attached: list[dict] = []
+        if media:
+            self.ensure_media_encodable(media)
+            media_parts, media_attached = self._build_media_parts(media)
+            parts.extend(media_parts)
+            parts.append({"text": prompt})
         else:
-            full_prompt = prompt
-
-        parts.append({"text": full_prompt})
+            full_prompt = f"{system_prompt}\n\n{prompt}" if system_prompt else prompt
+            parts.append({"text": full_prompt})
 
         # Add images if provided and model supports vision
         if images and capabilities.supports_images:
@@ -193,6 +211,9 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             temperature=temperature,
             candidate_count=1,
         )
+
+        if media and system_prompt:
+            generation_config.system_instruction = system_prompt
 
         # Add max output tokens if specified
         if max_output_tokens:
@@ -298,6 +319,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                     "finish_reason": finish_reason_str,
                     "is_blocked_by_safety": is_blocked_by_safety,
                     "safety_feedback": safety_feedback_details,
+                    "media_attached": media_attached,
                 },
             )
 
@@ -435,6 +457,64 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         ]
 
         return any(indicator in error_str for indicator in retryable_indicators)
+
+    def _upload_media(self, attachment):
+        """Upload one attachment to the Gemini Files API and wait until it is ACTIVE.
+
+        zen never deletes uploads: Google deletes them after 48 hours. The Files API name is recorded
+        in the response metadata (media_attached[*]["file_name"]) so a user can delete one sooner.
+        """
+        try:
+            uploaded = self.client.files.upload(
+                file=attachment.source_path,
+                config={"mime_type": attachment.mime_type, "display_name": attachment.name},
+            )
+        except Exception as exc:
+            raise RuntimeError(f"Gemini Files API upload of {attachment.name} failed: {exc}") from exc
+        deadline = time.monotonic() + self.UPLOAD_TIMEOUT_S
+        while uploaded.state is not None and uploaded.state.name == "PROCESSING":
+            if time.monotonic() > deadline:
+                raise RuntimeError(
+                    f"Gemini Files API: {attachment.name} still PROCESSING after {self.UPLOAD_TIMEOUT_S}s "
+                    f"(uploaded as {uploaded.name})"
+                )
+            time.sleep(self.UPLOAD_POLL_INTERVAL_S)
+            uploaded = self.client.files.get(name=uploaded.name)
+        if uploaded.state is not None and uploaded.state.name == "FAILED":
+            detail = f": {uploaded.error.message}" if getattr(uploaded.error, "message", None) else ""
+            raise RuntimeError(f"Gemini Files API upload of {attachment.name} ended in state FAILED{detail}")
+        if not uploaded.uri:
+            raise RuntimeError(f"Gemini Files API upload of {attachment.name} returned no URI ({uploaded.name})")
+        return uploaded
+
+    def _build_media_parts(self, media) -> tuple[list[dict], list[dict]]:
+        """Inline what fits under INLINE_MEDIA_MAX_BYTES (largest files upload first); keep input order.
+
+        Uploads happen here, before the retry loop in generate_content, so a retried request reuses them.
+        """
+        inline_total = sum(attachment.size_bytes for attachment in media)
+        to_upload: set[int] = set()
+        for index, attachment in sorted(enumerate(media), key=lambda item: item[1].size_bytes, reverse=True):
+            if inline_total <= self.INLINE_MEDIA_MAX_BYTES:
+                break
+            to_upload.add(index)
+            inline_total -= attachment.size_bytes
+
+        parts: list[dict] = []
+        attached: list[dict] = []
+        for index, attachment in enumerate(media):
+            record = {"name": attachment.name, "kind": attachment.kind.value, "bytes": attachment.size_bytes}
+            if index in to_upload:
+                uploaded = self._upload_media(attachment)
+                file_data = {"file_uri": uploaded.uri, "mime_type": uploaded.mime_type or attachment.mime_type}
+                parts.append({"file_data": file_data})
+                record.update(transport="uploaded", file_name=uploaded.name)
+            else:
+                data = base64.b64encode(Path(attachment.source_path).read_bytes()).decode()
+                parts.append({"inline_data": {"mime_type": attachment.mime_type, "data": data}})
+                record["transport"] = "inline"
+            attached.append(record)
+        return parts, attached
 
     def _process_image(self, image_path: str) -> Optional[dict]:
         """Process an image for Gemini API."""

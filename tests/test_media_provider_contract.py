@@ -19,9 +19,7 @@ def _media():
     return classify_media([MP4])[1]
 
 
-@pytest.mark.parametrize(
-    "provider_cls", [AnthropicProvider, OpenAIModelProvider, XAIModelProvider, GeminiModelProvider]
-)
+@pytest.mark.parametrize("provider_cls", [AnthropicProvider, OpenAIModelProvider, XAIModelProvider])
 def test_providers_without_encoder_reject_media(provider_cls):
     provider = provider_cls(api_key="test-key")
     with pytest.raises(MediaNotSupportedError, match="otter.mp4"):

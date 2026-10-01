@@ -52,7 +52,7 @@ def _announced(prompt: str) -> list[str]:
 
 @pytest.fixture
 def gemini_encodes_media():
-    # The Gemini encoder arrives in Task 15; until then pretend it exists.
+    # Pin the encoder kinds so these tests do not depend on what GeminiModelProvider declares.
     with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)):
         yield
 

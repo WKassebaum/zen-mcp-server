@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 
+import utils.model_restrictions
 from providers.gemini import GeminiModelProvider
 from providers.registry import ModelProviderRegistry
 from tools.models import ToolModelCategory
@@ -34,9 +35,12 @@ def test_auto_mode_with_video_picks_capable_model(gemini_encodes_media):
     assert MediaKind.VIDEO in provider.get_capabilities(model).supported_media_kinds()
 
 
-def test_auto_mode_with_media_and_no_encoder_raises():
-    # Gemini has flags from Task 6 but no encoder until Task 15 (MEDIA_KINDS empty) -> nothing can serve it.
-    with pytest.raises(MediaNotSupportedError, match="GEMINI_API_KEY"):
+def test_auto_mode_with_media_and_no_capable_model_raises(monkeypatch):
+    # An allow-list that leaves no Gemini model -> nothing can serve video. The restriction service
+    # caches the env on first use, so reset it; monkeypatch restores the original afterwards.
+    monkeypatch.setenv("GOOGLE_ALLOWED_MODELS", "none-such")
+    monkeypatch.setattr(utils.model_restrictions, "_restriction_service", None)
+    with pytest.raises(MediaNotSupportedError, match="GEMINI_API_KEY is configured, but GOOGLE_ALLOWED_MODELS"):
         ModelProviderRegistry.get_preferred_fallback_model(
             ToolModelCategory.FAST_RESPONSE, required_media=frozenset({MediaKind.VIDEO})
         )
