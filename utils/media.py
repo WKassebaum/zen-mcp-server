@@ -688,10 +688,10 @@ def providers_hint(kinds: frozenset[MediaKind]) -> str:
             missing_keys.append(key_env)
         elif not kinds <= frozenset(provider.MEDIA_KINDS):
             reasons.append(f"{key_env} is configured, but that provider cannot send {label} input yet")
+        elif not any(kinds <= caps.supported_media_kinds() for caps in provider.get_all_model_capabilities().values()):
+            reasons.append(f"{key_env} is configured, but none of its models takes {label} input in one request")
         elif get_restriction_service().has_restrictions(provider_type):
             reasons.append(f"{key_env} is configured, but {allow_env} excludes every model that can take {label} input")
-        else:
-            reasons.append(f"{key_env} is configured, but none of its models takes {label} input in one request")
     if missing_keys:
         reasons.insert(0, "configure " + " or ".join(missing_keys))
     return "; ".join(reasons) if reasons else f"no supported provider can take {label} input in one request yet"

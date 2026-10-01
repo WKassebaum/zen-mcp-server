@@ -8,6 +8,7 @@ import pytest
 import utils.model_restrictions
 from providers.gemini import GeminiModelProvider
 from providers.registry import ModelProviderRegistry
+from providers.shared import ModelCapabilities
 from utils.media import MediaKind, classify_media, format_media_error, providers_hint
 
 MP4 = str(Path(__file__).parent / "fixtures" / "media" / "otter.mp4")
@@ -46,10 +47,25 @@ def test_hint_blames_allow_list_when_restricted(monkeypatch, fresh_restrictions)
     assert "GEMINI_API_KEY is configured, but GOOGLE_ALLOWED_MODELS excludes" in hint
 
 
-def test_hint_for_configured_unrestricted_provider(fresh_restrictions):
-    with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)):
+def test_hint_when_no_model_in_the_catalog_takes_the_mix(fresh_restrictions):
+    # Pretend every Gemini model takes PDF only, so no model takes the audio/pdf/video mix at all.
+    with (
+        patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)),
+        patch.object(ModelCapabilities, "supported_media_kinds", return_value=frozenset({MediaKind.PDF})),
+    ):
         hint = providers_hint(frozenset(MediaKind))
     assert hint == "GEMINI_API_KEY is configured, but none of its models takes audio/pdf/video input in one request"
+
+
+def test_allow_list_is_not_blamed_when_no_model_takes_the_mix(monkeypatch, fresh_restrictions):
+    monkeypatch.setenv("GOOGLE_ALLOWED_MODELS", "gemini-2.5-flash")
+    with (
+        patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)),
+        patch.object(ModelCapabilities, "supported_media_kinds", return_value=frozenset({MediaKind.PDF})),
+    ):
+        hint = providers_hint(AUDIO)
+    assert "GOOGLE_ALLOWED_MODELS" not in hint
+    assert "none of its models takes audio input" in hint
 
 
 def test_format_media_error_lists_capable_models():
