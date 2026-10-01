@@ -383,7 +383,42 @@ class ModelProviderRegistry:
         return allowed_models
 
     @classmethod
-    def get_preferred_fallback_model(cls, tool_category: Optional["ToolModelCategory"] = None) -> str:
+    def _filter_models_for_media(cls, provider, model_names: list[str], required_media: frozenset) -> list[str]:
+        """Keep models whose flags cover required_media on a provider that can encode it."""
+        if not required_media:
+            return model_names
+        if not required_media <= frozenset(provider.MEDIA_KINDS):
+            return []
+        capable = []
+        for name in model_names:
+            try:
+                if required_media <= provider.get_capabilities(name).supported_media_kinds():
+                    capable.append(name)
+            except (AttributeError, ValueError):
+                continue
+        return capable
+
+    @classmethod
+    def find_media_capable_models(cls, required_media: frozenset, limit: int = 5) -> list[str]:
+        """Canonical names of available models (current keys and restrictions) that take required_media, best first.
+
+        get_available_models() lists aliases too; every alias resolves to the same capabilities, so
+        dedupe on the canonical ``model_name`` or one model would be listed under several names.
+        """
+        ranks: dict[str, int] = {}
+        for model_name, provider_type in cls.get_available_models(respect_restrictions=True).items():
+            provider = cls.get_provider(provider_type)
+            if not provider or not cls._filter_models_for_media(provider, [model_name], required_media):
+                continue
+            capabilities = provider.get_capabilities(model_name)
+            ranks.setdefault(capabilities.model_name, capabilities.get_effective_capability_rank())
+        ranked = sorted(ranks.items(), key=lambda item: (-item[1], item[0]))
+        return [name for name, _ in ranked[:limit]]
+
+    @classmethod
+    def get_preferred_fallback_model(
+        cls, tool_category: Optional["ToolModelCategory"] = None, required_media: frozenset = frozenset()
+    ) -> str:
         """Get the preferred fallback model based on provider priority and tool category.
 
         This method orchestrates model selection by:
@@ -408,6 +443,7 @@ class ModelProviderRegistry:
             if provider:
                 # 1. Registry filters the models first
                 allowed_models = cls._get_allowed_models_for_provider(provider, provider_type)
+                allowed_models = cls._filter_models_for_media(provider, allowed_models, required_media)
 
                 if not allowed_models:
                     continue
@@ -429,6 +465,14 @@ class ModelProviderRegistry:
         if first_available_model:
             logging.debug(f"No provider preference, using first available: {first_available_model}")
             return first_available_model
+
+        # Media that no available model can take: refuse rather than return a model that would drop it
+        if required_media:
+            from utils.media import MediaNotSupportedError, format_kinds, providers_hint
+
+            raise MediaNotSupportedError(
+                f"No available model can take {format_kinds(required_media)} input: {providers_hint(required_media)}."
+            )
 
         # Ultimate fallback if no providers have models
         logging.warning("No models available from any provider, using default fallback")

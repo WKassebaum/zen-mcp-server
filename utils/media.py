@@ -653,3 +653,60 @@ def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
         "--- END FILE ---\n"
         for number, a in enumerate(attachments, 1)
     )
+
+
+# ---------------------------------------------------------------------------
+# Availability hints and error messages
+# ---------------------------------------------------------------------------
+
+# Providers whose models can take media once configured: (ProviderType value, key env var,
+# allow-list env var, kinds its encoder can send). Later phases add entries.
+MEDIA_PROVIDERS: tuple[tuple[str, str, str, frozenset[MediaKind]], ...] = (
+    ("google", "GEMINI_API_KEY", "GOOGLE_ALLOWED_MODELS", frozenset(MediaKind)),
+)
+
+
+def providers_hint(kinds: frozenset[MediaKind]) -> str:
+    """What would unlock ``kinds``: a key to configure, or why an already configured provider cannot serve it.
+
+    A provider counts as configured when ModelProviderRegistry returns an instance for it (registered
+    with a usable key), not when its env var is merely non-empty. The env var name is always named.
+    """
+    from providers.registry import ModelProviderRegistry
+    from providers.shared import ProviderType
+    from utils.model_restrictions import get_restriction_service
+
+    label = format_kinds(kinds)
+    missing_keys: list[str] = []
+    reasons: list[str] = []
+    for provider_value, key_env, allow_env, supported in MEDIA_PROVIDERS:
+        if not kinds <= supported:
+            continue
+        provider_type = ProviderType(provider_value)
+        provider = ModelProviderRegistry.get_provider(provider_type)
+        if provider is None:
+            missing_keys.append(key_env)
+        elif not kinds <= frozenset(provider.MEDIA_KINDS):
+            reasons.append(f"{key_env} is configured, but that provider cannot send {label} input yet")
+        elif get_restriction_service().has_restrictions(provider_type):
+            reasons.append(f"{key_env} is configured, but {allow_env} excludes every model that can take {label} input")
+        else:
+            reasons.append(f"{key_env} is configured, but none of its models takes {label} input in one request")
+    if missing_keys:
+        reasons.insert(0, "configure " + " or ".join(missing_keys))
+    return "; ".join(reasons) if reasons else f"no supported provider can take {label} input in one request yet"
+
+
+def format_media_error(
+    model_name: str,
+    missing: frozenset[MediaKind],
+    media: list[MediaAttachment],
+    capable_models: list[str],
+) -> str:
+    affected = ", ".join(a.name for a in media if a.kind in missing)
+    message = f"Model '{model_name}' cannot take {format_kinds(missing)} input ({affected})."
+    if capable_models:
+        message += " Models available with your current keys that can: " + ", ".join(capable_models) + "."
+    else:
+        message += f" No available model supports it: {providers_hint(missing)}."
+    return message
