@@ -151,16 +151,27 @@ class TestListModelsTool:
         env_vars = {"CUSTOM_API_URL": "http://localhost:11434", "DEFAULT_MODEL": "auto"}
 
         with patch.dict(os.environ, env_vars, clear=True):
-            _reset_and_configure_providers()
-            result = await tool.execute({})
+            try:
+                _reset_and_configure_providers()
+                result = await tool.execute({})
 
-            response = json.loads(result[0].text)
-            content = response["content"]
+                response = json.loads(result[0].text)
+                content = response["content"]
 
-            # Check Custom API shows as configured
-            assert "Custom/Local API ✅" in content
-            assert "http://localhost:11434" in content
-            assert "Local models via Ollama" in content
+                # Check Custom API shows as configured
+                assert "Custom/Local API ✅" in content
+                assert "http://localhost:11434" in content
+                assert "Local models via Ollama" in content
+            finally:
+                # configure_providers() registered a CUSTOM factory that outlives the patched env;
+                # later registry lookups would then fail with "Custom API URL must be provided".
+                ModelProviderRegistry.unregister_provider(ProviderType.CUSTOM)
+
+    @pytest.mark.asyncio
+    async def test_custom_api_listing_leaves_no_custom_provider(self, tool):
+        """Regression: the CUSTOM factory registered above used to leak into every later test."""
+        await self.test_execute_with_custom_api(tool)
+        assert ProviderType.CUSTOM not in ModelProviderRegistry.get_available_providers()
 
     @pytest.mark.asyncio
     async def test_output_includes_usage_tips(self, tool):

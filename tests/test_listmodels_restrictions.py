@@ -84,9 +84,14 @@ class TestListModelsRestrictions(unittest.TestCase):
     def tearDown(self):
         """Clean up after tests."""
         ModelProviderRegistry.clear_cache()
-        # Clean up environment variables
-        for key in ["OPENROUTER_ALLOWED_MODELS", "OPENROUTER_API_KEY", "GEMINI_API_KEY"]:
-            os.environ.pop(key, None)
+        # No env cleanup here: @patch.dict restores the environment when each test returns. Popping keys
+        # afterwards deleted GEMINI_API_KEY that existed before the test and broke later tests.
+
+    def test_teardown_keeps_environment_it_did_not_set(self):
+        """Regression: tearDown used to pop GEMINI_API_KEY even when it existed before the test."""
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "pre-existing-key"}):
+            self.tearDown()
+            self.assertEqual(os.environ.get("GEMINI_API_KEY"), "pre-existing-key")
 
     @patch.dict(
         os.environ,
