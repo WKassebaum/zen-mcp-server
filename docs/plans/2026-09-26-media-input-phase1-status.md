@@ -1,0 +1,77 @@
+# Media Input Phase 1: Status and Handoff
+
+**Updated:** 2026-09-30
+**Plan:** `docs/plans/2026-09-26-media-input-phase1.md` (authoritative; each completed task has an "Amended" note recording review changes, and the committed code wins over the plan's code blocks for completed tasks)
+**Design:** `docs/plans/2026-09-26-media-input-design.md`
+**Follow-ups found in review:** `docs/plans/BACKLOG.md`, "Media input phase 1 follow-ups"
+
+## Where the work lives
+
+| Item | Value |
+|---|---|
+| Worktree | `/Users/wrk/WorkDev/MCP-Dev/zen-media-input` |
+| Branch | `feat/media-input`, based on `zen-cli-v2` at `6ba5a9b`; **local only, not pushed** |
+| Python | `.zen_venv/bin/python` in the worktree, pinned to the live venv's versions (do not reinstall) |
+| Lint | `ruff`, `black`, `isort` from PATH (`~/.local/bin`); not in the venv |
+| Tests | `.zen_venv/bin/python -m pytest tests/ -q -m "not integration" -p no:cacheprovider` |
+| Baseline | 1100 passed, 6 skipped, 3 failed (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
+| Gemini key | exported in the user's shell (`GEMINI_API_KEY`); not in any repo `.env` |
+
+Never edit `/Users/wrk/WorkDev/MCP-Dev/zen-cli`: it backs the user's live zen MCP server.
+
+## Progress: tasks 1–6 of 17 done
+
+Every completed task passed an implementer pass, a spec-compliance review and a code-quality review, with review fixes applied and re-checked.
+
+| Task | What | Commits |
+|---|---|---|
+| 1 | Probe fixtures (`zebra.pdf`, `pelican.wav`, `otter.mp4`) and generator | `18a71b5` |
+| 2 | `utils/media.py` classification, path validation, `source_path` | `cd19872`, `d3aa42b` |
+| 3 | 2 GB limit, token estimate (bounded parsers, PDF page count at 560/page), prompt section, `format_size` | `94b2c5c`, `85d0b9f`, `df0bae5`, `d4dfe85`, `34b44bb`, `732b70c` |
+| 4 | Media and binaries never read as text; BOM decoding; `--- MEDIA FILE (NOT ATTACHED)` placeholder | `ded20f2`, `f3dc0d8`, `1bfe592` |
+| 5 | `supports_pdf/audio/video` flags, rank bonus | `6fd405d`, `d595c41` |
+| 6 | Live Gemini probe; flags set from results (8 models all three kinds; 2.5 Flash and Flash-Lite pdf+video, audio flaky) | `97d5f21` |
+
+## Process for the remaining tasks (decided 2026-09-30)
+
+Batched and lighter than tasks 1–6:
+
+| Batch | Plan tasks | Scope |
+|---|---|---|
+| B1 | 7, 8, 9 | Provider media contract; test-isolation fix; capability-aware selection and hints |
+| B2 | 10, 11 | Shared tool helpers; simple tools and conversation carry-over |
+| B3 | 12, 13, 14 | Auto mode and the MCP boundary; workflow tools; consensus pre-flight |
+| B4 | 15, 16, 17 | Gemini encoder; file-list descriptions; live probes, CLI smoke test, final verification |
+
+Per batch: one implementer subagent (TDD, one commit per task), then one combined spec-and-quality reviewer with a proportionate, time-boxed scope. The controller checks small fixes directly instead of running another review. Full re-review only for Critical or Important findings.
+
+Per-task spec files are generated from the plan into a scratch directory (they do not survive a reboot, so regenerate as needed):
+
+```bash
+python3 - "$DEST" <<'EOF'
+import re, sys
+src = open('/Users/wrk/WorkDev/MCP-Dev/zen-media-input/docs/plans/2026-09-26-media-input-phase1.md').read()
+head, rest = src.split('\n### Task 1:', 1)
+rules = head.split('## Ground rules for the engineer', 1)[1].split('\n---', 1)[0]
+chunks = re.split(r'\n### (Task \d+:)', '\n### Task 1:' + rest)
+for i in range(1, len(chunks), 2):
+    title, body = chunks[i], chunks[i + 1].split('\n## Done when')[0].rstrip().rstrip('-').rstrip()
+    n = int(title.split()[1].rstrip(':'))
+    open(f"{sys.argv[1]}/task{n:02d}.md", "w").write(f"# {title}{body}\n\n## Ground rules (from the plan)\n{rules}\n")
+EOF
+```
+
+## Carry-over items to fold into the batches
+
+From the Task 6 quality review (approved; these are plan-level):
+- **B1:** extend `tests/test_media_catalog_guard.py` to every `conf/*_models.json` (add `custom`, `dial`, `azure` with no `PROBED` entries, fail on an unmapped catalog), give a stale or misspelled `PROBED` entry a clear message instead of a bare `StopIteration`, and collect all mismatches. Document the three new fields in `conf/gemini_models.json` `_README.field_descriptions`.
+- **B4 (before Task 17 runs):** add `--repeat N` and `--kinds` to `scripts/probe_media_support.py`, record errors separately from failures and exit non-zero on errors; re-probe audio three times on the eight flagged models; change Task 17's guidance so a single live miss is rerun before blaming the encoder. Consider a clearer audio fixture (slower speech, trailing silence) since the 1.96 s clip ends right after "seven".
+- **Phase 2 (not phase 1):** `providers/azure_openai.py` clones OpenAI capabilities with `dataclasses.replace`, so flagging an OpenAI model would flag Azure deployments without a probe; clear media flags in the clone or guard the built capabilities. The design's OpenRouter rule (flags from `architecture.input_modalities`) conflicts with "every flag needs a live probe"; decide before phase 4.
+
+From earlier reviews, already in the plan as "Also required" notes: Task 12 (`server.py` context-reconstruction fallback honours media; `os.path.isfile` guard before `looks_binary` on raw argument paths) and Task 13 (`convert_string_to_list` wraps a bare string instead of dropping it).
+
+## Decisions recorded
+
+- Gemini 2.5 Flash and Flash-Lite are not flagged for audio (each misheard the number once; flaky, not unsupported).
+- Media is never deleted from the Gemini Files API by zen; uploads expire after 48 h (design).
+- `feat/media-input` stays local until the user decides to push a backup branch.
