@@ -29,6 +29,7 @@ from mcp.types import TextContent
 from config import TEMPERATURE_ANALYTICAL
 from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import ConsolidatedFindings, WorkflowRequest
+from tools.shared.exceptions import ToolExecutionError
 from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
 
 from .workflow.base import WorkflowTool
@@ -458,6 +459,7 @@ of the evidence, even when it strongly points in one direction.""",
             self.store_initial_issue(request.step)
             self.initial_request = request.step
             self.models_to_consult = request.models or []
+            self._preflight_media(request)
             self.accumulated_responses = []
             # Set total steps: len(models) (each step includes consultation + response)
             request.total_steps = len(self.models_to_consult)
@@ -544,6 +546,46 @@ of the evidence, even when it strongly points in one direction.""",
         # Otherwise, use standard workflow execution
         return await super().execute_workflow(arguments)
 
+    def _preflight_media(self, request) -> None:
+        """Before consulting anyone, every listed model must be able to read the attached media.
+
+        A model that is not available at all is left to _consult_model, which reports it as that
+        model's error entry exactly as it does without media.
+        """
+        media = self._media_from_paths(request.relevant_files or [])
+        if not media:
+            return
+        from tools.models import ToolOutput
+        from utils.media import MediaNotSupportedError, check_media_sizes, format_kinds, required_kinds
+        from utils.model_context import ModelContext
+
+        try:
+            check_media_sizes(media)
+        except MediaNotSupportedError as exc:
+            output = ToolOutput(status="error", content=str(exc), content_type="text")
+            raise ToolExecutionError(output.model_dump_json()) from exc
+
+        required = required_kinds(media)
+        incapable = []
+        for model_config in self.models_to_consult:
+            context = ModelContext(model_config["model"])
+            try:
+                supported = context.capabilities.supported_media_kinds() & frozenset(context.provider.MEDIA_KINDS)
+            except ValueError:  # model not available with current keys
+                continue
+            if required - supported:
+                incapable.append(model_config["model"])
+        if incapable:
+            output = ToolOutput(
+                status="error",
+                content=(
+                    f"These consensus models cannot take the attached {format_kinds(required)} input: "
+                    f"{', '.join(incapable)}. Replace them or remove the media; no model was consulted."
+                ),
+                content_type="text",
+            )
+            raise ToolExecutionError(output.model_dump_json())
+
     def _build_continuation_offer(self, continuation_id: str) -> dict[str, Any] | None:
         """Create a continuation offer without exposing prior model responses."""
         try:
@@ -614,6 +656,17 @@ of the evidence, even when it strongly points in one direction.""",
             for warning in temp_warnings:
                 logger.warning(warning)
 
+            # Native media for this step: this model's flags and provider encoder must cover it. A failure
+            # becomes this model's "error" entry below; step 1 already refused incapable models up front.
+            # Classified from the same list, in the same order, as the CONTEXT FILES announcement above.
+            media = self._media_from_paths(request.relevant_files or [])
+            self._validate_media_support(
+                media,
+                model_context,
+                self._paths_from_initial_context(getattr(self, "_current_arguments", None) or {}, "relevant_files"),
+            )
+            provider.ensure_media_encodable(media)
+
             # Call the model with validated temperature
             response = provider.generate_content(
                 prompt=prompt,
@@ -622,6 +675,7 @@ of the evidence, even when it strongly points in one direction.""",
                 temperature=validated_temperature,
                 thinking_mode="medium",
                 images=request.images if request.images else None,
+                media=media or None,
             )
 
             return {
