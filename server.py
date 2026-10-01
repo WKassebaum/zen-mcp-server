@@ -811,9 +811,33 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
 
         # Handle auto mode at MCP boundary - resolve to specific model
         if model_name.lower() == "auto":
+            from tools.workflow.base import WorkflowTool
+            from utils.media import MediaNotSupportedError, media_kinds_from_arguments, media_kinds_from_paths
+
             # Get tool category to determine appropriate model
             tool_category = tool.get_model_category()
-            resolved_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+            # Route on the media this call attaches. A workflow's final expert call also attaches media
+            # from this tool's earlier steps (consolidated relevant_files), and workflow turns store no
+            # model to reuse, so include those steps' media too.
+            required_media = media_kinds_from_arguments(arguments)
+            continuation_id = arguments.get("continuation_id")
+            if continuation_id and isinstance(tool, WorkflowTool):
+                from utils.conversation_memory import get_thread
+
+                thread = get_thread(continuation_id)
+                earlier_files = [
+                    path
+                    for turn in (thread.turns if thread else [])
+                    if turn.tool_name == name
+                    for path in (turn.files or [])
+                ]
+                required_media |= media_kinds_from_paths(earlier_files)
+            try:
+                resolved_model = ModelProviderRegistry.get_preferred_fallback_model(
+                    tool_category, required_media=required_media
+                )
+            except MediaNotSupportedError as exc:
+                raise _media_unavailable_error(name, "auto", exc) from exc
             logger.info(f"Auto mode resolved to {resolved_model} for {name} (category: {tool_category.value})")
             model_name = resolved_model
             # Update arguments with resolved model
@@ -854,12 +878,24 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
         # EARLY FILE SIZE VALIDATION AT MCP BOUNDARY
         # Check file sizes before tool execution using resolved model
         argument_files = arguments.get("absolute_file_paths")
+        if isinstance(argument_files, str):
+            argument_files = [argument_files]
         if argument_files:
-            logger.debug(f"Checking file sizes for {len(argument_files)} files with model {model_name}")
-            file_size_check = check_total_file_size(argument_files, model_name)
-            if file_size_check:
-                logger.warning(f"File size check failed for {name} with model {model_name}")
-                raise ToolExecutionError(ToolOutput(**file_size_check).model_dump_json())
+            # Only embeddable text counts: native media is checked by the tool against the model's media
+            # support (an incapable model must get that error, not "too large"), and binaries are never
+            # embedded. looks_binary opens the file, so only regular files are sniffed: a FIFO or device
+            # named like a text file would block the request.
+            from utils.media import classify_media, looks_binary
+
+            text_files = [
+                path for path in classify_media(argument_files)[0] if not (os.path.isfile(path) and looks_binary(path))
+            ]
+            if text_files:
+                logger.debug(f"Checking file sizes for {len(text_files)} text files with model {model_name}")
+                file_size_check = check_total_file_size(text_files, model_name)
+                if file_size_check:
+                    logger.warning(f"File size check failed for {name} with model {model_name}")
+                    raise ToolExecutionError(ToolOutput(**file_size_check).model_dump_json())
 
         # Execute tool with pre-resolved model context
         result = await tool.execute(arguments)
@@ -876,6 +912,17 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
     # Handle unknown tool requests gracefully
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
+
+
+def _media_unavailable_error(tool_name: str, requested_model: str, exc: Exception) -> ToolExecutionError:
+    """Tool error for attached media that no available model can take (utils.media.MediaNotSupportedError)."""
+    error_output = ToolOutput(
+        status="error",
+        content=str(exc),
+        content_type="text",
+        metadata={"tool_name": tool_name, "requested_model": requested_model},
+    )
+    return ToolExecutionError(error_output.model_dump_json())
 
 
 def parse_model_option(model_string: str) -> tuple[str, Optional[str]]:
@@ -1093,6 +1140,7 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
             logger.debug(f"[CONVERSATION_DEBUG] Successfully added user turn to thread {continuation_id}")
 
     # Create model context early to use for history building
+    from utils.media import MediaNotSupportedError, media_kinds_from_arguments
     from utils.model_context import ModelContext
 
     tool = TOOLS.get(context.tool_name)
@@ -1122,7 +1170,14 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
                 fallback_model = None
                 if tool is not None:
                     try:
-                        fallback_model = ModelProviderRegistry.get_preferred_fallback_model(tool.get_model_category())
+                        fallback_model = ModelProviderRegistry.get_preferred_fallback_model(
+                            tool.get_model_category(), required_media=media_kinds_from_arguments(arguments)
+                        )
+                    except MediaNotSupportedError as media_exc:
+                        # No available model takes this call's media: refuse with the hint instead of
+                        # sizing history with a model that would drop it.
+                        requested = arguments.get("model") or DEFAULT_MODEL
+                        raise _media_unavailable_error(context.tool_name, requested, media_exc) from media_exc
                     except Exception as fallback_exc:  # pragma: no cover - defensive log
                         logger.debug(
                             f"[CONVERSATION_DEBUG] Unable to resolve fallback model for {context.tool_name}: {fallback_exc}"
@@ -1150,7 +1205,14 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
             fallback_model = None
             if tool is not None:
                 try:
-                    fallback_model = ModelProviderRegistry.get_preferred_fallback_model(tool.get_model_category())
+                    fallback_model = ModelProviderRegistry.get_preferred_fallback_model(
+                        tool.get_model_category(), required_media=media_kinds_from_arguments(arguments)
+                    )
+                except MediaNotSupportedError as media_exc:
+                    # model=auto lands here: refuse media no available model takes, as the auto block does
+                    raise _media_unavailable_error(
+                        context.tool_name, model_context.model_name, media_exc
+                    ) from media_exc
                 except Exception as fallback_exc:  # pragma: no cover - defensive log
                     logger.debug(
                         f"[CONVERSATION_DEBUG] Unable to resolve fallback model for {context.tool_name}: {fallback_exc}"

@@ -1431,8 +1431,12 @@ When recommending searches, be specific about what information you need and why 
             if model_name.lower() == "auto":
                 tool_category = self.get_model_category()
                 from providers.registry import ModelProviderRegistry
+                from utils.media import media_kinds_from_arguments
 
-                model_name = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+                # Route on attached media; raises MediaNotSupportedError (a ValueError) if no model takes it
+                model_name = ModelProviderRegistry.get_preferred_fallback_model(
+                    tool_category, required_media=media_kinds_from_arguments(arguments)
+                )
                 logger.info(
                     f"Auto mode resolved to '{model_name}' for {self.get_name()} tool (category: {tool_category.value})"
                 )
