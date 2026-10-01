@@ -3431,7 +3431,7 @@ Run:
 .zen_venv/bin/python -m pytest tests/test_media_live.py -m integration -q -p no:cacheprovider
 ```
 
-Expected: every (model, kind) passes and the summary says **0 skipped** — a skip means the key was not visible or `PROBED` is empty, which is not a pass. A marker failure here after Task 6's raw-SDK probe passed means zen's encoder is wrong, not the model. If only the token assertion fails, the estimate in `utils/media.py` undercounts for that kind: raise the matching constant (`PDF_TOKENS_PER_PAGE`, `AUDIO_TOKENS_PER_SECOND` or `VIDEO_TOKENS_PER_SECOND`) to at least the observed figure (the failure message prints both numbers), update the expected values in `tests/test_media_limits.py`, rerun, and say so in the commit message.
+Expected: every (model, kind) passes and the summary says **0 skipped** — a skip means the key was not visible or `PROBED` is empty, which is not a pass. A single marker failure is first rerun on its own (`-k "<model> and <kind>"`): the 1.96 s `pelican.wav` ends right after "seven", and models occasionally mishear it. A marker failure that repeats, or that hits several models for one kind, after Task 6's raw-SDK probe passed (`scripts/probe_media_support.py --repeat 3 --kinds <kind>` re-checks the raw path) means zen's encoder is wrong, not the model. If only the token assertion fails, the estimate in `utils/media.py` undercounts for that kind: raise the matching constant (`PDF_TOKENS_PER_PAGE`, `AUDIO_TOKENS_PER_SECOND` or `VIDEO_TOKENS_PER_SECOND`) to at least the observed figure (the failure message prints both numbers), update the expected values in `tests/test_media_limits.py`, rerun, and say so in the commit message.
 
 **Step 2: CLI smoke test**
 

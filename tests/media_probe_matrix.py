@@ -6,6 +6,7 @@ for kinds listed here. Update this file and the catalog together, citing the pro
 gemini: scripts/probe_media_support.py, run 2026-09-30 (google-genai 1.46, inline_data).
 Audio FAILED in that run for gemini-2.5-flash ("Pelican", no number) and gemini-2.5-flash-lite
 ("Pelican 5"); a one-off recheck of both passed, so their audio is flaky and stays unflagged.
+Audio re-probed 2026-10-01 with `--repeat 3 --kinds audio` on the eight audio-flagged models: 3/3 each.
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
