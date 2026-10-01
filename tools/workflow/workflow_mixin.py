@@ -31,6 +31,7 @@ from mcp.types import TextContent
 
 from config import MCP_PROMPT_SIZE_LIMIT
 from utils.conversation_memory import add_turn, create_thread
+from utils.media import MediaNotSupportedError
 
 from ..shared.base_models import ConsolidatedFindings
 from ..shared.exceptions import ToolExecutionError
@@ -351,8 +352,9 @@ class BaseWorkflowMixin(ABC):
         except Exception as e:
             logger.warning(f"[WORKFLOW_FILES] {self.get_name()}: Could not get conversation files: {e}")
 
-        # Convert to list and remove any empty/None values
-        files_for_expert = [f for f in all_relevant_files if f and f.strip()]
+        # Convert to a sorted list (media is announced in this order and attached in the same sorted
+        # order by _call_expert_analysis) and remove any empty/None values
+        files_for_expert = sorted(f for f in all_relevant_files if f and f.strip())
 
         if not files_for_expert:
             logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: No relevant files found for expert analysis")
@@ -389,6 +391,11 @@ class BaseWorkflowMixin(ABC):
         """
         # Use read_files directly with token budgeting, bypassing filter_new_files
         from utils.file_utils import expand_paths, read_files
+        from utils.media import classify_media, estimate_media_tokens, media_prompt_section
+
+        # Native media is attached to the expert call (_call_expert_analysis), never read as text. Announce
+        # it from the same classification and reserve its estimated tokens from the text-file budget.
+        files, media = classify_media(files)
 
         # Get token budget for files
         current_model_context = self.get_current_model_context()
@@ -404,6 +411,7 @@ class BaseWorkflowMixin(ABC):
                 max_tokens = 100_000  # Fallback
         else:
             max_tokens = 100_000  # Fallback
+        max_tokens = max(2_000, max_tokens - estimate_media_tokens(media))  # keeps >= 1,000 tokens for text
 
         # Read files directly without conversation history filtering
         logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: Force embedding {len(files)} files for expert analysis")
@@ -413,9 +421,10 @@ class BaseWorkflowMixin(ABC):
             reserve_tokens=1000,
             include_line_numbers=self.wants_line_numbers_by_default(),
         )
+        file_content += media_prompt_section(media)
 
         # Expand paths to get individual files for tracking
-        processed_files = expand_paths(files)
+        processed_files = expand_paths(files) + [attachment.path for attachment in media]
 
         logger.debug(
             f"[WORKFLOW_FILES] {self.get_name()}: Expert analysis embedding: {len(processed_files)} files, "
@@ -660,12 +669,33 @@ class BaseWorkflowMixin(ABC):
                 # Store for later use
                 self._current_model_name = model_name
                 self._model_context = model_context
+            except MediaNotSupportedError as exc:
+                # Auto mode found no model for the attached media: report that now instead of deferring
+                # (a deferred resolution falls back to "auto" and fails with a misleading provider error).
+                from tools.models import ToolOutput
+
+                output = ToolOutput(status="error", content=str(exc), content_type="text")
+                raise ToolExecutionError(output.model_dump_json()) from exc
             except ValueError as e:
                 # Model resolution failed - in production this would be an error,
                 # but for tests we defer to allow mocks to handle model resolution
                 logger.debug(f"Early model validation failed, deferring to later: {e}")
                 self._current_model_name = None
                 self._model_context = None
+
+            # Validate this step's media as soon as the model is known, on every step (files are only
+            # embedded on the final step). Tools and requests that never call a model with files skip
+            # this; _call_expert_analysis checks all steps' media again before any expert call.
+            if (
+                self._model_context is not None
+                and self.requires_expert_analysis()
+                and self.get_request_use_assistant_model(request)
+            ):
+                self._validate_media_support(
+                    self._media_from_paths(self.get_request_relevant_files(request)),
+                    self._model_context,
+                    self._paths_from_initial_context(arguments, "relevant_files"),
+                )
 
             # Handle continuation
             continuation_id = request.continuation_id
@@ -1459,6 +1489,15 @@ class BaseWorkflowMixin(ABC):
 
             provider = self._model_context.provider
 
+            # Native media from every step (consolidated relevant_files). Validate again here: the
+            # model can differ from the one that checked earlier steps. Sorted, as the file embedding
+            # (_prepare_files_for_expert_analysis, debug's expert context) orders it.
+            media = self._media_from_paths(sorted(self.consolidated_findings.relevant_files))
+            self._validate_media_support(
+                media, self._model_context, self._paths_from_initial_context(arguments, "relevant_files")
+            )
+            provider.ensure_media_encodable(media)
+
             # Prepare expert analysis context
             expert_context = self.prepare_expert_analysis_context(self.consolidated_findings)
 
@@ -1467,6 +1506,18 @@ class BaseWorkflowMixin(ABC):
                 file_content = self._prepare_files_for_expert_analysis()
                 if file_content:
                     expert_context = self._add_files_to_expert_context(expert_context, file_content)
+
+            if media:
+                from utils.media import media_prompt_section
+
+                # Every attachment is announced, in attachment order. Tools that embed files announce
+                # media with them; tools that embed none (e.g. thinkdeep) get the announcement here.
+                announcement = media_prompt_section(media)
+                if announcement not in expert_context:
+                    expert_context += announcement
+
+            # The media list is final: name earlier-turn media (e.g. from another tool) not attached here
+            expert_context += self._unattached_thread_media_note(self.get_request_continuation_id(request), media)
 
             # Get system prompt for this tool with localization support
             base_system_prompt = self.get_system_prompt()
@@ -1498,6 +1549,7 @@ class BaseWorkflowMixin(ABC):
                 temperature=validated_temperature,
                 thinking_mode=self.get_request_thinking_mode(request),
                 images=list(set(self.consolidated_findings.images)) if self.consolidated_findings.images else None,
+                media=media or None,
             )
 
             if model_response.content:
@@ -1531,6 +1583,8 @@ class BaseWorkflowMixin(ABC):
             else:
                 return {"error": "No response from model", "status": "empty_response"}
 
+        except ToolExecutionError:
+            raise  # media validation: the user must see why, not a vague "expert analysis failed"
         except Exception as e:
             logger.error(f"Error calling expert analysis: {e}", exc_info=True)
             return {"error": str(e), "status": "analysis_error"}

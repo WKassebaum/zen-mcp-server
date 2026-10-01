@@ -321,6 +321,8 @@ def media_kinds_from_arguments(arguments: dict[str, Any]) -> frozenset[MediaKind
     paths: list[str] = []
     for key in FILE_ARGUMENT_KEYS:
         value = arguments.get(key)
+        if isinstance(value, str):  # request models wrap a bare string (WorkflowRequest.convert_string_to_list)
+            value = [value]
         if isinstance(value, (list, tuple)):
             paths.extend(str(item) for item in value)
     return media_kinds_from_paths(paths)

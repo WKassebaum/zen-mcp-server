@@ -126,10 +126,10 @@ class WorkflowRequest(BaseWorkflowRequest):
     @field_validator("files_checked", "relevant_files", "relevant_context", mode="before")
     @classmethod
     def convert_string_to_list(cls, v):
-        """Convert string inputs to empty lists to handle malformed inputs gracefully."""
+        """Wrap a bare string in a list: dropping it would silently ignore the file (media included)."""
         if isinstance(v, str):
-            logger.warning(f"Field received string '{v}' instead of list, converting to empty list")
-            return []
+            logger.warning(f"Field received string '{v}' instead of list, wrapping it in a list")
+            return [v] if v.strip() else []
         return v
 
 

@@ -312,10 +312,11 @@ class DebugIssueTool(WorkflowTool):
                 f"\n=== VISUAL DEBUGGING INFORMATION ===\n{images_text}\n=== END VISUAL INFORMATION ==="
             )
 
-        # Add file content if we have relevant files
+        # Add file content if we have relevant files. Sorted: media is announced in this order and
+        # _call_expert_analysis attaches it in the same sorted order.
         if consolidated_findings.relevant_files:
             file_content, _ = self._prepare_file_content_for_prompt(
-                list(consolidated_findings.relevant_files), None, "Essential debugging files"
+                sorted(consolidated_findings.relevant_files), None, "Essential debugging files"
             )
             if file_content:
                 context_parts.append(
