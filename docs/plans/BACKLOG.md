@@ -21,6 +21,9 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Gemini 2.5 Flash / Flash-Lite audio is flaky:** in the 2026-09-30 live probe both misheard the spoken number ("Pelican 5", "Pelican") and passed on a single retry, so audio is left unflagged for them. Re-probe (several runs) before flagging. `gemini-2.5-pro` (flagged) misheard once in the B4 live run through zen ("Pelican 002") and passed on rerun; its raw probe was 3/3. Separately, `gemini-2.5-flash-lite` is catalogued `supports_images: false` yet read the PDF and video frames; check its image support and fix the flag.
 - **Files API upload names are not shown to users:** `media_attached` (with each upload's `files/...` name) is in `ModelResponse.metadata` and is persisted on simple-tool conversation turns, but it is not in `--json` or MCP output, and workflow and consensus tools do not persist it. Surface it so a user can delete an upload before Google's 48 h expiry.
 - **Re-upload on a tool-level retry:** the simple tool's empty-response retry calls `generate_content` again, which uploads above-cap media a second time (the provider's own retry loop reuses uploads). The design's upload cache (`~/.zen/media_uploads.json`) would remove the duplicate.
+- **Unusual but valid media headers become a placeholder:** QuickTime files whose first box is `skip`/`pnot`/`uuid`, RF64 WAV, and MP3 with stray bytes after the ID3 tag fail `_magic_matches`, so they get the BINARY FILE placeholder and only the model is told. When a requested path has a media extension, looks binary and fails the signature check, return an error to the user instead (final review, 2026-10-01).
+- **Large media re-uploads on every follow-up and per consensus model:** first-turn media returns through `initial_context` and is uploaded again on each follow-up when above the inline cap; consensus uploads it once per model. The design's upload cache (`~/.zen/media_uploads.json`) would fix both, along with the tool-level retry case above.
+- **Upload polling blocks the MCP server:** `_upload_media` sleeps up to 600 s inside synchronous `generate_content`, which tools call directly from async `execute`, so zen serves no other call (including parallel calls from Claude Code) while a large video processes. Normal API calls already block this way; wrap provider calls in `asyncio.to_thread`.
 - **Binary sniff on symlinks:** `read_file_content` sniffs the resolved path's extension while media detection checks both names, so `notes.txt -> blob` with NUL bytes reports binary (read_files already resolves paths, so rare).
 
 ## Future features
@@ -92,6 +95,10 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 ### Simulator tests omit `working_directory_absolute_path`
 - **Recorded:** 2026-09-28
 - **What:** `chat` requires `working_directory_absolute_path`, but no simulator test except `responses_api_endpoint` passes it, so their chat calls likely fail validation. The Responses endpoint test used to report exactly that validation error as a pass (fixed in b271101). Audit the others the same way: pass a temp directory and make every test fail on a tool error.
+
+### Workflow tools keep per-run config text across runs
+- **Recorded:** 2026-10-01 (media input final review)
+- **What:** workflow tool instances are shared across calls (`server.TOOLS`). The media fix (`execute_workflow` now resets `work_history`, `consolidated_findings` and `initial_request` when a workflow starts) stops earlier files from being attached, but tool-specific state set in `customize_workflow_response` still persists: `analysis_config`, `review_config`, `git_config`, `refactor_config`, `security_config`, `trace_config`, thinkdeep's `stored_request_params`. Because `customize_workflow_response` runs after the expert call, a single-step run's expert prompt shows the previous run's configuration (file names, review type). Add a reset hook that each tool overrides, called from the same place.
 
 ### MCP follow-ups embed the conversation history twice
 - **Recorded:** 2026-10-01 (found during media input batch B2)

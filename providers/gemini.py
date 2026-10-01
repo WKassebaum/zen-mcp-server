@@ -46,9 +46,9 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
     }
 
     MEDIA_KINDS = frozenset(MediaKind)
-    # Gemini caps a request at 100 MB; base64 inflates by 4/3 and the prompt needs room,
-    # so keep raw inline media under 70 MB and upload the rest to the Files API.
-    INLINE_MEDIA_MAX_BYTES = 70 * 1024 * 1024
+    # Gemini caps a request at 100 MB; base64 inflates by 4/3 (60 MB -> 80 MB) and the prompt text and
+    # inline images need the rest, so keep raw inline media under 60 MB and upload the rest to the Files API.
+    INLINE_MEDIA_MAX_BYTES = 60_000_000
     UPLOAD_POLL_INTERVAL_S = 5
     UPLOAD_TIMEOUT_S = 600
 
