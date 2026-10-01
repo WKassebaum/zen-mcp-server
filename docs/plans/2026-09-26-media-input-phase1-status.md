@@ -14,12 +14,12 @@
 | Python | `.zen_venv/bin/python` in the worktree, pinned to the live venv's versions (do not reinstall) |
 | Lint | `ruff`, `black`, `isort` from PATH (`~/.local/bin`); not in the venv |
 | Tests | `.zen_venv/bin/python -m pytest tests/ -q -m "not integration" -p no:cacheprovider` |
-| Baseline | 1174 passed, 6 skipped, 3 failed (after B3) (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
+| Baseline | 1205 passed, 6 skipped, 3 failed (phase 1 complete) (the known `tests/test_alias_target_restrictions.py` Gemini failures) |
 | Gemini key | exported in the user's shell (`GEMINI_API_KEY`); not in any repo `.env` |
 
 Never edit `/Users/wrk/WorkDev/MCP-Dev/zen-cli`: it backs the user's live zen MCP server.
 
-## Progress: tasks 1–14 of 17 done
+## Progress: phase 1 complete (tasks 1–17), merged into `zen-cli-v2` on 2026-10-01
 
 Tasks 1–6 each passed an implementer pass, a spec-compliance review and a code-quality review. From B1 on, each batch gets one implementer and one proportionate review (see below).
 
@@ -39,6 +39,11 @@ Tasks 1–6 each passed an implementer pass, a spec-compliance review and a code
 | 12 | Auto mode (server, CLI, reconstruct fallbacks) routes on media incl. a workflow's earlier steps; MCP size check counts text only | `4bb6b09` |
 | 13 | Workflow tools validate media every step and before the expert call, then send it; bare-string file lists are wrapped, not dropped | `836aa71` |
 | 14 | Consensus refuses media any listed model cannot read before consulting anyone, and sends it per model | `d36f86b` |
+| 15 | Gemini encoder: `MEDIA_KINDS`, inline under the cap, Files API upload above it, `system_instruction` for media requests | `d6f8bcc` |
+| 16 | File-list descriptions mention native media | `819882b` |
+| 17 | Live probes through zen (29/29), CLI smoke test; video estimate raised to 400 tokens/s | `2f551fb` |
+| B4 carry-over | Probe script `--repeat`/`--kinds`, errors apart from misses; audio re-probe 3/3 on all eight flagged models | `ba65534` |
+| Final review | New workflows start from empty state (shared tool instances leaked earlier runs' media); inline cap 60 MB | `47081d8`, `dc28c8f` |
 | B1 carry-over | Catalog guard covers every catalog and reports all mismatches; Gemini `_README` documents the flags | `bdc7a1c` |
 
 ## Process for the remaining tasks (decided 2026-09-30)
