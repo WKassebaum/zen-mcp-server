@@ -1,7 +1,7 @@
 # Media Input (PDF, Audio, Video) — Design
 
 **Date:** 2026-09-26
-**Status:** Validated design, not yet implemented
+**Status:** Phase 1 (core + Gemini) merged 2026-10-01; phase 2 (Claude and OpenAI, PDF) done 2026-10-03; phases 3–5 pending
 **Branch for implementation:** `feat/media-input` (merged to `zen-cli-v2` via PR)
 
 ## Goal

@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Phase 1 (core + Gemini) implemented on `feat/media-input`; phases 2–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
+- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phases 3–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -25,6 +25,15 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Large media re-uploads on every follow-up and per consensus model:** first-turn media returns through `initial_context` and is uploaded again on each follow-up when above the inline cap; consensus uploads it once per model. The design's upload cache (`~/.zen/media_uploads.json`) would fix both, along with the tool-level retry case above.
 - **Upload polling blocks the MCP server:** `_upload_media` sleeps up to 600 s inside synchronous `generate_content`, which tools call directly from async `execute`, so zen serves no other call (including parallel calls from Claude Code) while a large video processes. Normal API calls already block this way; wrap provider calls in `asyncio.to_thread`.
 - **Binary sniff on symlinks:** `read_file_content` sniffs the resolved path's extension while media detection checks both names, so `notes.txt -> blob` with NUL bytes reports binary (read_files already resolves paths, so rare).
+
+### Media input phase 2 follow-ups
+Found while building and probing phase 2 (2026-10-03); none blocks it.
+- **gpt-5-mini and gpt-5-nano are unflagged for PDF:** with the PDF attached (241 input tokens, like every other Chat model) they mostly answered "I can't access the PDF": 1/3 and 1/3 without a system prompt, 1/3 and 0/3 with one. Re-probe with `scripts/probe_media_support.py --provider openai --repeat 3 gpt-5-mini gpt-5-nano` after model updates; flag only on 3/3.
+- **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test).
+- **PDF page rate per model family:** a letter-size scanned page cost 2,902 input tokens on gpt-6-luna/astra (Responses API), 1,025 on gpt-5.5 (Chat Completions) and 1,611 on claude-sonnet-5-5. OpenAI's rate (4,000) is sized for gpt-6, so it reserves about 4x too much on gpt-5.x; a text PDF on the Responses API cost far less (zebra.pdf: about 45 tokens against 240 on Chat). Solve with the per-family video rate above.
+- **Anthropic size check ignores images:** `_check_request_size` counts the PDFs, prompt and system prompt against the 32 MB body limit but not images, so a request near the limit with images gets the API's HTTP 413 (reported as an error, not dropped).
+- **Claude `cache_control` deferred to phase 5:** the design puts a cache marker on the last media block. A cache write costs 1.25x and only pays off when the same PDF is re-sent, which needs phase 5's continuation re-attach, so phase 2 sends none.
+- **Capable-model lists favour older Claude models:** a PDF refusal lists the first five capable models by rank, and the rank clamp (see "Capability rank clamps at 100") ties every flagship at 100, so the list is `claude-fable-5, claude-fable-5-1, claude-opus-4-5-20251101, claude-opus-4-6, claude-opus-4-7` rather than the best models across providers.
 
 ## Future features
 
@@ -89,6 +98,7 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 ### Unit suite is not hermetic in CI
 - **Recorded:** 2026-09-28
 - **What:** With no real API keys (CI conditions), two tests fail besides the three alias-restriction failures: `tests/test_large_prompt_handling.py::test_large_file_context_does_not_trigger_mcp_prompt_limit` makes a real Gemini request (locally it passes only by spending the exported `GEMINI_API_KEY` on every suite run), and `tests/test_zen_storage_backends.py::test_default_backend` depends on leftover state and environment. Mock the first; isolate the second.
+- **Real keys on developer machines (2026-10-03):** test modules that import `zen_cli.main` copy `~/.zen/.env` into `os.environ` at collection, for the whole run, so every local unit run has the user's real keys set and any unmocked provider call is paid. Load the CLI config inside `cli()` instead of at import, or have `tests/conftest.py` snapshot and restore `os.environ` around that import.
 
 ### Simulator tests omit `working_directory_absolute_path`
 - **Recorded:** 2026-09-28
@@ -107,6 +117,7 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Recorded:** 2026-09-27
 - **What:** `get_effective_capability_rank()` returns `max(0, min(100, score))` (`providers/shared/model_capabilities.py:111`). Every model with `intelligence_score` 18 or higher therefore ties, and ties sort by name. `listmodels` lists grok-4.5 above grok-4.7, Opus 5.5 last among the Opus entries and gpt-6-* after gpt-5.2. The auto-mode "Top models" hint in the tool schema shows gpt-5.2 and OpenRouter Opus 4.6/4.7 and none of the new flagships. Actual routing uses the hardcoded route lists and is unaffected. The 9dd618f commit message claims an ordering that does not happen.
 - **Media bonus (2026-09-30):** the +1 per media kind added in media-input phase 1 has no effect on any model that already ranks 100, including every flagged Gemini 3.x model, and it applies to every request, not only media requests, so it reorders text-only listings for unsaturated models (e.g. gemini-3-flash-preview 95 → 98). When the clamp is fixed, decide whether media kinds should raise general rank or only break ties inside media-capable selection (`find_media_capable_models`). Also: `docs/model_ranking.md` describes a "Custom endpoints: -1" penalty that no code applies.
+- **Media hints (2026-10-03):** media refusals list capable models by this rank, so a PDF refusal suggests `claude-*` models alphabetically, older Opus versions included (see "Media input phase 2 follow-ups").
 - **Fix direction:** remove the upper clamp (`return max(0, score)`). In simulation the unit suite passed and the top five became fable-5.1, gpt-6-astra, gemini-3.1-pro, gpt-6-sol and grok-4.7. Then spread the Anthropic scores, since every Opus entry is at 19. A secondary sort key would also work, but it needs edits at five sort sites.
 
 ### Gemini `find_best` ranks by reverse string order
