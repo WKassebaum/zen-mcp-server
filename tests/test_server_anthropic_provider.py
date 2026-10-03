@@ -80,3 +80,27 @@ def test_no_keys_error_lists_the_anthropic_key():
         _clear_providers()
         with pytest.raises(ValueError, match="ANTHROPIC_API_KEY"):
             configure_providers()
+
+
+def _picks(env):
+    with patch.dict(os.environ, env, clear=True):
+        _configure()
+        return {
+            category: ModelProviderRegistry.get_preferred_fallback_model(category) for category in ToolModelCategory
+        }
+
+
+def test_auto_mode_prefers_claude_over_openai_without_xai_or_gemini():
+    # With xAI or Gemini configured they win every category (see the test above). Without them, Anthropic comes
+    # before OpenAI in PROVIDER_PRIORITY_ORDER, so auto mode now picks Claude, as the CLI already did.
+    order = ModelProviderRegistry.PROVIDER_PRIORITY_ORDER
+    assert order.index(ProviderType.ANTHROPIC) < order.index(ProviderType.OPENAI)
+
+    openai_only = _picks({"OPENAI_API_KEY": "test-key"})
+    picks = _picks({"OPENAI_API_KEY": "test-key", "ANTHROPIC_API_KEY": "test-key"})
+    assert picks == {
+        ToolModelCategory.EXTENDED_REASONING: "claude-fable-5-1",
+        ToolModelCategory.FAST_RESPONSE: "claude-haiku-4-5-20251001",
+        ToolModelCategory.BALANCED: "claude-sonnet-5-5",
+    }
+    assert all(not model.startswith("claude-") for model in openai_only.values())
