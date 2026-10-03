@@ -14,6 +14,10 @@ PDF only (their encoders take no audio or video). All 13 Claude and all 20 OpenA
 on the first try, the three -pro models included. An image-only PDF (marker drawn as pixels, no text layer)
 was also read by gpt-6-luna, gpt-6-astra, gpt-5.5 and claude-sonnet-5-5, so both OpenAI endpoints send page
 images, not only extracted text.
+gpt-5-mini and gpt-5-nano passed the first probe but then mostly answered "I can't access the PDF" with the
+PDF attached (241 input tokens, like every other Chat model): 1/3 and 1/3 without a system prompt, 1/3 and 0/3
+with one. They stay unflagged. Every other non-pro OpenAI model and every Claude model also passed the live
+test (tests/test_media_live.py) on 2026-10-03; the three -pro models were probed once.
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
@@ -52,8 +56,6 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("openai", "gpt-5.4"): frozenset({"pdf"}),
     ("openai", "gpt-5"): frozenset({"pdf"}),
     ("openai", "gpt-5.2-pro"): frozenset({"pdf"}),
-    ("openai", "gpt-5-mini"): frozenset({"pdf"}),
-    ("openai", "gpt-5-nano"): frozenset({"pdf"}),
     ("openai", "gpt-5.1"): frozenset({"pdf"}),
     ("openai", "o3"): frozenset({"pdf"}),
     ("openai", "o3-mini"): frozenset({"pdf"}),

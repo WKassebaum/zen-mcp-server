@@ -5,7 +5,10 @@ from pathlib import Path
 
 import pytest
 
+from providers.anthropic import AnthropicProvider
 from providers.gemini import GeminiModelProvider
+from providers.openai import OpenAIModelProvider
+from tests.live_keys import api_key
 from tests.media_probe_matrix import PROBED
 from utils.media import classify_media, estimate_media_tokens
 
@@ -66,3 +69,40 @@ def test_gemini_reads_media_uploaded_to_the_files_api(monkeypatch):
         for record in response.metadata["media_attached"]:
             if record.get("file_name"):
                 provider.client.files.delete(name=record["file_name"])
+
+
+# Claude and OpenAI take media inline only (PDF in phase 2). Keys come from the environment or zen's own
+# config (tests/live_keys.py), never printed.
+INLINE_PROVIDERS = {
+    "anthropic": (AnthropicProvider, "ANTHROPIC_API_KEY"),
+    "openai": (OpenAIModelProvider, "OPENAI_API_KEY"),
+}
+INLINE = [
+    (provider, model, kind)
+    for (provider, model), kinds in PROBED.items()
+    if provider in INLINE_PROVIDERS
+    for kind in sorted(kinds)
+]
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("provider_name,model,kind", INLINE)
+def test_inline_provider_reads_media(provider_name, model, kind):
+    provider_cls, key_env = INLINE_PROVIDERS[provider_name]
+    key = api_key(key_env)
+    if not key:
+        pytest.skip(f"needs {key_env}")
+    filename, question, markers = CASES[kind]
+    media = classify_media([str(FIXTURES / filename)])[1]
+    response = provider_cls(api_key=key).generate_content(question, model, system_prompt="Answer tersely.", media=media)
+    text = response.content.upper().replace(" ", "")
+    assert all(
+        any(alt in text for alt in marker) if isinstance(marker, tuple) else marker in text for marker in markers
+    ), response.content
+    assert response.metadata["media_attached"][0]["transport"] == "inline"
+    # The provider's own page rate must not undercount real usage.
+    input_tokens = response.usage.get("input_tokens")
+    estimate = estimate_media_tokens(media, provider_cls.PDF_TOKENS_PER_PAGE)
+    assert (
+        input_tokens is None or input_tokens <= estimate + PROMPT_TOKEN_ALLOWANCE
+    ), f"{model}/{kind}: {input_tokens} input tokens, media estimate {estimate} + {PROMPT_TOKEN_ALLOWANCE}"
