@@ -1,4 +1,8 @@
-"""Live media probes through zen's providers. Costs a few cents. Run with -m integration."""
+"""Live media probes through zen's providers. Costs a few cents. Run with -m integration.
+
+Keys come from the environment only; a test whose key is missing is skipped. The -pro models cost far more
+per call, so they run only when ZEN_LIVE_PRO=1 is also set.
+"""
 
 import os
 from pathlib import Path
@@ -8,7 +12,6 @@ import pytest
 from providers.anthropic import AnthropicProvider
 from providers.gemini import GeminiModelProvider
 from providers.openai import OpenAIModelProvider
-from tests.live_keys import api_key
 from tests.media_probe_matrix import PROBED
 from utils.media import classify_media, estimate_media_tokens
 
@@ -71,8 +74,7 @@ def test_gemini_reads_media_uploaded_to_the_files_api(monkeypatch):
                 provider.client.files.delete(name=record["file_name"])
 
 
-# Claude and OpenAI take media inline only (PDF in phase 2). Keys come from the environment or zen's own
-# config (tests/live_keys.py), never printed.
+# Claude and OpenAI take media inline only (PDF in phase 2). Keys come from the environment only, never printed.
 INLINE_PROVIDERS = {
     "anthropic": (AnthropicProvider, "ANTHROPIC_API_KEY"),
     "openai": (OpenAIModelProvider, "OPENAI_API_KEY"),
@@ -85,13 +87,19 @@ INLINE = [
 ]
 
 
+def is_pro_model(model: str) -> bool:
+    return model.endswith("-pro") or "-pro-" in model
+
+
 @pytest.mark.integration
 @pytest.mark.parametrize("provider_name,model,kind", INLINE)
 def test_inline_provider_reads_media(provider_name, model, kind):
     provider_cls, key_env = INLINE_PROVIDERS[provider_name]
-    key = api_key(key_env)
+    key = os.environ.get(key_env)
     if not key:
         pytest.skip(f"needs {key_env}")
+    if is_pro_model(model) and os.environ.get("ZEN_LIVE_PRO") != "1":
+        pytest.skip(f"{model} is a costly -pro model; set ZEN_LIVE_PRO=1 to run it")
     filename, question, markers = CASES[kind]
     media = classify_media([str(FIXTURES / filename)])[1]
     response = provider_cls(api_key=key).generate_content(question, model, system_prompt="Answer tersely.", media=media)

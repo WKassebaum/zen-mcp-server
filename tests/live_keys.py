@@ -1,4 +1,8 @@
-"""API keys for live probes and tests: the environment first, then zen's own config file (~/.zen/.env).
+"""API keys for the live probe script (scripts/probe_media_support.py): the environment first, then zen's own
+config file (~/.zen/.env).
+
+Only the probe script uses this. Live tests (tests/test_media_live.py) read keys from the environment only, so
+`pytest -m integration` never picks up a key the caller did not export.
 
 The value is returned to the caller only. Never print, log or export it.
 """
