@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 from anthropic import Anthropic
 
+from utils.image_utils import validate_image
 from utils.media import MediaKind, MediaNotSupportedError, format_size
 
 from .base import ModelProvider, ModelResponse
@@ -110,20 +111,17 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
 
         # Add images if provided and model supports vision
         if images and capabilities.supports_images:
-            for image_data in images:
+            for image in images:
                 try:
-                    # Anthropic expects image data without the data URL prefix
-                    if image_data.startswith("data:"):
-                        # Extract base64 data from data URL
-                        image_data = image_data.split(",", 1)[1]
-
+                    # Tools pass file paths or data URLs; both resolve to raw bytes and their real MIME type.
+                    image_bytes, mime_type = validate_image(image)
                     user_content.append(
                         {
                             "type": "image",
                             "source": {
                                 "type": "base64",
-                                "media_type": "image/png",  # Default to PNG
-                                "data": image_data,
+                                "media_type": mime_type,
+                                "data": base64.b64encode(image_bytes).decode(),
                             },
                         }
                     )
