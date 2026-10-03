@@ -29,7 +29,10 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 ### Media input phase 2 follow-ups
 Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **gpt-5-mini and gpt-5-nano are unflagged for PDF:** with the PDF attached (241 input tokens, like every other Chat model) they mostly answered "I can't access the PDF": 1/3 and 1/3 without a system prompt, 1/3 and 0/3 with one. Re-probe with `scripts/probe_media_support.py --provider openai --repeat 3 gpt-5-mini gpt-5-nano` after model updates; flag only on 3/3.
-- **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test).
+- **o3-mini is unflagged for PDF:** it has no vision, so it gets only the PDF's text layer and misread a scanned page. Text PDFs work (2/2); flag it only if zen ever distinguishes text-layer PDF support.
+- **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test). The live tests skip them unless `ZEN_LIVE_PRO=1`.
+- **Responses API `detail` is left to the default:** OpenAI's guide says `auto` means `high` page images on GPT-5.6 and later, `low` before. Set `detail` on `input_file` explicitly if PDF token cost on gpt-6 matters.
+- **Auto-mode restriction error text:** `server.py`'s auto-mode error still names only the OpenAI and Google allow-lists; `ANTHROPIC_ALLOWED_MODELS` (and the others) are not mentioned.
 - **PDF page rate per model family:** a letter-size scanned page cost 2,902 input tokens on gpt-6-luna/astra (Responses API), 1,025 on gpt-5.5 (Chat Completions) and 1,611 on claude-sonnet-5-5. OpenAI's rate (4,000) is sized for gpt-6, so it reserves about 4x too much on gpt-5.x; a text PDF on the Responses API cost far less (zebra.pdf: about 45 tokens against 240 on Chat). Solve with the per-family video rate above.
 - **Anthropic size check ignores images:** `_check_request_size` counts the PDFs, prompt and system prompt against the 32 MB body limit but not images, so a request near the limit with images gets the API's HTTP 413 (reported as an error, not dropped).
 - **Claude `cache_control` deferred to phase 5:** the design puts a cache marker on the last media block. A cache write costs 1.25x and only pays off when the same PDF is re-sent, which needs phase 5's continuation re-attach, so phase 2 sends none.

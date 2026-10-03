@@ -18,6 +18,10 @@ gpt-5-mini and gpt-5-nano passed the first probe but then mostly answered "I can
 PDF attached (241 input tokens, like every other Chat model): 1/3 and 1/3 without a system prompt, 1/3 and 0/3
 with one. They stay unflagged. Every other non-pro OpenAI model and every Claude model also passed the live
 test (tests/test_media_live.py) on 2026-10-03; the three -pro models were probed once.
+o3-mini read zebra.pdf twice but has no vision: on the image-only letter-size PDF it answered "HERON" for
+"HERON-5" twice (260 input tokens; vision models 323-2,902), so it sees only a text layer and stays unflagged
+(OpenAI's file-inputs guide: page images need a vision model). Every other flagged non-pro OpenAI model read
+that scanned page on 2026-10-03.
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
@@ -58,7 +62,6 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("openai", "gpt-5.2-pro"): frozenset({"pdf"}),
     ("openai", "gpt-5.1"): frozenset({"pdf"}),
     ("openai", "o3"): frozenset({"pdf"}),
-    ("openai", "o3-mini"): frozenset({"pdf"}),
     ("openai", "o4-mini"): frozenset({"pdf"}),
     ("openai", "gpt-4.1"): frozenset({"pdf"}),
     ("openai", "gpt-5.2"): frozenset({"pdf"}),
