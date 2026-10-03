@@ -1138,6 +1138,8 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
             logger.debug("[CONVERSATION_DEBUG] Failed to add user turn - thread may be at turn limit or expired")
         else:
             logger.debug(f"[CONVERSATION_DEBUG] Successfully added user turn to thread {continuation_id}")
+            # Build the history from the stored thread, so files attached this turn are embedded with it
+            context = get_thread(continuation_id) or context
 
     # Create model context early to use for history building
     from utils.media import MediaNotSupportedError, media_kinds_from_arguments
@@ -1301,6 +1303,8 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
     enhanced_arguments["prompt"] = enhanced_prompt
     # Store the original user prompt separately for size validation
     enhanced_arguments["_original_user_prompt"] = original_prompt
+    # The user turn is stored and the history embedded: tools must not do either again
+    enhanced_arguments["_history_embedded"] = True
     logger.debug("[CONVERSATION_DEBUG] Storing enhanced prompt in 'prompt' field")
     logger.debug("[CONVERSATION_DEBUG] Storing original user prompt in '_original_user_prompt' field")
 

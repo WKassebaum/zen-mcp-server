@@ -100,10 +100,6 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Recorded:** 2026-10-01 (media input final review)
 - **What:** workflow tool instances are shared across calls (`server.TOOLS`). The media fix (`execute_workflow` now resets `work_history`, `consolidated_findings` and `initial_request` when a workflow starts) stops earlier files from being attached, but tool-specific state set in `customize_workflow_response` still persists: `analysis_config`, `review_config`, `git_config`, `refactor_config`, `security_config`, `trace_config`, thinkdeep's `stored_request_params`. Because `customize_workflow_response` runs after the expert call, a single-step run's expert prompt shows the previous run's configuration (file names, review type). Add a reset hook that each tool overrides, called from the same place.
 
-### MCP follow-ups embed the conversation history twice
-- **Recorded:** 2026-10-01 (found during media input batch B2)
-- **What:** `tools/simple/base.py` decides whether `server.py` already embedded the history by looking for `"=== CONVERSATION HISTORY ==="`, but `build_conversation_history` writes `"=== CONVERSATION HISTORY (CONTINUATION) ==="`. The check never matches, so on every MCP follow-up a simple tool treats the server-built prompt as raw user input: after `server.py` has stored the user turn, the tool stores a second user turn whose text is the whole server prompt, history included, and then wraps that prompt in a freshly built history. Each follow-up therefore sends the history twice and nests it into the stored thread, so threads grow much faster than their content. Present since upstream 2025-06 (`2a067a7` added the check, `7462599`/`fccfb0d` the header); confirm with a test before fixing. Match the real header, or have `server.py` mark the arguments as already reconstructed, and add a test that runs a two-turn MCP conversation and counts the history blocks and stored turns.
-
 ## Routing and ranking
 
 ### Auto mode ignores the tool category for OpenRouter/Azure/DIAL/Custom-only setups

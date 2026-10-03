@@ -325,11 +325,9 @@ class SimpleTool(BaseTool):
 
             # Handle conversation history and prompt preparation
             if continuation_id:
-                # Check if conversation history is already embedded
-                field_value = self.get_request_prompt(request)
-                if "=== CONVERSATION HISTORY ===" in field_value:
-                    # Use pre-embedded history
-                    prompt = field_value
+                # server.py has already stored the user turn and embedded the history in the prompt field
+                if arguments.get("_history_embedded"):
+                    prompt = await self.prepare_prompt(request)
                     logger.debug(f"{self.get_name()}: Using pre-embedded conversation history")
                 else:
                     # No embedded history - reconstruct it (for in-process calls)

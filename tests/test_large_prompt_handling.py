@@ -699,6 +699,9 @@ class TestLargePromptHandling:
                 "model": "flash",
                 "continuation_id": "test_thread_123",
                 "working_directory_absolute_path": temp_dir,
+                # The markers server.reconstruct_thread_context sets alongside the embedded history
+                "_original_user_prompt": small_continuation_prompt,
+                "_history_embedded": True,
             }
 
             # Mock the conversation history embedding to simulate server.py behavior
