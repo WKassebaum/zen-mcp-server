@@ -1,12 +1,16 @@
 """Anthropic Claude model provider implementation."""
 
+import base64
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 from anthropic import Anthropic
+
+from utils.media import MediaKind, MediaNotSupportedError, format_size
 
 from .base import ModelProvider, ModelResponse
 from .registries.anthropic import AnthropicModelRegistry
@@ -25,6 +29,11 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
 
     REGISTRY_CLASS = AnthropicModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
+    MEDIA_KINDS = frozenset({MediaKind.PDF})
+    # Anthropic limits the whole request body to 32 MB, base64 media included.
+    MEDIA_REQUEST_MAX_BYTES = 32_000_000
+    # Anthropic documents 1,500-3,000 tokens per PDF page (text plus a page image); Task 8 checks it live.
+    PDF_TOKENS_PER_PAGE = 3_000
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize Anthropic provider with API key.
@@ -53,6 +62,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         temperature: float = 0.3,
         max_output_tokens: Optional[int] = None,
         images: Optional[list[str]] = None,
+        media: Optional[list] = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate content using Anthropic's API.
@@ -64,6 +74,8 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             temperature: Controls randomness in generation (0.0-1.0), default 0.3
             max_output_tokens: Optional maximum number of tokens to generate
             images: Optional list of image paths or data URLs (for vision models)
+            media: Optional list of utils.media.MediaAttachment (PDF only), sent inline as base64
+                document blocks before the prompt text
             **kwargs: Additional keyword arguments
 
         Returns:
@@ -82,8 +94,16 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         # Prepare messages
         messages = []
 
-        # Add user message with text
+        # PDF document blocks first, then the prompt text, then any images. The system prompt stays in
+        # params["system"]; media-free requests keep today's layout byte for byte.
+        media = list(media) if media else []  # read more than once below; an iterator would be used up
+        media_attached: list[dict] = []
         user_content = []
+        if media:
+            self.ensure_media_encodable(media)
+            document_blocks, media_attached = self._build_document_blocks(media)
+            self._check_request_size(document_blocks, prompt, system_prompt)
+            user_content.extend(document_blocks)
         user_content.append({"type": "text", "text": prompt})
 
         # Add images if provided and model supports vision
@@ -158,20 +178,54 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
 
             logger.debug(f"Streaming completed for {resolved_model_name}, received {len(text)} characters")
 
+            metadata = {"finish_reason": finish_reason}
+            if media_attached:
+                metadata["media_attached"] = media_attached
+
             return ModelResponse(
                 content=text,
                 usage=usage,
                 model_name=resolved_model_name,
                 friendly_name="Anthropic",
                 provider=ProviderType.ANTHROPIC,
-                metadata={
-                    "finish_reason": finish_reason,
-                },
+                metadata=metadata,
             )
 
         except Exception as e:
             logger.error(f"Anthropic API error: {e}")
             raise RuntimeError(f"Anthropic API error for model {resolved_model_name}: {e}") from e
+
+    def _build_document_blocks(self, media) -> tuple[list[dict], list[dict]]:
+        """Base64 document blocks in input order, and the media_attached records for the response metadata.
+
+        Bytes are read from ``source_path`` (resolved and validated), never from the caller's ``path``.
+        """
+        blocks: list[dict] = []
+        attached: list[dict] = []
+        for attachment in media:
+            data = base64.b64encode(Path(attachment.source_path).read_bytes()).decode()
+            blocks.append(
+                {"type": "document", "source": {"type": "base64", "media_type": attachment.mime_type, "data": data}}
+            )
+            attached.append(
+                {
+                    "name": attachment.name,
+                    "kind": attachment.kind.value,
+                    "bytes": attachment.size_bytes,
+                    "transport": "inline",
+                }
+            )
+        return blocks, attached
+
+    def _check_request_size(self, document_blocks: list[dict], prompt: str, system_prompt: Optional[str]) -> None:
+        """The 32 MB limit covers the whole body: fail before sending rather than surface an HTTP 413."""
+        total = sum(len(block["source"]["data"]) for block in document_blocks)
+        total += len(prompt.encode()) + len((system_prompt or "").encode())
+        if total > self.MEDIA_REQUEST_MAX_BYTES:
+            raise MediaNotSupportedError(
+                f"anthropic requests are limited to {format_size(self.MEDIA_REQUEST_MAX_BYTES)}; this one would be "
+                f"{format_size(total)} with its PDFs base64-encoded. Gemini models take larger media."
+            )
 
     def get_provider_type(self) -> ProviderType:
         """Get the provider type."""
