@@ -104,3 +104,22 @@ def test_auto_mode_prefers_claude_over_openai_without_xai_or_gemini():
         ToolModelCategory.BALANCED: "claude-sonnet-5-5",
     }
     assert all(not model.startswith("claude-") for model in openai_only.values())
+
+
+@pytest.mark.parametrize(
+    "keys,expected",
+    [
+        (["ANTHROPIC_API_KEY"], "Provider priority: Native APIs (Anthropic) → OpenRouter (catch-all)"),
+        (
+            ["GEMINI_API_KEY", "OPENAI_API_KEY", "ANTHROPIC_API_KEY"],
+            "Provider priority: Native APIs (Gemini, Anthropic, OpenAI) → OpenRouter (catch-all)",
+        ),
+    ],
+)
+def test_priority_log_names_the_configured_native_providers(keys, expected):
+    import server  # importing server resets the root logging handlers, so watch its logger directly
+
+    env = dict.fromkeys([*keys, "OPENROUTER_API_KEY"], "test-key")
+    with patch.dict(os.environ, env, clear=True), patch.object(server.logger, "info") as info:
+        _configure()
+    assert expected in [call.args[0] for call in info.call_args_list]

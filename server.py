@@ -590,7 +590,20 @@ def configure_providers():
     # Log provider priority
     priority_info = []
     if has_native_apis:
-        priority_info.append("Native APIs (Gemini, OpenAI)")
+        native_names = {
+            ProviderType.XAI: "X.AI",
+            ProviderType.GOOGLE: "Gemini",
+            ProviderType.ANTHROPIC: "Anthropic",
+            ProviderType.OPENAI: "OpenAI",
+            ProviderType.AZURE: "Azure OpenAI",
+            ProviderType.DIAL: "DIAL",
+        }
+        configured_native = [
+            native_names[provider_type]
+            for provider_type in ModelProviderRegistry.PROVIDER_PRIORITY_ORDER
+            if provider_type in native_names and provider_type.value in registered_providers
+        ]
+        priority_info.append(f"Native APIs ({', '.join(configured_native)})")
     if has_custom:
         priority_info.append("Custom endpoints")
     if has_openrouter:
