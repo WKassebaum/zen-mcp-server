@@ -121,13 +121,6 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **What:** when no allowed model is on the FAST list, `providers/openai.py:155` and `providers/xai.py:95` return `allowed_models[0]`. That list is sorted by rank, highest first, so `OPENAI_ALLOWED_MODELS=gpt-5-nano,gpt-6-astra` routes chat to gpt-6-astra. gpt-5-nano, gpt-5.6-terra and gpt-4.1 are in no OpenAI route list. This needs an OpenAI restriction with OpenAI as the first provider that has allowed models; none of the documented examples trigger it.
 - **Fix direction:** in the FAST_RESPONSE branch, fall back to the lowest-rank allowed canonical model: walk the list from the end and skip aliases, because `allowed_models` contains aliases. Put this in a shared helper used by both providers. Add gpt-5-nano to the end of the FAST list, and gpt-5.6-terra and gpt-4.1 to BALANCED.
 
-### MCP server does not register the native Anthropic provider
-- **Recorded:** 2026-09-27
-- **What:** `server.configure_providers()` never registers `AnthropicProvider`; only the CLI does (`src/zen_cli/main.py:167-170`). This holds even though the live MCP entry passes `ANTHROPIC_API_KEY`. In the MCP server, Claude models therefore resolve only through OpenRouter, and the dash-form native IDs (`claude-opus-5-5`, `claude-fable-5-1`, `claude-sonnet-5`, ...) return "not available". The zen-skill now recommends `opus` / `fable` / `sonnet`, which resolve in both.
-- **Decision needed (billing):** there are two options:
-  1. Register ANTHROPIC in `server.configure_providers()`, mirroring the CLI. This moves `opus` / `fable` / `sonnet` from OpenRouter to native Anthropic billing.
-  2. Add the dash-form native IDs as aliases on the `anthropic/*` OpenRouter entries. This was verified to resolve with no collisions.
-
 ## Watchlist (not addable yet)
 
 - **xAI Grok 4.6 / 4.7 fast variants:** announced at 2× speed and 2× price; no public slug in `/v1/models`.
