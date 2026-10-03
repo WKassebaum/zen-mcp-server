@@ -42,6 +42,11 @@ class ModelProvider(ABC):
     # Media kinds (utils.media.MediaKind) this provider can encode into a request.
     # Empty means the provider refuses media rather than silently dropping it.
     MEDIA_KINDS: ClassVar[frozenset] = frozenset()
+    # Largest total of base64-encoded media one request may carry inline (None: not checked here; Gemini
+    # uploads larger media to its Files API). Checked by ensure_media_encodable before any API call.
+    MEDIA_REQUEST_MAX_BYTES: ClassVar[Optional[int]] = None
+    # Estimated input tokens per PDF page, reserved from the text budget (None: utils.media.PDF_TOKENS_PER_PAGE).
+    PDF_TOKENS_PER_PAGE: ClassVar[Optional[int]] = None
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize the provider with API key and optional configuration."""
@@ -58,7 +63,7 @@ class ModelProvider(ABC):
         media = list(media or ())  # an iterator would be used up by the size check below
         if not media:
             return
-        from utils.media import MediaNotSupportedError, check_media_sizes, format_kinds
+        from utils.media import MediaNotSupportedError, check_inline_media_size, check_media_sizes, format_kinds
 
         check_media_sizes(media)
         unsupported = [attachment for attachment in media if attachment.kind not in self.MEDIA_KINDS]
@@ -68,6 +73,8 @@ class ModelProvider(ABC):
             raise MediaNotSupportedError(
                 f"{self.get_provider_type().value} provider cannot send {kinds} input yet ({names})."
             )
+        if self.MEDIA_REQUEST_MAX_BYTES is not None:
+            check_inline_media_size(media, self.MEDIA_REQUEST_MAX_BYTES, self.get_provider_type().value)
 
     # ------------------------------------------------------------------
     # Provider identity & capability surface

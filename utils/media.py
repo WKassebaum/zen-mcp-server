@@ -388,6 +388,32 @@ def check_media_sizes(media: Iterable[MediaAttachment]) -> None:
         )
 
 
+def base64_size(size_bytes: int) -> int:
+    """Length of the base64 encoding of ``size_bytes`` raw bytes: inline media travels encoded."""
+    return 4 * math.ceil(size_bytes / 3)
+
+
+def check_inline_media_size(media: Iterable[MediaAttachment], max_request_bytes: int, provider_name: str) -> None:
+    """Fail fast when the media, base64-encoded, would not fit in one request to a provider that only takes it inline."""
+    media = list(media)
+    encoded = sum(base64_size(a.size_bytes) for a in media)
+    if encoded > max_request_bytes:
+        names = ", ".join(f"{a.name} ({format_size(a.size_bytes)})" for a in media)
+        raise MediaNotSupportedError(
+            f"{provider_name} takes media inline, in requests of at most {format_size(max_request_bytes)}; "
+            f"these files take {format_size(encoded)} once base64-encoded: {names}. "
+            f"Gemini models take larger media (up to {format_size(MEDIA_MAX_BYTES)} per file)."
+        )
+
+
+def pdf_tokens_per_page(model_context: Any) -> int:
+    """The PDF page rate of the model context's provider, or PDF_TOKENS_PER_PAGE when it sets none."""
+    provider = getattr(model_context, "provider", None) if model_context is not None else None
+    rate = getattr(provider, "PDF_TOKENS_PER_PAGE", None)
+    # MagicMock contexts in older tests return mocks here: only a real positive int counts
+    return rate if isinstance(rate, int) and not isinstance(rate, bool) and rate > 0 else PDF_TOKENS_PER_PAGE
+
+
 def _inflated_pages(stream: memoryview, budget: int, max_pages: int) -> tuple[int, int, bool]:
     """(page objects, bytes inflated, finished) for one FlateDecode stream, inflated in pieces.
 
@@ -624,16 +650,17 @@ def _duration_s(attachment: MediaAttachment) -> float | None:
     return None
 
 
-def estimate_media_tokens(media: Iterable[MediaAttachment]) -> int:
+def estimate_media_tokens(media: Iterable[MediaAttachment], page_rate: int = PDF_TOKENS_PER_PAGE) -> int:
     """Input tokens the attachments are expected to cost, erring high.
 
-    Callers reserve this from the text-file budget before embedding text files. It never rejects a
+    ``page_rate`` is the provider's estimated tokens per PDF page (pdf_tokens_per_page). Callers
+    reserve this from the text-file budget before embedding text files. It never rejects a
     request: the provider API stays the hard limit and its over-limit error reaches the user.
     """
     total = 0
     for attachment in media:
         if attachment.kind is MediaKind.PDF:
-            total += PDF_TOKENS_PER_PAGE * _pdf_pages(attachment)
+            total += page_rate * _pdf_pages(attachment)
             continue
         seconds = _duration_s(attachment)
         if seconds is None:
