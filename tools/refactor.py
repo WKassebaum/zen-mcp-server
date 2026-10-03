@@ -585,6 +585,10 @@ class RefactorTool(WorkflowTool):
 
         return {"next_steps": next_steps}
 
+    def reset_run_state(self) -> None:
+        super().reset_run_state()
+        self.refactor_config = {}
+
     def customize_workflow_response(self, response_data: dict, request) -> dict:
         """
         Customize response to match refactor workflow format.

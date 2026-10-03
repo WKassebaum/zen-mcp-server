@@ -177,6 +177,10 @@ class ThinkDeepTool(WorkflowTool):
 
         return DEFAULT_THINKING_MODE_THINKDEEP
 
+    def reset_run_state(self) -> None:
+        super().reset_run_state()
+        self.stored_request_params = {}
+
     def customize_workflow_response(self, response_data: dict, request, **kwargs) -> dict:
         """
         Customize the workflow response for thinkdeep-specific needs

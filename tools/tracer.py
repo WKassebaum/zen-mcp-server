@@ -429,6 +429,10 @@ class TracerTool(WorkflowTool):
 
         return response_data
 
+    def reset_run_state(self) -> None:
+        super().reset_run_state()
+        self.trace_config = {}
+
     def customize_workflow_response(self, response_data: dict, request) -> dict:
         """
         Customize response to match tracer tool format with output instructions.

@@ -723,12 +723,10 @@ class BaseWorkflowMixin(ABC):
                                 break  # State restored, exit loop
 
             # A workflow that starts here begins from empty state. Tool instances are shared across calls
-            # (server.TOOLS), so a previous run's history and files (media included) would otherwise leak
-            # into this one and be sent with its expert analysis.
+            # (server.TOOLS), so a previous run's history, files (media included) and configuration would
+            # otherwise leak into this one and be sent with its expert analysis.
             if request.step_number == 1 and not state_restored:
-                self.work_history = []
-                self.consolidated_findings = ConsolidatedFindings()
-                self.initial_request = None
+                self.reset_run_state()
 
             # Adjust total steps if needed
             if request.step_number > request.total_steps:
@@ -1123,6 +1121,17 @@ class BaseWorkflowMixin(ABC):
             Additional guidance text or empty string if no guidance needed
         """
         return ""
+
+    def reset_run_state(self) -> None:
+        """
+        Clear per-run state when a new workflow starts.
+
+        Tool instances are shared across calls (server.TOOLS), so anything a run stores on the instance
+        would otherwise reach the next run. Tools that keep extra per-run state extend this and call super().
+        """
+        self.work_history = []
+        self.consolidated_findings = ConsolidatedFindings()
+        self.initial_request = None
 
     def customize_workflow_response(self, response_data: dict, request) -> dict:
         """

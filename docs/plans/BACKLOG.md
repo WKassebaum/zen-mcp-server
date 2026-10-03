@@ -96,10 +96,6 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Recorded:** 2026-09-28
 - **What:** `chat` requires `working_directory_absolute_path`, but no simulator test except `responses_api_endpoint` passes it, so their chat calls likely fail validation. The Responses endpoint test used to report exactly that validation error as a pass (fixed in b271101). Audit the others the same way: pass a temp directory and make every test fail on a tool error.
 
-### Workflow tools keep per-run config text across runs
-- **Recorded:** 2026-10-01 (media input final review)
-- **What:** workflow tool instances are shared across calls (`server.TOOLS`). The media fix (`execute_workflow` now resets `work_history`, `consolidated_findings` and `initial_request` when a workflow starts) stops earlier files from being attached, but tool-specific state set in `customize_workflow_response` still persists: `analysis_config`, `review_config`, `git_config`, `refactor_config`, `security_config`, `trace_config`, thinkdeep's `stored_request_params`. Because `customize_workflow_response` runs after the expert call, a single-step run's expert prompt shows the previous run's configuration (file names, review type). Add a reset hook that each tool overrides, called from the same place.
-
 ## Routing and ranking
 
 ### Auto mode ignores the tool category for OpenRouter/Azure/DIAL/Custom-only setups
