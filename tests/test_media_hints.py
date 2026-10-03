@@ -6,14 +6,18 @@ from unittest.mock import patch
 import pytest
 
 import utils.model_restrictions
+from providers.anthropic import AnthropicProvider
 from providers.gemini import GeminiModelProvider
+from providers.openai import OpenAIModelProvider
 from providers.registry import ModelProviderRegistry
-from providers.shared import ModelCapabilities
-from utils.media import MediaKind, classify_media, format_media_error, providers_hint
+from providers.shared import ModelCapabilities, ProviderType
+from utils.media import MEDIA_PROVIDERS, MediaKind, classify_media, format_media_error, providers_hint
 
 MP4 = str(Path(__file__).parent / "fixtures" / "media" / "otter.mp4")
 VIDEO = frozenset({MediaKind.VIDEO})
 AUDIO = frozenset({MediaKind.AUDIO})
+PDF = frozenset({MediaKind.PDF})
+ENCODERS = {"google": GeminiModelProvider, "anthropic": AnthropicProvider, "openai": OpenAIModelProvider}
 
 
 @pytest.fixture
@@ -82,3 +86,53 @@ def test_format_media_error_without_capable_models_gives_hint():
     with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset()):
         message = format_media_error("o3", VIDEO, media, [])
     assert "No available model supports it: GEMINI_API_KEY is configured" in message
+
+
+@pytest.fixture
+def no_media_keys(monkeypatch):
+    """No Gemini, Anthropic or OpenAI provider is available."""
+    for key in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+        monkeypatch.delenv(key, raising=False)
+    ModelProviderRegistry.clear_cache()
+    yield
+    ModelProviderRegistry.clear_cache()
+
+
+def test_pdf_hint_names_every_key_that_unlocks_pdf(no_media_keys):
+    assert providers_hint(PDF) == "configure GEMINI_API_KEY or ANTHROPIC_API_KEY or OPENAI_API_KEY"
+
+
+def test_audio_and_video_hints_still_name_only_gemini(no_media_keys):
+    assert providers_hint(AUDIO) == "configure GEMINI_API_KEY"
+    assert providers_hint(VIDEO) == "configure GEMINI_API_KEY"
+
+
+def test_media_providers_promise_only_what_the_encoders_send():
+    # A hint must never send the user to a key whose provider would then refuse the file.
+    assert {entry[0] for entry in MEDIA_PROVIDERS} == set(ENCODERS)
+    for provider_value, _key_env, _allow_env, supported in MEDIA_PROVIDERS:
+        assert supported == ENCODERS[provider_value].MEDIA_KINDS, provider_value
+
+
+def test_media_providers_follow_the_provider_priority_order():
+    order = [ProviderType(entry[0]) for entry in MEDIA_PROVIDERS]
+    assert order == [p for p in ModelProviderRegistry.PROVIDER_PRIORITY_ORDER if p in order]
+
+
+def test_provider_without_an_allow_list_is_never_blamed_for_one(monkeypatch, fresh_restrictions):
+    # Anthropic has no *_ALLOWED_MODELS variable, so a restriction can never be the reason it is unusable.
+    anthropic = AnthropicProvider(api_key="test-key")
+    monkeypatch.setattr(
+        ModelProviderRegistry,
+        "get_provider",
+        classmethod(
+            lambda cls, provider_type, force_new=False: anthropic if provider_type is ProviderType.ANTHROPIC else None
+        ),
+    )
+    with (
+        patch.object(ModelCapabilities, "supported_media_kinds", return_value=PDF),
+        patch.object(utils.model_restrictions.ModelRestrictionService, "has_restrictions", return_value=True),
+    ):
+        hint = providers_hint(PDF)
+    assert "None" not in hint
+    assert hint == "configure GEMINI_API_KEY or OPENAI_API_KEY"

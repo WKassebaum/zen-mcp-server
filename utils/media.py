@@ -691,9 +691,13 @@ def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
 # ---------------------------------------------------------------------------
 
 # Providers whose models can take media once configured: (ProviderType value, key env var,
-# allow-list env var, kinds its encoder can send). Later phases add entries.
-MEDIA_PROVIDERS: tuple[tuple[str, str, str, frozenset[MediaKind]], ...] = (
+# allow-list env var or None when the provider has none, kinds its encoder can send), in
+# ModelProviderRegistry.PROVIDER_PRIORITY_ORDER order. ``kinds`` must equal the provider class's
+# MEDIA_KINDS (tests/test_media_hints.py checks it). Later phases add entries.
+MEDIA_PROVIDERS: tuple[tuple[str, str, str | None, frozenset[MediaKind]], ...] = (
     ("google", "GEMINI_API_KEY", "GOOGLE_ALLOWED_MODELS", frozenset(MediaKind)),
+    ("anthropic", "ANTHROPIC_API_KEY", None, frozenset({MediaKind.PDF})),
+    ("openai", "OPENAI_API_KEY", "OPENAI_ALLOWED_MODELS", frozenset({MediaKind.PDF})),
 )
 
 
@@ -721,7 +725,7 @@ def providers_hint(kinds: frozenset[MediaKind]) -> str:
             reasons.append(f"{key_env} is configured, but that provider cannot send {label} input yet")
         elif not any(kinds <= caps.supported_media_kinds() for caps in provider.get_all_model_capabilities().values()):
             reasons.append(f"{key_env} is configured, but none of its models takes {label} input in one request")
-        elif get_restriction_service().has_restrictions(provider_type):
+        elif allow_env and get_restriction_service().has_restrictions(provider_type):
             reasons.append(f"{key_env} is configured, but {allow_env} excludes every model that can take {label} input")
     if missing_keys:
         reasons.insert(0, "configure " + " or ".join(missing_keys))
