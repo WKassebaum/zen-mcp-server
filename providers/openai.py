@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, ClassVar, Optional
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
+from utils.media import MediaKind
+
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.openai import OpenAIModelRegistry
 from .registry_provider_mixin import RegistryBackedProviderMixin
@@ -24,6 +26,13 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
     REGISTRY_CLASS = OpenAIModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
+    # The PDF encoder lives in OpenAICompatibleProvider; only this subclass opts in, so xAI, OpenRouter,
+    # Azure, DIAL and Custom keep refusing media through ensure_media_encodable.
+    MEDIA_KINDS = frozenset({MediaKind.PDF})
+    # OpenAI accepts up to 50 MB of file input per request; counted base64-encoded to stay on the safe side.
+    MEDIA_REQUEST_MAX_BYTES = 50_000_000
+    # Extracted text plus a page image per page; Task 8 sets this from live usage.
+    PDF_TOKENS_PER_PAGE = 1_500
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize OpenAI provider with API key."""

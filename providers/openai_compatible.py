@@ -1,8 +1,10 @@
 """Base class for OpenAI-compatible API providers."""
 
+import base64
 import copy
 import ipaddress
 import logging
+from pathlib import Path
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -339,16 +341,18 @@ class OpenAICompatibleProvider(ModelProvider):
         """
         sanitized = copy.deepcopy(params)
 
-        # Sanitize messages content
+        # Sanitize messages content: long prompt text and inline media (base64 data URLs in file_data
+        # and image_url) are shortened, so a log line never carries a whole file.
         if "input" in sanitized:
             for msg in sanitized.get("input", []):
                 if isinstance(msg, dict) and "content" in msg:
                     for content_item in msg.get("content", []):
-                        if isinstance(content_item, dict) and "text" in content_item:
-                            # Truncate long text and add ellipsis
-                            text = content_item["text"]
-                            if len(text) > 100:
-                                content_item["text"] = text[:100] + "... [truncated]"
+                        if not isinstance(content_item, dict):
+                            continue
+                        for key in ("text", "file_data", "image_url"):
+                            value = content_item.get(key)
+                            if isinstance(value, str) and len(value) > 100:
+                                content_item[key] = value[:100] + "... [truncated]"
 
         # Remove any API keys that might be in headers/auth
         sanitized.pop("api_key", None)
@@ -415,9 +419,13 @@ class OpenAICompatibleProvider(ModelProvider):
         temperature: float,
         max_output_tokens: Optional[int] = None,
         capabilities: Optional[ModelCapabilities] = None,
+        media_attached: Optional[list[dict]] = None,
         **kwargs,
     ) -> ModelResponse:
-        """Generate content using the /v1/responses endpoint for reasoning models."""
+        """Generate content using the /v1/responses endpoint for reasoning models.
+
+        ``media_attached`` (records from _build_file_parts) is copied into the response metadata.
+        """
         # Convert messages to the correct format for responses endpoint
         input_messages = []
 
@@ -489,18 +497,22 @@ class OpenAICompatibleProvider(ModelProvider):
                     "total_tokens": input_tokens + output_tokens,
                 }
 
+            metadata = {
+                "model": getattr(response, "model", model_name),
+                "id": getattr(response, "id", ""),
+                "created": getattr(response, "created_at", 0),
+                "endpoint": "responses",
+            }
+            if media_attached:
+                metadata["media_attached"] = media_attached
+
             return ModelResponse(
                 content=content,
                 usage=usage,
                 model_name=model_name,
                 friendly_name=self.FRIENDLY_NAME,
                 provider=self.get_provider_type(),
-                metadata={
-                    "model": getattr(response, "model", model_name),
-                    "id": getattr(response, "id", ""),
-                    "created": getattr(response, "created_at", 0),
-                    "endpoint": "responses",
-                },
+                metadata=metadata,
             )
 
         try:
@@ -524,6 +536,7 @@ class OpenAICompatibleProvider(ModelProvider):
         temperature: float = 0.3,
         max_output_tokens: Optional[int] = None,
         images: Optional[list[str]] = None,
+        media: Optional[list] = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate content using the OpenAI-compatible API.
@@ -535,6 +548,9 @@ class OpenAICompatibleProvider(ModelProvider):
             temperature: Sampling temperature
             max_output_tokens: Maximum tokens to generate
             images: Optional list of image paths or data URLs to include with the prompt (for vision models)
+            media: Optional list of utils.media.MediaAttachment, sent inline as `file` parts before the
+                prompt text. Only providers whose MEDIA_KINDS cover every attachment accept it; the rest
+                raise MediaNotSupportedError before any request
             **kwargs: Additional provider-specific parameters
 
         Returns:
@@ -574,9 +590,16 @@ class OpenAICompatibleProvider(ModelProvider):
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
 
-        # Prepare user message with text and potentially images
-        user_content = []
-        user_content.append({"type": "text", "text": prompt})
+        # File parts (PDFs) first, then the prompt text, then any images. Media-free requests keep
+        # today's layout byte for byte (a plain string when there are no images either).
+        media = list(media) if media else []  # read more than once below; an iterator would be used up
+        media_attached: list[dict] = []
+        file_parts: list[dict] = []
+        if media:
+            self.ensure_media_encodable(media)  # every provider without an encoder refuses here
+            file_parts, media_attached = self._build_file_parts(media)
+
+        user_content = [*file_parts, {"type": "text", "text": prompt}]
 
         # Add images if provided and model supports vision
         if images and capabilities and capabilities.supports_images:
@@ -648,6 +671,7 @@ class OpenAICompatibleProvider(ModelProvider):
                 temperature=temperature,
                 max_output_tokens=max_output_tokens,
                 capabilities=capabilities,
+                media_attached=media_attached,
                 **kwargs,
             )
 
@@ -663,18 +687,22 @@ class OpenAICompatibleProvider(ModelProvider):
             content = response.choices[0].message.content
             usage = self._extract_usage(response)
 
+            metadata = {
+                "finish_reason": response.choices[0].finish_reason,
+                "model": response.model,
+                "id": response.id,
+                "created": response.created,
+            }
+            if media_attached:
+                metadata["media_attached"] = media_attached
+
             return ModelResponse(
                 content=content,
                 usage=usage,
                 model_name=resolved_model,
                 friendly_name=self.FRIENDLY_NAME,
                 provider=self.get_provider_type(),
-                metadata={
-                    "finish_reason": response.choices[0].finish_reason,
-                    "model": response.model,
-                    "id": response.id,
-                    "created": response.created,
-                },
+                metadata=metadata,
             )
 
         try:
@@ -692,6 +720,31 @@ class OpenAICompatibleProvider(ModelProvider):
             )
             logging.error(error_msg)
             raise RuntimeError(error_msg) from exc
+
+    def _build_file_parts(self, media) -> tuple[list[dict], list[dict]]:
+        """Chat Completions `file` parts (base64 data URLs) in input order, and the media_attached records.
+
+        Bytes are read from ``source_path`` (resolved and validated), never from the caller's ``path``.
+        """
+        parts: list[dict] = []
+        attached: list[dict] = []
+        for attachment in media:
+            data = base64.b64encode(Path(attachment.source_path).read_bytes()).decode()
+            parts.append(
+                {
+                    "type": "file",
+                    "file": {"filename": attachment.name, "file_data": f"data:{attachment.mime_type};base64,{data}"},
+                }
+            )
+            attached.append(
+                {
+                    "name": attachment.name,
+                    "kind": attachment.kind.value,
+                    "bytes": attachment.size_bytes,
+                    "transport": "inline",
+                }
+            )
+        return parts, attached
 
     def validate_parameters(self, model_name: str, temperature: float, **kwargs) -> None:
         """Validate model parameters.
