@@ -109,6 +109,11 @@ root_logger.addHandler(stderr_handler)
 # Set root logger level
 root_logger.setLevel(getattr(logging, log_level, logging.INFO))
 
+# At DEBUG the openai and anthropic SDKs log each request's full options: prompts, file contents and
+# base64 media (one inline PDF is megabytes in a single line). Keep them at INFO even when zen logs DEBUG.
+for _sdk_logger_name in ("openai", "anthropic"):
+    logging.getLogger(_sdk_logger_name).setLevel(max(logging.INFO, root_logger.level))
+
 # Add rotating file handler for local log monitoring
 
 try:

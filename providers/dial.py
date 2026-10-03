@@ -177,6 +177,9 @@ class DIALModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
         Returns:
             ModelResponse: Contains the generated content, token usage stats, model metadata, and finish reason
         """
+        # This replaces the shared generate_content, so refuse media here too: it must never be dropped
+        self.ensure_media_encodable(kwargs.get("media"))
+
         # Validate model name against allow-list
         if not self.validate_model_name(model_name):
             raise ValueError(f"Model '{model_name}' not in allowed models list. Allowed models: {self.allowed_models}")

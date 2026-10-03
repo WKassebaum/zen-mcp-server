@@ -45,3 +45,13 @@ def test_oversized_media_is_refused_even_with_an_encoder(tmp_path):
     with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)):
         with pytest.raises(MediaNotSupportedError, match="huge.mp4"):
             GeminiModelProvider(api_key="test-key").ensure_media_encodable(classify_media([str(huge)])[1])
+
+
+def test_dial_refuses_media_inside_generate_content():
+    # DIAL replaces the shared generate_content, so it must check media itself, before any request.
+    from providers.dial import DIALModelProvider
+
+    provider = DIALModelProvider("test-key")
+    with patch.object(DIALModelProvider, "validate_model_name", side_effect=AssertionError("checked too late")):
+        with pytest.raises(MediaNotSupportedError, match="otter.mp4"):
+            provider.generate_content("What is shown?", "o3", media=_media())
