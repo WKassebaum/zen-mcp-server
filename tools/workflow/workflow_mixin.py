@@ -411,9 +411,10 @@ class BaseWorkflowMixin(ABC):
                 max_tokens = 100_000  # Fallback
         else:
             max_tokens = 100_000  # Fallback
-        max_tokens = max(  # keeps >= 1,000 tokens for text
-            2_000, max_tokens - estimate_media_tokens(media, pdf_tokens_per_page(current_model_context))
-        )
+        if media:
+            max_tokens = max(  # keeps >= 1,000 tokens for text
+                2_000, max_tokens - estimate_media_tokens(media, pdf_tokens_per_page(current_model_context))
+            )
 
         # Read files directly without conversation history filtering
         logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: Force embedding {len(files)} files for expert analysis")

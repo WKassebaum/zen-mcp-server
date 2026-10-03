@@ -133,3 +133,24 @@ def test_expert_analysis_reserve_uses_the_providers_pdf_rate():
     with patch.object(utils.media, "estimate_media_tokens", wraps=utils.media.estimate_media_tokens) as spy:
         tool._force_embed_files_for_expert_analysis([PDF])
     assert spy.call_args.args[1] == 1_234
+
+
+@pytest.mark.parametrize("file_tokens", [50_000, 500])
+def test_media_free_expert_analysis_budget_is_untouched(tmp_path, file_tokens):
+    # Like base_tool, the media reserve (and its PDF page rate) applies only when media is attached; a
+    # media-free request keeps the allocation as it was before media support, with no 2,000-token floor.
+    from tools.debug import DebugIssueTool
+
+    source = tmp_path / "notes.txt"
+    source.write_text("hello\n")
+    tool = DebugIssueTool()
+    tool._model_context = SimpleNamespace(
+        provider=SimpleNamespace(PDF_TOKENS_PER_PAGE=1_234),
+        calculate_token_allocation=lambda: SimpleNamespace(file_tokens=file_tokens),
+    )
+    with (
+        patch.object(utils.media, "pdf_tokens_per_page", side_effect=AssertionError("no media, no PDF rate")),
+        patch("utils.file_utils.read_files", return_value="") as read_files,
+    ):
+        tool._force_embed_files_for_expert_analysis([str(source)])
+    assert read_files.call_args.kwargs["max_tokens"] == file_tokens

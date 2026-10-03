@@ -14,3 +14,31 @@ def test_sdk_loggers_stay_at_info_or_above(name):
     import server  # noqa: F401  (logging is configured when server is imported)
 
     assert logging.getLogger(name).getEffectiveLevel() >= logging.INFO
+
+
+SDK_LOGGERS = ("openai", "anthropic")
+
+
+@pytest.fixture
+def restore_sdk_logger_levels():
+    saved = {name: logging.getLogger(name).level for name in SDK_LOGGERS}
+    yield
+    for name, level in saved.items():
+        logging.getLogger(name).setLevel(level)
+
+
+@pytest.mark.parametrize(
+    "root_level,expected",
+    [
+        (logging.DEBUG, logging.INFO),  # zen at DEBUG: the SDKs must not log request bodies
+        (logging.INFO, logging.INFO),
+        (logging.WARNING, logging.WARNING),  # never louder than zen itself
+    ],
+)
+def test_quiet_sdk_request_logging(restore_sdk_logger_levels, root_level, expected):
+    from server import quiet_sdk_request_logging
+
+    for name in SDK_LOGGERS:
+        logging.getLogger(name).setLevel(logging.NOTSET)
+    quiet_sdk_request_logging(root_level)
+    assert [logging.getLogger(name).level for name in SDK_LOGGERS] == [expected, expected]
