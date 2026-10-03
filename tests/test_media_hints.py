@@ -119,8 +119,7 @@ def test_media_providers_follow_the_provider_priority_order():
     assert order == [p for p in ModelProviderRegistry.PROVIDER_PRIORITY_ORDER if p in order]
 
 
-def test_provider_without_an_allow_list_is_never_blamed_for_one(monkeypatch, fresh_restrictions):
-    # Anthropic has no *_ALLOWED_MODELS variable, so a restriction can never be the reason it is unusable.
+def _only_anthropic_configured(monkeypatch):
     anthropic = AnthropicProvider(api_key="test-key")
     monkeypatch.setattr(
         ModelProviderRegistry,
@@ -129,10 +128,29 @@ def test_provider_without_an_allow_list_is_never_blamed_for_one(monkeypatch, fre
             lambda cls, provider_type, force_new=False: anthropic if provider_type is ProviderType.ANTHROPIC else None
         ),
     )
+
+
+def test_provider_without_an_allow_list_is_never_blamed_for_one(monkeypatch, fresh_restrictions):
+    # A MEDIA_PROVIDERS entry with no *_ALLOWED_MODELS variable (None) must never be blamed for a restriction.
+    # Every current entry has one, so pretend Anthropic does not.
+    _only_anthropic_configured(monkeypatch)
+    without_allow_list = tuple(
+        (value, key, None if value == "anthropic" else allow, kinds) for value, key, allow, kinds in MEDIA_PROVIDERS
+    )
     with (
+        patch("utils.media.MEDIA_PROVIDERS", without_allow_list),
         patch.object(ModelCapabilities, "supported_media_kinds", return_value=PDF),
         patch.object(utils.model_restrictions.ModelRestrictionService, "has_restrictions", return_value=True),
     ):
         hint = providers_hint(PDF)
     assert "None" not in hint
     assert hint == "configure GEMINI_API_KEY or OPENAI_API_KEY"
+
+
+def test_hint_blames_the_anthropic_allow_list(monkeypatch, fresh_restrictions):
+    _only_anthropic_configured(monkeypatch)
+    monkeypatch.setenv("ANTHROPIC_ALLOWED_MODELS", "none-such")
+    assert providers_hint(PDF) == (
+        "configure GEMINI_API_KEY or OPENAI_API_KEY; "
+        "ANTHROPIC_API_KEY is configured, but ANTHROPIC_ALLOWED_MODELS excludes every model that can take pdf input"
+    )

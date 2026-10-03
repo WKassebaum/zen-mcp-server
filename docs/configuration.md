@@ -178,6 +178,9 @@ OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o3-mini,o4-mini,mini
 # Gemini model restrictions  
 GOOGLE_ALLOWED_MODELS=flash,pro
 
+# Native Anthropic (Claude) model restrictions (models from conf/anthropic_models.json)
+ANTHROPIC_ALLOWED_MODELS=sonnet,haiku
+
 # X.AI GROK model restrictions
 XAI_ALLOWED_MODELS=grok-4,grok-4.20-0309-non-reasoning
 

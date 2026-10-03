@@ -696,7 +696,7 @@ def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
 # MEDIA_KINDS (tests/test_media_hints.py checks it). Later phases add entries.
 MEDIA_PROVIDERS: tuple[tuple[str, str, str | None, frozenset[MediaKind]], ...] = (
     ("google", "GEMINI_API_KEY", "GOOGLE_ALLOWED_MODELS", frozenset(MediaKind)),
-    ("anthropic", "ANTHROPIC_API_KEY", None, frozenset({MediaKind.PDF})),
+    ("anthropic", "ANTHROPIC_API_KEY", "ANTHROPIC_ALLOWED_MODELS", frozenset({MediaKind.PDF})),
     ("openai", "OPENAI_API_KEY", "OPENAI_ALLOWED_MODELS", frozenset({MediaKind.PDF})),
 )
 
