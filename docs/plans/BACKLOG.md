@@ -85,8 +85,6 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Context:** `providers/openai_compatible.py:_generate_with_responses_endpoint` now carries the default OpenAI traffic: gpt-6-astra/sol/luna and the `sol`/`luna` aliases, natively and via OpenRouter. Before GPT-6 it carried only o3-pro, and it was only ever tested with one-shot prompts. `store` has been `false` since 2026-09-27.
 - **System prompt role:** the system prompt is sent as a `user` message instead of `instructions` or a `developer` message. `Responses.create` accepts `instructions` from openai 1.66.0 onwards.
 - **Multi-turn continuation never run live:** earlier assistant turns are replayed as `output_text` parts. The `responses_api_endpoint` simulator test covers one turn only and is not in `TEST_REGISTRY`.
-- **Usage reported as zero:** `_extract_usage` reads `prompt_tokens` / `completion_tokens`, but a Responses `usage` object has `input_tokens` / `output_tokens`. Input and output are therefore reported as 0; only `total_tokens` is right.
-- **Latent crash on output caps:** a non-empty `max_output_tokens` is forwarded as `max_completion_tokens`, which `Responses.create` does not accept (the parameter is `max_output_tokens`). The SDK raises `TypeError: ... unexpected keyword argument 'max_completion_tokens'`. No caller passes a value today.
 
 ### Unit suite is not hermetic in CI
 - **Recorded:** 2026-09-28

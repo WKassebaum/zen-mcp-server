@@ -387,6 +387,27 @@ class OpenAICompatibleProvider(ModelProvider):
 
         return content
 
+    @staticmethod
+    def _responses_content(content, text_type: str) -> list[dict]:
+        """Chat Completions message content as Responses API parts (text, images and files).
+
+        An unknown part type raises ValueError: media must reach the model or fail, never be dropped.
+        """
+        if isinstance(content, str):
+            return [{"type": text_type, "text": content}]
+        parts = []
+        for part in content:
+            part_type = part.get("type")
+            if part_type == "text":
+                parts.append({"type": text_type, "text": part["text"]})
+            elif part_type == "image_url":
+                parts.append({"type": "input_image", "image_url": part["image_url"]["url"]})
+            elif part_type == "file":
+                parts.append({"type": "input_file", **part["file"]})
+            else:
+                raise ValueError(f"Responses API request: unsupported content part type {part_type!r}")
+        return parts
+
     def _generate_with_responses_endpoint(
         self,
         model_name: str,
@@ -407,11 +428,11 @@ class OpenAICompatibleProvider(ModelProvider):
             if role == "system":
                 # The system prompt is sent as a user message rather than via `instructions`
                 # or a developer message (tracked in docs/plans/BACKLOG.md).
-                input_messages.append({"role": "user", "content": [{"type": "input_text", "text": content}]})
+                input_messages.append({"role": "user", "content": self._responses_content(content, "input_text")})
             elif role == "user":
-                input_messages.append({"role": "user", "content": [{"type": "input_text", "text": content}]})
+                input_messages.append({"role": "user", "content": self._responses_content(content, "input_text")})
             elif role == "assistant":
-                input_messages.append({"role": "assistant", "content": [{"type": "output_text", "text": content}]})
+                input_messages.append({"role": "assistant", "content": self._responses_content(content, "output_text")})
 
         # Prepare completion parameters for responses endpoint
         # Based on OpenAI documentation, use nested reasoning object for responses endpoint
@@ -431,9 +452,9 @@ class OpenAICompatibleProvider(ModelProvider):
             "store": False,
         }
 
-        # Add max tokens if specified (using max_completion_tokens for responses endpoint)
+        # Add max tokens if specified (the Responses API calls it max_output_tokens)
         if max_output_tokens:
-            completion_params["max_completion_tokens"] = max_output_tokens
+            completion_params["max_output_tokens"] = max_output_tokens
 
         # For responses endpoint, we only add parameters that are explicitly supported
         # Remove unsupported chat completion parameters that may cause API errors
@@ -711,10 +732,17 @@ class OpenAICompatibleProvider(ModelProvider):
         usage = {}
 
         if hasattr(response, "usage") and response.usage:
-            # Safely extract token counts with None handling
-            usage["input_tokens"] = getattr(response.usage, "prompt_tokens", 0) or 0
-            usage["output_tokens"] = getattr(response.usage, "completion_tokens", 0) or 0
-            usage["total_tokens"] = getattr(response.usage, "total_tokens", 0) or 0
+            u = response.usage
+
+            def _count(chat_name: str, responses_name: str) -> int:
+                # The Chat Completions field when the usage object has it (a None value counts as 0),
+                # else the Responses API field: ResponseUsage has input_tokens / output_tokens instead.
+                name = chat_name if hasattr(u, chat_name) else responses_name
+                return getattr(u, name, 0) or 0
+
+            usage["input_tokens"] = _count("prompt_tokens", "input_tokens")
+            usage["output_tokens"] = _count("completion_tokens", "output_tokens")
+            usage["total_tokens"] = getattr(u, "total_tokens", 0) or 0
 
         return usage
 
