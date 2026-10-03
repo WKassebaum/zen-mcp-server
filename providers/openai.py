@@ -31,8 +31,10 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
     MEDIA_KINDS = frozenset({MediaKind.PDF})
     # OpenAI accepts up to 50 MB of file input per request; counted base64-encoded to stay on the safe side.
     MEDIA_REQUEST_MAX_BYTES = 50_000_000
-    # Extracted text plus a page image per page; Task 8 sets this from live usage.
-    PDF_TOKENS_PER_PAGE = 1_500
+    # Extracted text plus a page image per page. Measured 2026-10-03 on a letter-size scanned page: gpt-6-luna and
+    # gpt-6-astra (Responses API) 2,902 tokens, gpt-5.5 (Chat Completions) 1,025. Sized for the gpt-6 models plus
+    # 1,000 for a dense page's text, so it errs high on gpt-5.x (a per-family rate is in BACKLOG).
+    PDF_TOKENS_PER_PAGE = 4_000
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize OpenAI provider with API key."""

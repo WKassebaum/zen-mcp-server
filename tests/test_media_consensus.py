@@ -14,9 +14,12 @@ from tools.shared.exceptions import ToolExecutionError
 from utils.media import MediaKind
 
 PDF = str(Path(__file__).parent / "fixtures" / "media" / "zebra.pdf")
+# OpenAI models read PDFs (live-probed 2026-10-03) but no OpenAI encoder takes video, so a video is what
+# makes o3 an incapable consensus model in the refusal tests below.
+VIDEO = str(Path(__file__).parent / "fixtures" / "media" / "otter.mp4")
 
 
-def _step1(models):
+def _step1(models, media=PDF):
     return {
         "step": "Should we ship this spec?",
         "step_number": 1,
@@ -24,7 +27,7 @@ def _step1(models):
         "next_step_required": True,
         "findings": "Initial review of the attached spec.",
         "models": [{"model": m, "stance": "neutral"} for m in models],
-        "relevant_files": [PDF],
+        "relevant_files": [media],
     }
 
 
@@ -35,7 +38,7 @@ async def test_consensus_preflight_names_incapable_models():
         patch.object(GeminiModelProvider, "generate_content") as generate,
     ):
         with pytest.raises(ToolExecutionError) as exc:
-            await ConsensusTool().execute(_step1(["gemini-3.8-flash", "o3"]))
+            await ConsensusTool().execute(_step1(["gemini-3.8-flash", "o3"], media=VIDEO))
     generate.assert_not_called()  # no model was consulted, not even the capable one
     assert "o3" in str(exc.value)
     assert "gemini-3.8-flash cannot" not in str(exc.value)
@@ -57,11 +60,11 @@ async def test_consensus_sends_media_to_capable_model():
 async def test_consensus_preflight_refusal_is_a_readable_tool_error():
     with patch.object(OpenAIModelProvider, "generate_content") as generate:
         with pytest.raises(ToolExecutionError) as exc:
-            await ConsensusTool().execute(_step1(["o3"]))
+            await ConsensusTool().execute(_step1(["o3"], media=VIDEO))
     generate.assert_not_called()
     payload = json.loads(str(exc.value))
     assert payload["status"] == "error"
-    assert payload["content"].startswith("These consensus models cannot take the attached pdf input: o3.")
+    assert payload["content"].startswith("These consensus models cannot take the attached video input: o3.")
 
 
 @pytest.mark.asyncio
@@ -70,12 +73,12 @@ async def test_consult_model_refuses_media_for_an_incapable_model():
     tool = ConsensusTool()
     tool._current_arguments = {}
     tool.initial_prompt = "Should we ship this spec?"
-    request = tool.get_workflow_request_model()(**_step1(["o3"]))
+    request = tool.get_workflow_request_model()(**_step1(["o3"], media=VIDEO))
     with patch.object(OpenAIModelProvider, "generate_content") as generate:
         result = await tool._consult_model({"model": "o3", "stance": "neutral"}, request)
     generate.assert_not_called()
     assert result["status"] == "error"
-    assert "cannot take pdf input (zebra.pdf)" in result["error"]
+    assert "cannot take video input (otter.mp4)" in result["error"]
 
 
 @pytest.mark.asyncio
@@ -98,3 +101,11 @@ async def test_preflight_leaves_unavailable_models_to_their_usual_error_entry():
     response = json.loads(result[0].text)["model_response"]
     assert response["model"] == "no-such-model" and response["status"] == "error"
     assert "cannot take" not in response["error"]
+
+
+@pytest.mark.asyncio
+async def test_consensus_sends_pdf_to_an_openai_model():
+    reply = ModelResponse(content="Ship it.", usage={}, model_name="o3", provider=ProviderType.OPENAI)
+    with patch.object(OpenAIModelProvider, "generate_content", return_value=reply) as generate:
+        await ConsensusTool().execute(_step1(["o3"]))
+    assert [m.name for m in generate.call_args.kwargs["media"]] == ["zebra.pdf"]

@@ -32,7 +32,9 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
     MEDIA_KINDS = frozenset({MediaKind.PDF})
     # Anthropic limits the whole request body to 32 MB, base64 media included.
     MEDIA_REQUEST_MAX_BYTES = 32_000_000
-    # Anthropic documents 1,500-3,000 tokens per PDF page (text plus a page image); Task 8 checks it live.
+    # Anthropic documents 1,500-3,000 tokens per PDF page (text plus a page image). Measured 2026-10-03: a near-empty
+    # page cost about 1,570 tokens on every Claude model and a letter-size scanned page 1,611 (claude-sonnet-5-5),
+    # which leaves about 1,400 tokens for a dense page's text.
     PDF_TOKENS_PER_PAGE = 3_000
 
     def __init__(self, api_key: str, **kwargs):
