@@ -92,7 +92,11 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
                     "grok-4.3",
                 ]
             )
-            return preferred if preferred else allowed_models[0]
+            if preferred:
+                return preferred
+            # No allowed model is on the list: take the lowest-ranked one (allowed_models[0] is the most capable).
+            ranked = self.rank_models(allowed_models)
+            return ranked[-1].model_name if ranked else allowed_models[0]
 
         else:  # BALANCED or default
             preferred = find_first(

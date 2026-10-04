@@ -378,6 +378,21 @@ class ModelProvider(ABC):
 
         return None
 
+    def rank_models(self, model_names: list[str]) -> list[ModelCapabilities]:
+        """Capabilities of the distinct models behind ``model_names``, highest capability rank first.
+
+        Allowed-model lists mix canonical names and aliases, so each name is resolved and each model appears
+        once. Ties sort by canonical name. Names this provider cannot resolve are skipped.
+        """
+        models: dict[str, ModelCapabilities] = {}
+        for name in model_names:
+            try:
+                capabilities = self.get_capabilities(name)
+            except ValueError:
+                continue
+            models.setdefault(capabilities.model_name, capabilities)
+        return sorted(models.values(), key=lambda caps: (-caps.get_effective_capability_rank(), caps.model_name))
+
     def get_model_registry(self) -> Optional[dict[str, Any]]:
         """Return the model registry backing this provider, if any."""
 

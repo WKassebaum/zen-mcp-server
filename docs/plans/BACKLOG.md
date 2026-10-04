@@ -122,11 +122,6 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **Warning:** do not add an `OpenRouterProvider.get_preferred_model` override. A verifier showed it lets a lower-priority OpenRouter preference beat Custom, Azure and DIAL: with Custom+OpenRouter, FAST_RESPONSE moved from `llama3.2` to `openai/gpt-6-luna`.
 - **Tests:** strengthen `tests/test_auto_mode_comprehensive.py::test_openrouter_fallback_when_no_native_apis`, which only asserts "not None", and add a Custom+OpenRouter case.
 
-### OpenAI/xAI FAST_RESPONSE fallback returns the most capable model
-- **Recorded:** 2026-09-27 (code predates the GPT-6 work)
-- **What:** when no allowed model is on the FAST list, `providers/openai.py:155` and `providers/xai.py:95` return `allowed_models[0]`. That list is sorted by rank, highest first, so `OPENAI_ALLOWED_MODELS=gpt-5-nano,gpt-6-astra` routes chat to gpt-6-astra. gpt-5-nano, gpt-5.6-terra and gpt-4.1 are in no OpenAI route list. This needs an OpenAI restriction with OpenAI as the first provider that has allowed models; none of the documented examples trigger it.
-- **Fix direction:** in the FAST_RESPONSE branch, fall back to the lowest-rank allowed canonical model: walk the list from the end and skip aliases, because `allowed_models` contains aliases. Put this in a shared helper used by both providers. Add gpt-5-nano to the end of the FAST list, and gpt-5.6-terra and gpt-4.1 to BALANCED.
-
 ## Watchlist (not addable yet)
 
 - **xAI Grok 4.6 / 4.7 fast variants:** announced at 2× speed and 2× price; no public slug in `/v1/models`.

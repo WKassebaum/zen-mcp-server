@@ -72,3 +72,54 @@ def test_gemini_alias_does_not_outrank_a_newer_model():
     assert picks[EXTENDED] == "gemini-3.8-flash"
     assert picks[BALANCED] == "gemini-3.8-flash"
     assert picks[FAST] == "gemini-3.8-flash"
+
+
+# ---------------------------------------------------------------------------
+# OpenAI / xAI: with no allowed model on the FAST list, FAST_RESPONSE takes the lowest-ranked one
+# ---------------------------------------------------------------------------
+
+
+def test_openai_fast_response_uses_the_small_allowed_model():
+    picks = _picks({"OPENAI_API_KEY": "test-key", "OPENAI_ALLOWED_MODELS": "gpt-5-nano,gpt-6-astra"})
+    assert picks[FAST] == "gpt-5-nano"
+    assert picks[EXTENDED] == "gpt-6-astra"
+
+
+def test_openai_fast_response_falls_back_to_the_lowest_ranked_model():
+    # Neither model is on the FAST list; the old fallback returned allowed_models[0], the most capable.
+    picks = _picks({"OPENAI_API_KEY": "test-key", "OPENAI_ALLOWED_MODELS": "gpt-6-astra,gpt-5.6-terra"})
+    assert picks[FAST] == "gpt-5.6-terra"
+
+
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [
+        ("gpt-5.5-pro,gpt-5.6-terra", "gpt-5.6-terra"),
+        ("o3,gpt-4.1", "gpt-4.1"),
+    ],
+)
+def test_openai_balanced_list_covers_terra_and_gpt_4_1(allowed, expected):
+    picks = _picks({"OPENAI_API_KEY": "test-key", "OPENAI_ALLOWED_MODELS": allowed})
+    assert picks[BALANCED] == expected
+
+
+def test_xai_fast_response_falls_back_to_an_allowed_canonical_model():
+    # grok-4.20-0309-reasoning is the only xAI model on no FAST list.
+    picks = _picks({"XAI_API_KEY": "test-key", "XAI_ALLOWED_MODELS": "grok-4.20-0309-reasoning"})
+    assert picks[FAST] == "grok-4.20-0309-reasoning"
+
+
+def test_xai_fast_response_fallback_skips_aliases_and_takes_the_lowest_rank():
+    # Called directly: through the registry an allowed alias always brings its canonical name, which the
+    # FAST list matches. Aliases are not on the list, so this reaches the fallback with the list in rank order.
+    from providers.xai import XAIModelProvider
+
+    provider = XAIModelProvider(api_key="test-key")
+    assert provider.get_preferred_model(FAST, ["grok4.7", "grok4.20"]) == "grok-4.20-0309-reasoning"
+
+
+def test_anthropic_fast_response_falls_back_to_the_lowest_ranked_model():
+    # Same fallback as OpenAI and xAI: neither model is on Anthropic's FAST list (Haiku, Sonnet 5.5, Sonnet 4.6).
+    picks = _picks({"ANTHROPIC_API_KEY": "test-key", "ANTHROPIC_ALLOWED_MODELS": "claude-fable-5-1,claude-opus-4-8"})
+    assert picks[FAST] == "claude-opus-4-8"
+    assert picks[EXTENDED] == "claude-fable-5-1"

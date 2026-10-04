@@ -161,9 +161,14 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
                     "gpt-5-mini",
                     "o4-mini",
                     "o3-mini",
+                    "gpt-5-nano",
                 ]
             )
-            return preferred if preferred else allowed_models[0]
+            if preferred:
+                return preferred
+            # No allowed model is on the list: take the lowest-ranked one (allowed_models[0] is the most capable).
+            ranked = self.rank_models(allowed_models)
+            return ranked[-1].model_name if ranked else allowed_models[0]
 
         else:  # BALANCED or default
             # Prefer GPT-6 Sol for best all-round performance per dollar (1.05M context, $2/$10)
@@ -171,6 +176,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
                 [
                     "gpt-6-sol",
                     "gpt-5.6-sol",
+                    "gpt-5.6-terra",
                     "gpt-5.5",
                     "gpt-5.4",
                     "gpt-5.4-pro",
@@ -179,6 +185,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
                     "gpt-5",
                     "gpt-5.2-pro",
                     "gpt-5-mini",
+                    "gpt-4.1",
                     "o4-mini",
                     "o3-mini",
                 ]
