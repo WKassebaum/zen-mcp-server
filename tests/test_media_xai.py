@@ -1,7 +1,8 @@
 """xAI encoder: a request with media goes to /v1/responses as input_file parts; text-only requests stay on Chat.
 
-xAI refuses file parts on /v1/chat/completions ("Please use /v1/responses instead"), and its models without
-extended thinking reject the Responses ``reasoning`` parameter. OpenAI and OpenRouter requests are unchanged.
+xAI refuses file parts on /v1/chat/completions ("Please use /v1/responses instead"). Grok requests carry no
+``reasoning`` parameter on either endpoint, so xAI's own default effort applies (and models without extended thinking
+reject the parameter). OpenAI and OpenRouter requests are unchanged.
 """
 
 import base64
@@ -22,8 +23,16 @@ PDF = str(FIXTURES / "zebra.pdf")
 DATA_URL = "data:application/pdf;base64," + base64.b64encode(Path(PDF).read_bytes()).decode()
 PNG = "data:image/png;base64,iVBORw0KGgo="
 ATTACHED = [{"name": "zebra.pdf", "kind": "pdf", "bytes": 587, "transport": "inline"}]
-GROK = "grok-4.7"  # supports_extended_thinking: true
-NON_REASONING = ["grok-build-0.1", "grok-4.20-0309-non-reasoning"]  # supports_extended_thinking: false
+GROK = "grok-4.7"
+GROK_MODELS = [
+    "grok-4.7",
+    "grok-4.6",
+    "grok-4.5",
+    "grok-4.3",
+    "grok-4.20-0309-reasoning",
+    "grok-4.20-0309-non-reasoning",
+    "grok-build-0.1",
+]
 
 
 def _media(*paths):
@@ -59,7 +68,7 @@ def test_xai_declares_pdf_only_explicit_only_and_its_limits():
     assert XAIModelProvider.PDF_TOKENS_PER_PAGE == 2_500
 
 
-def test_grok_with_a_pdf_uses_the_responses_endpoint_with_reasoning():
+def test_grok_with_a_pdf_uses_the_responses_endpoint():
     provider = _provider()
     response = provider.generate_content("What code?", GROK, system_prompt="Be terse.", media=_media())
     assert _responses_request(provider) == {
@@ -74,7 +83,6 @@ def test_grok_with_a_pdf_uses_the_responses_endpoint_with_reasoning():
                 ],
             },
         ],
-        "reasoning": {"effort": "medium"},
         "store": False,
     }
     assert DATA_URL.startswith("data:application/pdf;base64,")
@@ -84,9 +92,10 @@ def test_grok_with_a_pdf_uses_the_responses_endpoint_with_reasoning():
     assert "server_side_tool_calls" not in response.metadata  # this usage carries no such field
 
 
-@pytest.mark.parametrize("model", NON_REASONING)
-def test_grok_without_extended_thinking_gets_no_reasoning_parameter(model):
-    assert not XAIModelProvider("test-key").get_capabilities(model).supports_extended_thinking
+@pytest.mark.parametrize("model", GROK_MODELS)
+def test_no_grok_model_gets_a_reasoning_parameter(model):
+    # Text-only Grok requests (Chat Completions) send no effort either; grok-build-0.1 and the non-reasoning
+    # model answer 400 "does not support parameter reasoningEffort" when it is sent.
     provider = _provider()
     provider.generate_content("What code?", model, media=_media())
     request = _responses_request(provider)

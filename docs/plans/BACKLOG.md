@@ -40,7 +40,6 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 
 ### Media input phase 3 follow-ups
 Found while building phase 3 (2026-10-03); none blocks it.
-- **Grok media requests send effort `medium`:** `XAIModelProvider._responses_reasoning` uses the shared default (`default_reasoning_effort`, else `medium`), and `conf/xai_models.json` sets no `default_reasoning_effort`. Text-only Grok requests go to Chat Completions with no effort, so xAI's own default applies (high for grok-4.7, per its catalog entry). Set `default_reasoning_effort` per Grok model if PDF answers should match.
 - **Server-side tool calls are not surfaced:** `metadata["server_side_tool_calls"]` is not in `--json` or MCP output, `cost_in_usd_ticks` is not copied, and the design's logged warning when xAI's paid search ran is not implemented.
 - **No sampling parameters on the Responses path:** Grok media requests, like every Responses API request, carry no `temperature`; text-only Grok requests do.
 

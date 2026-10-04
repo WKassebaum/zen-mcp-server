@@ -62,11 +62,10 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
         return bool(media) or super()._use_responses_endpoint(capabilities, media)
 
     def _responses_reasoning(self, capabilities: Optional[ModelCapabilities]) -> Optional[dict]:
-        """``reasoning`` only for models with extended thinking: grok-4.20-0309-non-reasoning and grok-build-0.1
-        answer 400 "does not support parameter reasoningEffort" on /v1/responses."""
-        if capabilities is None or not capabilities.supports_extended_thinking:
-            return None
-        return super()._responses_reasoning(capabilities)
+        """No ``reasoning``: Grok's text requests (Chat Completions) send no effort either, so a request with a
+        PDF runs at xAI's own default effort too. grok-4.20-0309-non-reasoning and grok-build-0.1 also answer 400
+        "does not support parameter reasoningEffort" when it is sent."""
+        return None
 
     def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
         """Get XAI's preferred model for a given category from allowed models.
