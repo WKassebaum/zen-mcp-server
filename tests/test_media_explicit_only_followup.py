@@ -114,3 +114,33 @@ async def test_unavailable_model_error_suggests_a_model_that_takes_the_pdf(tmp_p
     message = json.loads(raised.value.payload)["content"]
     suggested = message.split("Suggested model for chat: '")[1].split("'")[0]
     assert not suggested.startswith("grok"), suggested
+
+
+@pytest.mark.asyncio
+async def test_workflow_final_step_with_earlier_step_pdf_does_not_reuse_the_grok_model(tmp_path):
+    # A workflow's final expert call attaches the PDFs of all its steps, and workflow turns store no model, so the
+    # reuse loop walks back to an earlier Grok chat turn although this call's own arguments name no media.
+    import server
+    from tools.codereview import CodeReviewTool
+    from utils.conversation_memory import add_turn, create_thread
+
+    code = tmp_path / "app.py"
+    code.write_text("print('hi')\n")
+    thread_id = create_thread("chat", {"prompt": "hello"})
+    add_turn(thread_id, "assistant", "hi", tool_name="chat", model_provider="xai", model_name="grok-4.7")
+    add_turn(thread_id, "assistant", "step 1 recorded", files=[PDF], tool_name="codereview")
+    with patch.object(CodeReviewTool, "execute", return_value=[]) as execute:
+        await server.handle_call_tool(
+            "codereview",
+            {
+                "step": "Final step",
+                "step_number": 2,
+                "total_steps": 2,
+                "next_step_required": False,
+                "findings": "done",
+                "relevant_files": [str(code)],  # no media in this call's own arguments
+                "continuation_id": thread_id,
+            },
+        )
+    model = execute.call_args.args[0].get("model")
+    assert not (model or "").startswith("grok"), model

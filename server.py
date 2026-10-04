@@ -826,7 +826,7 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
         except Exception:
             pass
 
-        arguments = await reconstruct_thread_context(arguments)
+        arguments = await reconstruct_thread_context(arguments, tool_name=name)
         logger.debug(f"[CONVERSATION_DEBUG] After thread reconstruction, arguments keys: {list(arguments.keys())}")
         if "_remaining_tokens" in arguments:
             logger.debug(f"[CONVERSATION_DEBUG] Remaining token budget: {arguments['_remaining_tokens']:,}")
@@ -866,26 +866,20 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
         # Handle auto mode at MCP boundary - resolve to specific model
         if model_name.lower() == "auto":
             from tools.workflow.base import WorkflowTool
-            from utils.media import MediaNotSupportedError, media_kinds_from_arguments, media_kinds_from_paths
+            from utils.media import MediaNotSupportedError
 
             # Get tool category to determine appropriate model
             tool_category = tool.get_model_category()
             # Route on the media this call attaches. A workflow's final expert call also attaches media
             # from this tool's earlier steps (consolidated relevant_files), and workflow turns store no
             # model to reuse, so include those steps' media too.
-            required_media = media_kinds_from_arguments(arguments)
             continuation_id = arguments.get("continuation_id")
+            thread = None
             if continuation_id and isinstance(tool, WorkflowTool):
                 from utils.conversation_memory import get_thread
 
                 thread = get_thread(continuation_id)
-                earlier_files = [
-                    path
-                    for turn in (thread.turns if thread else [])
-                    if turn.tool_name == name
-                    for path in (turn.files or [])
-                ]
-                required_media |= media_kinds_from_paths(earlier_files)
+            required_media = _call_media_kinds(name, tool, arguments, thread)
             try:
                 resolved_model = ModelProviderRegistry.get_preferred_fallback_model(
                     tool_category, required_media=required_media
@@ -988,22 +982,35 @@ def _media_unavailable_error(tool_name: str, requested_model: str, exc: Exceptio
     return ToolExecutionError(error_output.model_dump_json())
 
 
+def _call_media_kinds(tool_name: Optional[str], tool: Any, arguments: dict[str, Any], thread: Any) -> frozenset:
+    """Media kinds a call sends: what its own file arguments name, plus, for a workflow tool, the files its earlier
+    steps recorded in ``thread``. A workflow's final expert call attaches those too (consolidated relevant_files),
+    and workflow turns store no model, so routing must count them."""
+    from tools.workflow.base import WorkflowTool
+    from utils.media import media_kinds_from_arguments, media_kinds_from_paths
+
+    kinds = media_kinds_from_arguments(arguments)
+    if thread is not None and isinstance(tool, WorkflowTool):
+        earlier_files = [path for turn in thread.turns if turn.tool_name == tool_name for path in (turn.files or [])]
+        kinds |= media_kinds_from_paths(earlier_files)
+    return kinds
+
+
 def _carries_media_to_explicit_only_provider(
-    model_name: str, arguments: dict[str, Any], initial_context: Optional[dict[str, Any]]
+    model_name: str, arguments: dict[str, Any], context: Any, tool_name: Optional[str]
 ) -> bool:
     """Whether reusing ``model_name`` would hand this call's media to a provider with MEDIA_AUTO_ROUTING False.
 
-    The call's media is what its own file arguments name, plus the first turn's files where the call names none:
-    reconstruct_thread_context merges initial_context into the arguments the same way.
+    The call's media (_call_media_kinds) is read from its arguments with the first turn's merged in where the call
+    names none, as reconstruct_thread_context merges initial_context, plus a workflow's earlier steps' files.
     """
     from providers.registry import ModelProviderRegistry
-    from utils.media import media_kinds_from_arguments
 
     provider = ModelProviderRegistry.get_provider_for_model(model_name)
     if provider is None or provider.MEDIA_AUTO_ROUTING:
         return False
-    effective = {**(initial_context or {}), **arguments}
-    return bool(media_kinds_from_arguments(effective))
+    effective = {**(context.initial_context or {}), **arguments}
+    return bool(_call_media_kinds(tool_name, TOOLS.get(tool_name) if tool_name else None, effective, context))
 
 
 def parse_model_option(model_string: str) -> tuple[str, Optional[str]]:
@@ -1093,7 +1100,7 @@ Remember: Only suggest follow-ups when they would genuinely add value to the dis
 "The agent to use the continuation_id when you do."""
 
 
-async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any]:
+async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optional[str] = None) -> dict[str, Any]:
     """
     Reconstruct conversation context for stateless-to-stateful thread continuation.
 
@@ -1235,12 +1242,12 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
         # Find the last assistant turn to get the model used
         for turn in reversed(context.turns):
             if turn.role == "assistant" and turn.model_name:
-                if _carries_media_to_explicit_only_provider(turn.model_name, arguments, context.initial_context):
+                if _carries_media_to_explicit_only_provider(turn.model_name, arguments, context, tool_name):
                     # Media reaches an explicit-only provider (xAI) only when this call names its model. Auto mode
                     # often picks Grok for text, so reusing it here would send it media nobody routed to it.
-                    logger.debug(
-                        f"[CONVERSATION_DEBUG] Not reusing {turn.model_name}: this call carries media and its "
-                        "provider takes media only for a named model"
+                    logger.info(
+                        f"Not reusing {turn.model_name} for this follow-up: it carries media, and that provider "
+                        "takes media only when the call names one of its models"
                     )
                     break
                 arguments["model"] = turn.model_name
