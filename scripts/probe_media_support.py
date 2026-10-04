@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 """Probe which models read PDF/audio/video natively, using the fixtures in tests/fixtures/media.
 
-Usage: .zen_venv/bin/python scripts/probe_media_support.py [--provider google|anthropic|openai]
+Usage: .zen_venv/bin/python scripts/probe_media_support.py [--provider google|anthropic|openai|xai]
            [--repeat N] [--kinds pdf,audio,video] [model ...]
 Defaults to the Gemini provider, every model in its conf/<provider>_models.json catalog, every kind the
 provider can send, one try each. Prints a JSON matrix of verified kinds on stdout; per-try lines and a
 hits/N summary per (model, kind) go to stderr.
 
-google calls the SDK directly with GEMINI_API_KEY from the environment. anthropic and openai go through
-zen's own provider classes (AnthropicProvider, OpenAIModelProvider), so the probe exercises the shipped
-encoders; their key comes from the environment or ~/.zen/.env (tests/live_keys.py) and is never printed.
-Those runs also print each response's input_tokens, and the summary keeps the largest per (model, kind).
+google calls the SDK directly with GEMINI_API_KEY from the environment. anthropic, openai and xai go through
+zen's own provider classes (AnthropicProvider, OpenAIModelProvider, XAIModelProvider), so the probe exercises
+the shipped encoders; their key comes from the environment or ~/.zen/.env (tests/live_keys.py) and is never
+printed. Those runs also print each response's input_tokens, and the summary keeps the largest per (model, kind).
 
 A kind is verified only if every repeat answers correctly. A wrong answer is a miss; an exception from
 the API (quota, transport, unknown model) is an error, counted apart from misses, and makes the script
@@ -35,6 +35,7 @@ from google import genai  # noqa: E402
 
 from providers.anthropic import AnthropicProvider  # noqa: E402
 from providers.openai import OpenAIModelProvider  # noqa: E402
+from providers.xai import XAIModelProvider  # noqa: E402
 from tests.live_keys import api_key  # noqa: E402
 from utils.media import classify_media  # noqa: E402
 
@@ -44,7 +45,12 @@ PROBES = {
     "audio": ("pelican.wav", "audio/wav", "What code word and number are spoken? Reply with only them."),
     "video": ("otter.mp4", "video/mp4", "What text is shown in this video? Reply with only that text."),
 }
-CATALOGS = {"google": "gemini_models.json", "anthropic": "anthropic_models.json", "openai": "openai_models.json"}
+CATALOGS = {
+    "google": "gemini_models.json",
+    "anthropic": "anthropic_models.json",
+    "openai": "openai_models.json",
+    "xai": "xai_models.json",
+}
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,7 @@ class ProviderSpec:
 PROVIDERS = {
     "anthropic": ProviderSpec("ANTHROPIC_API_KEY", AnthropicProvider),
     "openai": ProviderSpec("OPENAI_API_KEY", OpenAIModelProvider),
+    "xai": ProviderSpec("XAI_API_KEY", XAIModelProvider),
 }
 
 
@@ -73,7 +80,7 @@ class Tally:
     hits: int = 0
     misses: int = 0
     errors: int = 0
-    max_input_tokens: int | None = None  # anthropic/openai only: the largest usage["input_tokens"] seen
+    max_input_tokens: int | None = None  # provider runs only: the largest usage["input_tokens"] seen
 
     @property
     def tries(self) -> int:
@@ -148,7 +155,7 @@ def probe_with_provider(provider, model: str, kind: str) -> tuple[bool, str, int
 
 def main(argv: list[str] | None = None, client=None, provider_factory=None) -> int:
     """Run the probes. Tests inject ``client`` (google) or ``provider_factory`` (a no-argument callable
-    returning an object with generate_content, for anthropic/openai) so no real API is reached."""
+    returning an object with generate_content, for anthropic/openai/xai) so no real API is reached."""
     args = parse_args(argv)
     show_tokens = args.provider != "google"
     if args.provider == "google":

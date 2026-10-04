@@ -83,7 +83,7 @@ def test_bad_arguments_are_rejected(argv):
     assert excinfo.value.code == 2
 
 
-# --- Anthropic and OpenAI: probing goes through zen's provider classes ---------------------------------------
+# --- Anthropic, OpenAI and xAI: probing goes through zen's provider classes ----------------------------------
 
 from providers.anthropic import AnthropicProvider  # noqa: E402
 from providers.shared import ModelResponse  # noqa: E402
@@ -94,7 +94,7 @@ CATALOG = Path(__file__).resolve().parent.parent / "conf"
 
 
 class FakeProvider:
-    """Stands in for AnthropicProvider / OpenAIModelProvider. Answers ZEBRA-42 with 1,600 input tokens unless
+    """Stands in for AnthropicProvider / OpenAIModelProvider / XAIModelProvider. Answers ZEBRA-42 with 1,600 input tokens unless
     an answer is queued for the model: (text, input_tokens) or an exception."""
 
     MEDIA_KINDS = AnthropicProvider.MEDIA_KINDS
@@ -165,7 +165,10 @@ def test_provider_exception_is_an_error_and_fails_the_run(capsys):
     assert "hits 0/1  misses 0  errors 1  max input_tokens -  -> INCOMPLETE" in err
 
 
-@pytest.mark.parametrize("name, catalog", [("anthropic", "anthropic_models.json"), ("openai", "openai_models.json")])
+@pytest.mark.parametrize(
+    "name, catalog",
+    [("anthropic", "anthropic_models.json"), ("openai", "openai_models.json"), ("xai", "xai_models.json")],
+)
 def test_default_models_are_every_model_in_the_provider_catalog(capsys, name, catalog):
     expected = [entry["model_name"] for entry in json.loads((CATALOG / catalog).read_text())["models"]]
     provider = FakeProvider()
@@ -175,7 +178,7 @@ def test_default_models_are_every_model_in_the_provider_catalog(capsys, name, ca
     assert list(matrix) == expected
 
 
-@pytest.mark.parametrize("name", ["anthropic", "openai"])
+@pytest.mark.parametrize("name", ["anthropic", "openai", "xai"])
 @pytest.mark.parametrize("kinds", ["audio", "video", "pdf,audio"])
 def test_kinds_the_provider_encoder_lacks_are_rejected(name, kinds):
     with pytest.raises(SystemExit) as excinfo:
@@ -183,13 +186,19 @@ def test_kinds_the_provider_encoder_lacks_are_rejected(name, kinds):
     assert excinfo.value.code == 2
 
 
+def test_xai_probes_pdf_only():
+    assert probe.sendable_kinds("xai") == ["pdf"]
+
+
 def test_unknown_provider_is_rejected():
     with pytest.raises(SystemExit) as excinfo:
-        probe.main(["--provider", "xai", "m1"], provider_factory=_never_called)
+        probe.main(["--provider", "openrouter", "m1"], provider_factory=_never_called)
     assert excinfo.value.code == 2
 
 
-@pytest.mark.parametrize("name, env_name", [("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY")])
+@pytest.mark.parametrize(
+    "name, env_name", [("anthropic", "ANTHROPIC_API_KEY"), ("openai", "OPENAI_API_KEY"), ("xai", "XAI_API_KEY")]
+)
 def test_missing_key_stops_the_run_naming_only_the_variable(capsys, monkeypatch, tmp_path, name, env_name):
     monkeypatch.delenv(env_name, raising=False)
     monkeypatch.setattr(live_keys, "ZEN_ENV_FILE", tmp_path / "absent.env")
@@ -228,6 +237,8 @@ def test_key_from_zen_config_reaches_the_provider_and_is_never_printed(capsys, m
 
 def test_real_provider_classes_back_the_probe():
     from providers.openai import OpenAIModelProvider
+    from providers.xai import XAIModelProvider
 
     assert probe.PROVIDERS["anthropic"] == probe.ProviderSpec("ANTHROPIC_API_KEY", AnthropicProvider)
     assert probe.PROVIDERS["openai"] == probe.ProviderSpec("OPENAI_API_KEY", OpenAIModelProvider)
+    assert probe.PROVIDERS["xai"] == probe.ProviderSpec("XAI_API_KEY", XAIModelProvider)

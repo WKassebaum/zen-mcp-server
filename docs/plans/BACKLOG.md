@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phases 3–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
+- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) implemented 2026-10-03; the Grok flags wait for the live probe: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phases 4–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -37,6 +37,12 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test). The live tests skip them unless `ZEN_LIVE_PRO=1`.
 - **Responses API `detail` is left to the default:** OpenAI's guide says `auto` means `high` page images on GPT-5.6 and later, `low` before. Set `detail` on `input_file` explicitly if PDF token cost on gpt-6 matters.
 - **Claude `cache_control` deferred to phase 5:** the design puts a cache marker on the last media block. A cache write costs 1.25x and only pays off when the same PDF is re-sent, which needs phase 5's continuation re-attach, so phase 2 sends none.
+
+### Media input phase 3 follow-ups
+Found while building phase 3 (2026-10-03); none blocks it.
+- **Grok media requests send effort `medium`:** `XAIModelProvider._responses_reasoning` uses the shared default (`default_reasoning_effort`, else `medium`), and `conf/xai_models.json` sets no `default_reasoning_effort`. Text-only Grok requests go to Chat Completions with no effort, so xAI's own default applies (high for grok-4.7, per its catalog entry). Set `default_reasoning_effort` per Grok model if PDF answers should match.
+- **Server-side tool calls are not surfaced:** `metadata["server_side_tool_calls"]` is not in `--json` or MCP output, `cost_in_usd_ticks` is not copied, and the design's logged warning when xAI's paid search ran is not implemented.
+- **No sampling parameters on the Responses path:** Grok media requests, like every Responses API request, carry no `temperature`; text-only Grok requests do.
 
 ## Future features
 

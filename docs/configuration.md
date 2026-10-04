@@ -214,6 +214,18 @@ OPENAI_ALLOWED_MODELS=gpt-6-luna,gpt-5-mini,o4-mini
 XAI_ALLOWED_MODELS=grok,grok-4.20-0309-non-reasoning
 ```
 
+### Media Input (PDF, Audio, Video)
+
+PDF, audio and video files passed to a tool (`-f` on the CLI, `absolute_file_paths` or `relevant_files` over MCP) reach the model as native input, not as text. A model takes a kind only when its `supports_pdf` / `supports_audio` / `supports_video` flag in `conf/*_models.json` is set, and those flags are set only after a recorded live probe (`tests/media_probe_matrix.py`):
+
+- **Gemini** (`GEMINI_API_KEY`): PDF, audio and video.
+- **Claude** (`ANTHROPIC_API_KEY`) and **OpenAI** (`OPENAI_API_KEY`): PDF.
+- **Grok** (`XAI_API_KEY`): PDF, only when you name a Grok model, for example `zen chat "Summarize this" --model grok-4.7 -f report.pdf`.
+
+In auto mode, zen picks a model that takes every attached kind. It never routes a PDF to Grok, even when `XAI_API_KEY` is set and xAI comes first in provider priority: Gemini, Claude and OpenAI read every page, while xAI searches any document longer than about a page with a server-side tool (`attachment_search`). That tool is billed at $5 per 1,000 calls plus the tokens of each search pass, and it may read a long document only in part. zen sends Grok PDF requests with `store=false`; xAI's default, `store=true`, keeps them for 30 days. A Grok request takes at most 50 MB of PDF once base64-encoded, about 37.5 MB of raw files.
+
+A named model that cannot take the attached media is refused before any API call, with a list of models available with your current keys that can.
+
 ### Advanced Configuration
 
 **Custom Model Configuration & Manifest Overrides:**
