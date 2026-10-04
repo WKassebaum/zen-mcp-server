@@ -2,14 +2,20 @@
 Pytest configuration for Zen MCP Server tests
 """
 
-import asyncio
-import importlib
 import os
-import sys
-import tempfile
-from pathlib import Path
 
-import pytest
+# Keep the developer's ~/.zen/.env out of the unit tests. Importing zen_cli.main (several test modules do, at
+# collection) otherwise copies it into os.environ for the whole session, so real API keys would reach tests that
+# expect none and could turn an unmocked provider call into a paid one. Set before anything imports zen_cli.
+os.environ["ZEN_NO_USER_ENV"] = "1"
+
+import asyncio  # noqa: E402
+import importlib  # noqa: E402
+import sys  # noqa: E402
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+import pytest  # noqa: E402
 
 # On macOS, the default pytest temp dir is typically under /var (e.g. /private/var/folders/...).
 # If /var is considered a dangerous system path, tests must use a safe temp root (like /tmp).
@@ -22,6 +28,10 @@ if sys.platform == "darwin":
 parent_dir = Path(__file__).resolve().parent.parent
 if str(parent_dir) not in sys.path:
     sys.path.insert(0, str(parent_dir))
+# Import zen_cli from this checkout's src/ too. An editable install can point at another checkout (a git worktree
+# shares the main checkout's venv), and its zen_cli would be the one under test otherwise.
+if str(parent_dir / "src") not in sys.path:
+    sys.path.insert(0, str(parent_dir / "src"))
 
 import utils.env as env_config  # noqa: E402
 

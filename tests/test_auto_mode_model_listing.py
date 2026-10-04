@@ -110,8 +110,7 @@ def test_error_listing_respects_env_restrictions(monkeypatch, reset_registry):
     ):
         monkeypatch.setenv(key, value)
 
-    # ANTHROPIC_API_KEY too: the MCP server registers native Anthropic, and importing zen_cli.main (other test
-    # modules do, at collection) copies ~/.zen/.env into os.environ for the whole session.
+    # ANTHROPIC_API_KEY too: the MCP server registers native Anthropic, and the key may be exported in the shell.
     for var in ("XAI_API_KEY", "ANTHROPIC_API_KEY", "CUSTOM_API_URL", "CUSTOM_API_KEY", "DIAL_API_KEY"):
         monkeypatch.delenv(var, raising=False)
     for azure_var in (

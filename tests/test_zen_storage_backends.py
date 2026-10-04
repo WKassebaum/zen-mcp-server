@@ -259,8 +259,16 @@ class TestStorageBackendFactory:
             if key in os.environ:
                 del os.environ[key]
 
-    def test_default_backend(self):
+    def test_default_backend(self, monkeypatch, tmp_path):
         """Test default storage backend selection"""
+        # tests/conftest.py sets ZEN_STORAGE_TYPE=memory for the session; the default is what is unset. HOME points
+        # FileBasedStorage's ~/.zen at a temporary directory.
+        monkeypatch.delenv("ZEN_STORAGE_TYPE", raising=False)
+        monkeypatch.setenv("ZEN_CLI_MODE", "1")  # no cleanup thread
+        monkeypatch.setenv("HOME", str(tmp_path))
+        import zen_cli.utils.storage_backend as sb
+
+        monkeypatch.setattr(sb, "_storage_instance", None)
         storage = get_storage_backend()
         # Should default to file storage
         assert isinstance(storage, FileBasedStorage)

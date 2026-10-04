@@ -27,9 +27,18 @@ from rich.table import Table
 zen_config_dir = Path.home() / ".zen"
 env_file = zen_config_dir / ".env"
 
+
+def _user_env_opted_out() -> bool:
+    """True when ZEN_NO_USER_ENV is 1, true or yes (any case): skip loading ~/.zen/.env.
+
+    The unit tests set it (tests/conftest.py) so a developer's real keys and settings never reach them.
+    """
+    return os.environ.get("ZEN_NO_USER_ENV", "").strip().lower() in ("1", "true", "yes")
+
+
 # CRITICAL: Load CLI env vars BEFORE any imports that use get_env()
 # Must update both os.environ (for os.getenv) and utils.env's _DOTENV_VALUES (for override mode)
-if env_file.exists():
+if env_file.exists() and not _user_env_opted_out():
     from dotenv import dotenv_values
 
     cli_env_values = dotenv_values(env_file)

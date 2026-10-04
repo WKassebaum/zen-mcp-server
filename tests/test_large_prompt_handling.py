@@ -508,6 +508,8 @@ class TestLargePromptHandling:
 
         dummy_context = DummyModelContext(mock_provider)
 
+        # _resolved_model_name makes the tool use dummy_context; without it the tool builds a real ModelContext
+        # and sends the request to the real Gemini provider.
         with patch.object(tool, "get_model_provider", return_value=mock_provider):
             result = await tool.execute(
                 {
@@ -516,11 +518,13 @@ class TestLargePromptHandling:
                     "model": "flash",
                     "working_directory_absolute_path": str(tmp_path),
                     "_model_context": dummy_context,
+                    "_resolved_model_name": "flash",
                 }
             )
 
         output = json.loads(result[0].text)
         assert output["status"] != "resend_prompt"
+        mock_provider.generate_content.assert_called_once()  # the mock served the request, not a real API
 
     @pytest.mark.asyncio
     async def test_mcp_boundary_with_large_internal_context(self):
