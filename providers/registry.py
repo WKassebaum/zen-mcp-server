@@ -46,9 +46,6 @@ class ModelProviderRegistry:
         ProviderType.OPENROUTER,  # Catch-all for cloud models
     ]
 
-    # FAST_RESPONSE picks by rank (for providers with no preference list) skip models scored below this.
-    FAST_RESPONSE_MIN_INTELLIGENCE = 15
-
     def __new__(cls):
         """Singleton pattern for registry."""
         if cls._instance is None:
@@ -417,7 +414,10 @@ class ModelProviderRegistry:
             capabilities = provider.get_capabilities(model_name)
             keys.setdefault(
                 capabilities.model_name,
-                (capabilities.get_effective_capability_rank(), len(capabilities.supported_media_kinds())),
+                (
+                    capabilities.get_effective_capability_rank(),
+                    len(capabilities.supported_media_kinds() & frozenset(provider.MEDIA_KINDS)),
+                ),
             )
         ranked = sorted(keys.items(), key=lambda item: (-item[1][0], -item[1][1], item[0]))
         return [name for name, _ in ranked[:limit]]
@@ -426,19 +426,15 @@ class ModelProviderRegistry:
     def _pick_by_rank(cls, provider: ModelProvider, category: "ToolModelCategory", allowed_models: list[str]) -> str:
         """Pick from a provider that states no preference by ranking its allowed canonical models.
 
-        EXTENDED_REASONING and BALANCED take the highest-ranked model. FAST_RESPONSE backs ``chat``, so quality
-        still matters: it takes the lowest-ranked model with intelligence_score >= FAST_RESPONSE_MIN_INTELLIGENCE,
-        or the lowest-ranked model when none reaches it.
+        EXTENDED_REASONING and BALANCED take the highest-ranked model. FAST_RESPONSE takes the provider's
+        pick_fast_by_rank: the lowest-ranked model, skipping premium and low-scored ones while others remain.
         """
         from tools.models import ToolModelCategory
 
+        if category == ToolModelCategory.FAST_RESPONSE:
+            return provider.pick_fast_by_rank(allowed_models) or allowed_models[0]
         ranked = provider.rank_models(allowed_models)
-        if not ranked:
-            return allowed_models[0]
-        if category != ToolModelCategory.FAST_RESPONSE:
-            return ranked[0].model_name
-        capable = [caps for caps in ranked if caps.intelligence_score >= cls.FAST_RESPONSE_MIN_INTELLIGENCE]
-        return (capable or ranked)[-1].model_name
+        return ranked[0].model_name if ranked else allowed_models[0]
 
     @classmethod
     def get_preferred_fallback_model(

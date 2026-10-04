@@ -167,8 +167,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
             if preferred:
                 return preferred
             # No allowed model is on the list: take the lowest-ranked one (allowed_models[0] is the most capable).
-            ranked = self.rank_models(allowed_models)
-            return ranked[-1].model_name if ranked else allowed_models[0]
+            return self.pick_fast_by_rank(allowed_models) or allowed_models[0]
 
         else:  # BALANCED or default
             # Prefer GPT-6 Sol for best all-round performance per dollar (1.05M context, $2/$10)

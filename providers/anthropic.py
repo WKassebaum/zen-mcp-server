@@ -300,8 +300,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             if preferred:
                 return preferred
             # No allowed model is on the list: take the lowest-ranked one (allowed_models[0] is the most capable).
-            ranked = self.rank_models(allowed_models)
-            return ranked[-1].model_name if ranked else allowed_models[0]
+            return self.pick_fast_by_rank(allowed_models) or allowed_models[0]
 
         else:  # BALANCED
             # Sonnet 5.5 roughly matches Opus 5.5 (GDPval-AA 1844 vs 1846) at half the price ($2/$10).

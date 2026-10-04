@@ -125,6 +125,20 @@ def test_anthropic_fast_response_falls_back_to_the_lowest_ranked_model():
     assert picks[EXTENDED] == "claude-fable-5-1"
 
 
+@pytest.mark.parametrize(
+    "allowed,expected",
+    [
+        ("gpt-5.5,gpt-5.5-pro", "gpt-5.5"),  # same rank: the premium -pro model used to win the name tie-break
+        ("gpt-6-astra,gpt-5.4-pro", "gpt-6-astra"),  # gpt-5.4-pro ranks lower but is premium
+        ("gpt-5.5-pro", "gpt-5.5-pro"),  # nothing else allowed
+        ("gpt-5.5,o3", "gpt-5.5"),  # o3 scores 14, below the FAST_RESPONSE floor
+    ],
+)
+def test_openai_fast_response_fallback_skips_premium_and_below_floor_models(allowed, expected):
+    picks = _picks({"OPENAI_API_KEY": "test-key", "OPENAI_ALLOWED_MODELS": allowed})
+    assert picks[FAST] == expected
+
+
 # ---------------------------------------------------------------------------
 # OpenRouter, Azure, DIAL and Custom state no preference: the first provider with allowed models picks by rank
 # ---------------------------------------------------------------------------
@@ -132,13 +146,21 @@ def test_anthropic_fast_response_falls_back_to_the_lowest_ranked_model():
 
 def test_openrouter_allow_list_sends_chat_to_the_cheaper_capable_model():
     # The docstring example: chat used to go to Opus 5.5 (alphabetical). mistral-large scores 14, below the
-    # FAST_RESPONSE floor of 15, so chat takes the lower-ranked of the two 19-score models.
+    # FAST_RESPONSE floor of 15. Opus 5.5 and Sonnet 5.5 rank the same (106): Sonnet wins only on the name tie-break.
     picks = _picks({"OPENROUTER_API_KEY": "test-key", "OPENROUTER_ALLOWED_MODELS": "opus,sonnet,mistral"})
     assert picks == {
         EXTENDED: "anthropic/claude-opus-5.5",
         BALANCED: "anthropic/claude-opus-5.5",
         FAST: "anthropic/claude-sonnet-5.5",
     }
+
+
+def test_openrouter_chat_skips_premium_models():
+    # o3-pro ranks below Sonnet 5.5 and clears the floor, but it is a premium model
+    picks = _picks(
+        {"OPENROUTER_API_KEY": "test-key", "OPENROUTER_ALLOWED_MODELS": "anthropic/claude-sonnet-5.5,openai/o3-pro"}
+    )
+    assert picks[FAST] == "anthropic/claude-sonnet-5.5"
 
 
 def test_fast_response_takes_the_lowest_ranked_model_when_none_reaches_the_floor():

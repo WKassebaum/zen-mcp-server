@@ -123,7 +123,7 @@ def test_estimate_for_no_media_looks_up_no_rate():
 @pytest.mark.parametrize(
     "model,pdf_rate,video_rate",
     [
-        ("gpt-5.5", 1_500, VIDEO_TOKENS_PER_SECOND),
+        ("gpt-5.5", 2_500, VIDEO_TOKENS_PER_SECOND),
         ("gpt-6-luna", 4_000, VIDEO_TOKENS_PER_SECOND),  # measured 2,902: keeps the OpenAI provider rate
         ("gemini-3.8-flash", PDF_TOKENS_PER_PAGE, 160),
         ("gemini-2.5-pro", PDF_TOKENS_PER_PAGE, VIDEO_TOKENS_PER_SECOND),
@@ -143,8 +143,8 @@ def test_openai_page_rates_are_set_only_where_measured():
     rates = {model: entry.get("pdf_tokens_per_page") for model, entry in _catalog("openai_models.json").items()}
     measured_1025 = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "gpt-5.5", "gpt-5.4", "gpt-5.2", "o4-mini"]
     measured_323 = ["gpt-5", "gpt-5.1", "o3", "gpt-4.1"]
-    assert {model: rates[model] for model in measured_1025} == dict.fromkeys(measured_1025, 1_500)
-    assert {model: rates[model] for model in measured_323} == dict.fromkeys(measured_323, 500)
+    assert {model: rates[model] for model in measured_1025} == dict.fromkeys(measured_1025, 2_500)
+    assert {model: rates[model] for model in measured_323} == dict.fromkeys(measured_323, 1_500)
     unset = sorted(model for model, rate in rates.items() if rate is None)
     assert [model for model in unset if model.startswith("gpt-6") or model.endswith("-pro")] == [
         "gpt-5.2-pro",
@@ -170,8 +170,8 @@ def test_gemini_video_rates_are_set_for_gemini_3_only():
     assert all("pdf_tokens_per_page" not in entry for entry in catalog.values())
 
 
-# (model, attachment, tokens reserved): 3 pages at gpt-5.5's 1,500, and 3 s at gemini-3.8-flash's 160
-RESERVES = [("gpt-5.5", "pdf", 4_500), ("gemini-3.8-flash", "video", 480)]
+# (model, attachment, tokens reserved): 3 pages at gpt-5.5's 2,500, and 3 s at gemini-3.8-flash's 160
+RESERVES = [("gpt-5.5", "pdf", 7_500), ("gemini-3.8-flash", "video", 480)]
 
 
 def _attachment(kind, tmp_path):

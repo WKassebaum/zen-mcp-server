@@ -49,6 +49,8 @@ class ModelProvider(ABC):
     # catalog rate (ModelCapabilities) wins over these; None falls back to the utils.media globals of the same name.
     PDF_TOKENS_PER_PAGE: ClassVar[Optional[int]] = None
     VIDEO_TOKENS_PER_SECOND: ClassVar[Optional[int]] = None
+    # Rank-based FAST_RESPONSE picks (pick_fast_by_rank) skip models scored below this unless nothing else is left.
+    FAST_RESPONSE_MIN_INTELLIGENCE: ClassVar[int] = 15
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize the provider with API key and optional configuration."""
@@ -388,10 +390,22 @@ class ModelProvider(ABC):
         for name in model_names:
             try:
                 capabilities = self.get_capabilities(name)
-            except ValueError:
+            except (ValueError, AttributeError):
                 continue
             models.setdefault(capabilities.model_name, capabilities)
         return sorted(models.values(), key=lambda caps: (-caps.get_effective_capability_rank(), caps.model_name))
+
+    def pick_fast_by_rank(self, model_names: list[str]) -> Optional[str]:
+        """The FAST_RESPONSE pick when no preference list applies: the lowest-ranked model of ``model_names``.
+
+        FAST_RESPONSE backs ``chat``, so quality and price still matter. Premium models (the -pro tier) are
+        skipped, and so are models scored below FAST_RESPONSE_MIN_INTELLIGENCE, unless nothing else is left.
+        None when no name resolves.
+        """
+        ranked = self.rank_models(model_names)
+        pool = [caps for caps in ranked if not caps.premium] or ranked
+        pool = [caps for caps in pool if caps.intelligence_score >= self.FAST_RESPONSE_MIN_INTELLIGENCE] or pool
+        return pool[-1].model_name if pool else None
 
     def get_model_registry(self) -> Optional[dict[str, Any]]:
         """Return the model registry backing this provider, if any."""
