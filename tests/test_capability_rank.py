@@ -65,6 +65,7 @@ class _MediaProvider:
     """Just enough provider for find_media_capable_models: an encoder for every kind and fixed capabilities."""
 
     MEDIA_KINDS = frozenset(MediaKind)
+    MEDIA_AUTO_ROUTING = True
 
     def __init__(self, *capabilities: ModelCapabilities):
         self._capabilities = {caps.model_name: caps for caps in capabilities}

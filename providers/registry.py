@@ -384,10 +384,14 @@ class ModelProviderRegistry:
 
     @classmethod
     def _filter_models_for_media(cls, provider, model_names: list[str], required_media: frozenset) -> list[str]:
-        """Keep models whose flags cover required_media on a provider that can encode it."""
+        """Keep models whose flags cover required_media on a provider that can encode it.
+
+        A provider with MEDIA_AUTO_ROUTING False keeps none: auto mode and find_media_capable_models never pick
+        it for media. A model the user names is checked against its own flags instead (_validate_media_support).
+        """
         if not required_media:
             return model_names
-        if not required_media <= frozenset(provider.MEDIA_KINDS):
+        if not provider.MEDIA_AUTO_ROUTING or not required_media <= frozenset(provider.MEDIA_KINDS):
             return []
         capable = []
         for name in model_names:
@@ -405,6 +409,7 @@ class ModelProviderRegistry:
         get_available_models() lists aliases too; every alias resolves to the same capabilities, so
         dedupe on the canonical ``model_name`` or one model would be listed under several names.
         Media breadth is not part of the capability rank; here it breaks ties between equal ranks.
+        Explicit-only providers (MEDIA_AUTO_ROUTING False) are left out, as in auto mode.
         """
         keys: dict[str, tuple[int, int]] = {}
         for model_name, provider_type in cls.get_available_models(respect_restrictions=True).items():

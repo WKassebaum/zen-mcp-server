@@ -25,6 +25,10 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
 
     REGISTRY_CLASS = XAIModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
+    # Past one page, xAI reads an attached file through its server-side attachment_search tool ($5 per 1,000
+    # calls, tokens cumulative over its passes), which may read a long document only in part. Media reaches Grok
+    # only when the user names a Grok model; auto mode keeps sending it to providers that read every page.
+    MEDIA_AUTO_ROUTING = False
 
     # Canonical model identifiers used for category routing.
     PRIMARY_MODEL = "grok-4.7"

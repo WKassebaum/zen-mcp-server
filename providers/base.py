@@ -42,6 +42,9 @@ class ModelProvider(ABC):
     # Media kinds (utils.media.MediaKind) this provider can encode into a request.
     # Empty means the provider refuses media rather than silently dropping it.
     MEDIA_KINDS: ClassVar[frozenset] = frozenset()
+    # Providers set this False when their media handling is weaker than full reading, so media reaches them only
+    # when the user names one of their models: auto mode and the capable-model hints skip them for media requests.
+    MEDIA_AUTO_ROUTING: ClassVar[bool] = True
     # Largest total of base64-encoded media one request may carry inline (None: not checked here; Gemini
     # uploads larger media to its Files API). Checked by ensure_media_encodable before any API call.
     MEDIA_REQUEST_MAX_BYTES: ClassVar[Optional[int]] = None
