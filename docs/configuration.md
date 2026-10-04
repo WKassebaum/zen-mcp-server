@@ -222,7 +222,15 @@ PDF, audio and video files passed to a tool (`-f` on the CLI, `absolute_file_pat
 - **Claude** (`ANTHROPIC_API_KEY`) and **OpenAI** (`OPENAI_API_KEY`): PDF.
 - **Grok** (`XAI_API_KEY`): PDF, only when you name a Grok model, for example `zen chat "Summarize this" --model grok-4.7 -f report.pdf`.
 
-In auto mode, zen picks a model that takes every attached kind. It never routes a PDF to Grok, even when `XAI_API_KEY` is set and xAI comes first in provider priority: Gemini, Claude and OpenAI read every page, while xAI searches any document longer than about a page with a server-side tool (`attachment_search`). That tool is billed at $5 per 1,000 calls plus the tokens of each search pass, and it may read a long document only in part. zen sends Grok PDF requests with `store=false`; xAI's default, `store=true`, keeps them for 30 days. A Grok request takes at most 50 MB of PDF once base64-encoded, about 37.5 MB of raw files.
+In auto mode, zen picks a model that takes every attached kind. It never routes a PDF to Grok, even when `XAI_API_KEY` is set and xAI comes first in provider priority: Gemini, Claude and OpenAI read every page, while xAI may read an attached document through a server-side search tool (`attachment_search`). In zen's probes on 2026-10-03, the grok-4.20 models searched even a one-page PDF, and the other Grok models read four pages without searching. That tool is billed at $5 per 1,000 calls plus the tokens of each search pass, and it may read a long document only in part. zen sends Grok PDF requests with `store=false`; xAI's default, `store=true`, keeps them for 30 days. A Grok request takes at most 50 MB of PDF once base64-encoded, about 37.5 MB of raw files.
+
+What counts as naming a Grok model:
+- `--model` or the `model` argument on the call that carries the PDF.
+- `DEFAULT_MODEL` set to a Grok model.
+
+Conversation follow-ups:
+- **Without `model`:** a follow-up that carries a PDF (attached now, or carried over from the first turn) goes through auto routing, even if an earlier turn ran on Grok. Grok is not reused for it.
+- **Naming Grok:** the first turn's PDF is sent again, and xAI's search may run, and be billed, again.
 
 A named model that cannot take the attached media is refused before any API call, with a list of models available with your current keys that can.
 

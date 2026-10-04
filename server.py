@@ -903,7 +903,16 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
             # Get list of available models for error message
             available_models = list(ModelProviderRegistry.get_available_models(respect_restrictions=True).keys())
             tool_category = tool.get_model_category()
-            suggested_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
+            from utils.media import MediaNotSupportedError, media_kinds_from_arguments
+
+            # Suggest a model that takes this call's media, as auto mode would pick it; with no such model, the
+            # plain category pick (naming it explicitly is then the user's choice).
+            try:
+                suggested_model = ModelProviderRegistry.get_preferred_fallback_model(
+                    tool_category, required_media=media_kinds_from_arguments(arguments)
+                )
+            except MediaNotSupportedError:
+                suggested_model = ModelProviderRegistry.get_preferred_fallback_model(tool_category)
 
             error_message = (
                 f"Model '{model_name}' is not available with current API keys. "
@@ -977,6 +986,24 @@ def _media_unavailable_error(tool_name: str, requested_model: str, exc: Exceptio
         metadata={"tool_name": tool_name, "requested_model": requested_model},
     )
     return ToolExecutionError(error_output.model_dump_json())
+
+
+def _carries_media_to_explicit_only_provider(
+    model_name: str, arguments: dict[str, Any], initial_context: Optional[dict[str, Any]]
+) -> bool:
+    """Whether reusing ``model_name`` would hand this call's media to a provider with MEDIA_AUTO_ROUTING False.
+
+    The call's media is what its own file arguments name, plus the first turn's files where the call names none:
+    reconstruct_thread_context merges initial_context into the arguments the same way.
+    """
+    from providers.registry import ModelProviderRegistry
+    from utils.media import media_kinds_from_arguments
+
+    provider = ModelProviderRegistry.get_provider_for_model(model_name)
+    if provider is None or provider.MEDIA_AUTO_ROUTING:
+        return False
+    effective = {**(initial_context or {}), **arguments}
+    return bool(media_kinds_from_arguments(effective))
 
 
 def parse_model_option(model_string: str) -> tuple[str, Optional[str]]:
@@ -1208,6 +1235,14 @@ async def reconstruct_thread_context(arguments: dict[str, Any]) -> dict[str, Any
         # Find the last assistant turn to get the model used
         for turn in reversed(context.turns):
             if turn.role == "assistant" and turn.model_name:
+                if _carries_media_to_explicit_only_provider(turn.model_name, arguments, context.initial_context):
+                    # Media reaches an explicit-only provider (xAI) only when this call names its model. Auto mode
+                    # often picks Grok for text, so reusing it here would send it media nobody routed to it.
+                    logger.debug(
+                        f"[CONVERSATION_DEBUG] Not reusing {turn.model_name}: this call carries media and its "
+                        "provider takes media only for a named model"
+                    )
+                    break
                 arguments["model"] = turn.model_name
                 logger.debug(f"[CONVERSATION_DEBUG] Using model from previous turn: {turn.model_name}")
                 break

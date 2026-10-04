@@ -31,7 +31,8 @@ ENCODERS = {"google": GeminiModelProvider, "anthropic": AnthropicProvider, "open
 
 @pytest.fixture
 def every_grok_model_takes_pdf(monkeypatch):
-    """Every Grok model is flagged supports_pdf (xAI encodes PDFs), so only MEDIA_AUTO_ROUTING keeps them out."""
+    """Every Grok model is flagged supports_pdf, as the catalog has done since the 2026-10-03 probe; patched in
+    so these tests keep proving that only MEDIA_AUTO_ROUTING keeps PDFs from Grok if a flag is ever dropped."""
     assert XAIModelProvider.MEDIA_KINDS == PDF_ONLY
     for name, capabilities in list(XAIModelProvider.MODEL_CAPABILITIES.items()):
         monkeypatch.setitem(XAIModelProvider.MODEL_CAPABILITIES, name, replace(capabilities, supports_pdf=True))
