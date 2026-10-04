@@ -26,7 +26,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
     REGISTRY_CLASS = OpenAIModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
-    # The PDF encoder lives in OpenAICompatibleProvider; only this subclass opts in, so xAI, OpenRouter,
+    # The PDF encoder lives in OpenAICompatibleProvider; only this subclass and xAI opt in, so OpenRouter,
     # Azure, DIAL and Custom keep refusing media through ensure_media_encodable.
     MEDIA_KINDS = frozenset({MediaKind.PDF})
     # OpenAI accepts up to 50 MB of file input per request; counted base64-encoded to stay on the safe side.

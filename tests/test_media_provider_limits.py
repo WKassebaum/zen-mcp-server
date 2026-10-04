@@ -73,7 +73,10 @@ def test_provider_with_a_cap_accepts_media_under_it():
 
 
 def test_unsupported_kind_is_reported_before_the_cap():
-    with patch.object(XAIModelProvider, "MEDIA_REQUEST_MAX_BYTES", 1):
+    with (
+        patch.object(XAIModelProvider, "MEDIA_KINDS", frozenset()),  # xAI sends PDFs since phase 3
+        patch.object(XAIModelProvider, "MEDIA_REQUEST_MAX_BYTES", 1),
+    ):
         with pytest.raises(MediaNotSupportedError, match="cannot send"):
             XAIModelProvider(api_key="test-key").ensure_media_encodable(_pdf())
 

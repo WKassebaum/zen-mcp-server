@@ -146,10 +146,11 @@ def test_empty_media_list_is_a_media_free_request():
     assert "media_attached" not in response.metadata
 
 
-def test_xai_refuses_media_before_any_call():
+def test_xai_refuses_media_it_cannot_encode_before_any_call():
+    # xAI takes PDFs since phase 3 (tests/test_media_xai.py); video it still cannot send.
     provider = _provider(XAIModelProvider)
-    with pytest.raises(MediaNotSupportedError, match="zebra.pdf"):
-        provider.generate_content("What code?", "grok-4.6", media=_media())
+    with pytest.raises(MediaNotSupportedError, match="otter.mp4"):
+        provider.generate_content("What is shown?", "grok-4.6", media=classify_media([str(FIXTURES / "otter.mp4")])[1])
     provider._client.chat.completions.create.assert_not_called()
     provider._client.responses.create.assert_not_called()
 

@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, ClassVar, Optional
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
+from utils.media import MediaKind
+
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.xai import XAIModelRegistry
 from .registry_provider_mixin import RegistryBackedProviderMixin
@@ -25,10 +27,18 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
 
     REGISTRY_CLASS = XAIModelRegistry
     MODEL_CAPABILITIES: ClassVar[dict[str, ModelCapabilities]] = {}
+    # PDFs go inline as input_file parts on /v1/responses (_use_responses_endpoint); Chat Completions refuses them.
+    MEDIA_KINDS = frozenset({MediaKind.PDF})
     # Past one page, xAI reads an attached file through its server-side attachment_search tool ($5 per 1,000
     # calls, tokens cumulative over its passes), which may read a long document only in part. Media reaches Grok
     # only when the user names a Grok model; auto mode keeps sending it to providers that read every page.
     MEDIA_AUTO_ROUTING = False
+    # The design's figure, counted base64-encoded. xAI's docs disagree: 50 MB per file in the upload reference
+    # (HTTP 413), 512 MB in the files guide.
+    MEDIA_REQUEST_MAX_BYTES = 50_000_000
+    # Measured 2026-10-03 on grok-4.7: 1,006 tokens for one scanned page, and about 2,190 per page over four
+    # scanned pages, counting the search pass's second inference.
+    PDF_TOKENS_PER_PAGE = 2_500
 
     # Canonical model identifiers used for category routing.
     PRIMARY_MODEL = "grok-4.7"
@@ -45,6 +55,18 @@ class XAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider):
     def get_provider_type(self) -> ProviderType:
         """Get the provider type."""
         return ProviderType.XAI
+
+    def _use_responses_endpoint(self, capabilities: Optional[ModelCapabilities], media: list) -> bool:
+        """Media goes to /v1/responses: Chat Completions answers 400 "File content is not supported on
+        /v1/chat/completions". Media-free requests stay on Chat Completions."""
+        return bool(media) or super()._use_responses_endpoint(capabilities, media)
+
+    def _responses_reasoning(self, capabilities: Optional[ModelCapabilities]) -> Optional[dict]:
+        """``reasoning`` only for models with extended thinking: grok-4.20-0309-non-reasoning and grok-build-0.1
+        answer 400 "does not support parameter reasoningEffort" on /v1/responses."""
+        if capabilities is None or not capabilities.supports_extended_thinking:
+            return None
+        return super()._responses_reasoning(capabilities)
 
     def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
         """Get XAI's preferred model for a given category from allowed models.

@@ -412,6 +412,25 @@ class OpenAICompatibleProvider(ModelProvider):
                 raise ValueError(f"Responses API request: unsupported content part type {part_type!r}")
         return parts
 
+    def _use_responses_endpoint(self, capabilities: Optional[ModelCapabilities], media: list) -> bool:
+        """Whether this request goes to /v1/responses: the model's use_openai_response_api flag.
+
+        ``media`` is the request's attachments, already checked by ensure_media_encodable. A provider whose
+        Chat Completions endpoint refuses media overrides this to send media requests to /v1/responses (xAI).
+        """
+        return bool(getattr(capabilities, "use_openai_response_api", False))
+
+    def _responses_reasoning(self, capabilities: Optional[ModelCapabilities]) -> Optional[dict]:
+        """The Responses API ``reasoning`` parameter for this model, or None to leave it out.
+
+        Every model on the endpoint gets it here: the nested reasoning object from OpenAI's documentation, with
+        the model's default_reasoning_effort or medium. A provider overrides this for models that reject it.
+        """
+        effort = "medium"
+        if capabilities and capabilities.default_reasoning_effort:
+            effort = capabilities.default_reasoning_effort
+        return {"effort": effort}
+
     def _generate_with_responses_endpoint(
         self,
         model_name: str,
@@ -443,22 +462,16 @@ class OpenAICompatibleProvider(ModelProvider):
                 input_messages.append({"role": "assistant", "content": self._responses_content(content, "output_text")})
 
         # Prepare completion parameters for responses endpoint
-        # Based on OpenAI documentation, use nested reasoning object for responses endpoint
-        effort = "medium"
-        if capabilities and capabilities.default_reasoning_effort:
-            effort = capabilities.default_reasoning_effort
-
-        completion_params = {
-            "model": model_name,
-            "input": input_messages,
-            "reasoning": {"effort": effort},
-            # zen resends the full conversation on every turn and never chains requests
-            # with previous_response_id, so there is no reason for the provider to retain
-            # the prompt (which often includes file contents). OpenAI defaults store to
-            # true, so opt out explicitly. OpenRouter's /responses accepts only store:false
-            # and rejects store:true (Issue #348), so the same value works for both.
-            "store": False,
-        }
+        completion_params = {"model": model_name, "input": input_messages}
+        reasoning = self._responses_reasoning(capabilities)
+        if reasoning is not None:
+            completion_params["reasoning"] = reasoning
+        # zen resends the full conversation on every turn and never chains requests
+        # with previous_response_id, so there is no reason for the provider to retain
+        # the prompt (which often includes file contents). OpenAI defaults store to
+        # true, so opt out explicitly. OpenRouter's /responses accepts only store:false
+        # and rejects store:true (Issue #348), so the same value works for both.
+        completion_params["store"] = False
 
         # Add max tokens if specified (the Responses API calls it max_output_tokens)
         if max_output_tokens:
@@ -505,6 +518,11 @@ class OpenAICompatibleProvider(ModelProvider):
             }
             if media_attached:
                 metadata["media_attached"] = media_attached
+            # xAI's usage counts the server-side tool calls it ran (attachment_search reads PDFs past one page),
+            # each billed apart from tokens. OpenAI's usage has no such field.
+            server_side_tool_calls = getattr(getattr(response, "usage", None), "num_server_side_tools_used", None)
+            if isinstance(server_side_tool_calls, int) and not isinstance(server_side_tool_calls, bool):
+                metadata["server_side_tool_calls"] = server_side_tool_calls
 
             return ModelResponse(
                 content=content,
@@ -652,18 +670,14 @@ class OpenAICompatibleProvider(ModelProvider):
                     continue  # Skip unsupported parameters for reasoning models
                 completion_params[key] = value
 
-        # Check if this model needs the Responses API endpoint
+        # Check if this request needs the Responses API endpoint
         # Prefer capability metadata; fall back to static map when capabilities unavailable
-        use_responses_api = False
-        if capabilities is not None:
-            use_responses_api = getattr(capabilities, "use_openai_response_api", False)
-        else:
-            static_capabilities = self.get_all_model_capabilities().get(resolved_model)
-            if static_capabilities is not None:
-                use_responses_api = getattr(static_capabilities, "use_openai_response_api", False)
+        endpoint_capabilities = capabilities
+        if endpoint_capabilities is None:
+            endpoint_capabilities = self.get_all_model_capabilities().get(resolved_model)
 
-        if use_responses_api:
-            # These models are served only by the /v1/responses endpoint.
+        if self._use_responses_endpoint(endpoint_capabilities, media):
+            # These requests are served only by the /v1/responses endpoint.
             # If it fails, we should not fall back to chat/completions
             return self._generate_with_responses_endpoint(
                 model_name=resolved_model,
