@@ -99,11 +99,17 @@ def project_path(tmp_path):
     return test_dir
 
 
+DUMMY_KEY = "dummy-key-for-tests"
+# Unit tests run with these providers registered on a dummy key, and with no key for the others (CI conditions)
+DUMMY_KEY_VARS = ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
+UNSET_KEY_VARS = ("ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "DIAL_API_KEY", "AZURE_OPENAI_API_KEY")
+
+
 def _set_dummy_keys_if_missing():
     """Set dummy API keys only when they are completely absent."""
-    for var in ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY"):
+    for var in DUMMY_KEY_VARS:
         if not os.environ.get(var):
-            os.environ[var] = "dummy-key-for-tests"
+            os.environ[var] = DUMMY_KEY
 
 
 # Pytest configuration
@@ -200,6 +206,21 @@ def mock_provider_availability(request, monkeypatch):
         return False
 
     monkeypatch.setattr(BaseTool, "is_effective_auto_mode", mock_is_effective_auto_mode)
+
+
+@pytest.fixture(autouse=True)
+def unit_tests_use_dummy_keys(request, monkeypatch):
+    """Replace real API keys for every test not marked integration, as in CI.
+
+    Real keys reach local runs from the shell and from the checkout's .env (loaded into os.environ by utils.env),
+    and an unmocked provider call with one is paid. Integration tests keep the environment's keys.
+    """
+    if request.node.get_closest_marker("integration"):
+        return
+    for var in DUMMY_KEY_VARS:
+        monkeypatch.setenv(var, DUMMY_KEY)
+    for var in UNSET_KEY_VARS:
+        monkeypatch.delenv(var, raising=False)
 
 
 @pytest.fixture(autouse=True)

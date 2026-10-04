@@ -98,10 +98,17 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **System prompt role:** the system prompt is sent as a `user` message instead of `instructions` or a `developer` message. `Responses.create` accepts `instructions` from openai 1.66.0 onwards.
 - **Multi-turn continuation never run live:** earlier assistant turns are replayed as `output_text` parts. The `responses_api_endpoint` simulator test covers one turn only and is not in `TEST_REGISTRY`.
 
-### Unit suite is not hermetic in CI
-- **Recorded:** 2026-09-28
-- **Fixed (2026-10-03):** with no real API keys (CI conditions), only the three alias-restriction failures remain. `tests/test_large_prompt_handling.py::test_large_file_context_does_not_trigger_mcp_prompt_limit` no longer makes a real Gemini request (it passed `_model_context` without `_resolved_model_name`, so the tool built a real context; it now passes both and asserts the mock served the call). `tests/test_zen_storage_backends.py::test_default_backend` sets its own environment, HOME and storage singleton. `tests/conftest.py` sets `ZEN_NO_USER_ENV=1` before anything imports `zen_cli.main`, which then skips loading `~/.zen/.env`, so the user's config file no longer reaches unit runs; it also puts the checkout's own `src/` first on `sys.path`, since a worktree's editable install otherwise imports the main checkout's `zen_cli`.
-- **Still open:** keys exported in the shell (`GEMINI_API_KEY` and `OPENAI_API_KEY` on the developer machine) still reach local unit runs, and `utils/env.py` loads the checkout's own `.env` at import without overriding exported variables, so an unmocked provider call is still possible, and paid, locally. CI has neither. Replacing real keys with dummies in `tests/conftest.py`, or blocking sockets in unit tests, would close it.
+### Unit tests still reach the network with dummy keys
+- **Recorded:** 2026-09-28; narrowed 2026-10-03.
+- **Fixed 2026-10-03:**
+  - `tests/conftest.py` gives every test not marked integration dummy Gemini, OpenAI and xAI keys and no other provider key (`unit_tests_use_dummy_keys`). Real keys from the shell, the checkout's `.env` (loaded by `utils/env.py`) and `~/.zen/.env` no longer reach unit runs; `ZEN_NO_USER_ENV=1` stops `zen_cli.main` loading the last one. `tests/test_unit_suite_keys.py` guards both.
+  - The suite went from 37 s to 13 s with the developer's keys exported, because `tests/test_large_prompt_handling.py` had been making paid Gemini calls on every local run.
+  - The checkout's own `src/` comes first on `sys.path`, since a worktree's editable install otherwise imports the main checkout's `zen_cli`.
+- **Still open:** 9 unit tests open real connections, now with a dummy key, so they fail fast and cost nothing. A socket-blocking run on 2026-10-03 found them:
+  - **Gemini API:** 5 in `test_large_prompt_handling.py` (chat, prompt-file, boundary and empty-prompt cases) and 3 in `test_collaboration.py::TestDynamicContextRequests`. The `test_collaboration.py` ones reach Google despite mocking `get_provider`.
+  - **GitHub:** `test_server.py::test_handle_version`, through the version check.
+
+  Mock them, or block sockets for unit tests, to make the suite offline.
 
 ### Simulator tests omit `working_directory_absolute_path`
 - **Recorded:** 2026-09-28
