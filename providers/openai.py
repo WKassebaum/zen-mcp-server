@@ -33,7 +33,7 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
     MEDIA_REQUEST_MAX_BYTES = 50_000_000
     # Extracted text plus a page image per page. Measured 2026-10-03 on a letter-size scanned page: gpt-6-luna and
     # gpt-6-astra (Responses API) 2,902 tokens, gpt-5.5 (Chat Completions) 1,025. Sized for the gpt-6 models plus
-    # 1,000 for a dense page's text, so it errs high on gpt-5.x (a per-family rate is in BACKLOG).
+    # 1,000 for a dense page's text. Models measured lower set their own pdf_tokens_per_page in conf/openai_models.json.
     PDF_TOKENS_PER_PAGE = 4_000
 
     def __init__(self, api_key: str, **kwargs):

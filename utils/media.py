@@ -346,7 +346,8 @@ MEDIA_MAX_BYTES = 2_000_000_000
 # (https://ai.google.dev/gemini-api/docs/media-resolution, checked 2026-09-28).
 # Video is set from measured usage instead (count_tokens, 2026-10-01): Gemini 2.5 models charge more
 # than the documented figure, 1149 tokens for the 3 s fixture (383/s), 321/s at 10 s and 304/s at
-# 30 s with audio; Gemini 3 models charge about 100-127/s. 400/s covers the worst case measured.
+# 30 s with audio; Gemini 3 models charge about 100-127/s. 400/s covers the worst case measured; Gemini 3 models
+# override it with their own video_tokens_per_second (160) in conf/gemini_models.json.
 # tests/test_media_live.py checks all three against real usage.
 VIDEO_TOKENS_PER_SECOND = 400
 AUDIO_TOKENS_PER_SECOND = 32
@@ -406,12 +407,40 @@ def check_inline_media_size(media: Iterable[MediaAttachment], max_request_bytes:
         )
 
 
+def _attribute(obj: Any, name: str) -> Any:
+    """``obj.name``, or None when it is missing or reading it raises.
+
+    ModelContext.capabilities and .provider resolve through the registry and raise for a model it cannot serve.
+    """
+    if obj is None:
+        return None
+    try:
+        return getattr(obj, name, None)
+    except Exception:
+        return None
+
+
+def _positive_int(value: Any) -> int | None:
+    # MagicMock contexts in older tests return mocks here: only a real positive int counts, and a bool is not one
+    return value if isinstance(value, int) and not isinstance(value, bool) and value > 0 else None
+
+
+def _media_rate(model_context: Any, capability_field: str, provider_attribute: str, default: int) -> int:
+    """The model's own catalog rate, else its provider's class rate, else ``default``."""
+    rate = _positive_int(_attribute(_attribute(model_context, "capabilities"), capability_field))
+    if rate is None:
+        rate = _positive_int(_attribute(_attribute(model_context, "provider"), provider_attribute))
+    return default if rate is None else rate
+
+
 def pdf_tokens_per_page(model_context: Any) -> int:
-    """The PDF page rate of the model context's provider, or PDF_TOKENS_PER_PAGE when it sets none."""
-    provider = getattr(model_context, "provider", None) if model_context is not None else None
-    rate = getattr(provider, "PDF_TOKENS_PER_PAGE", None)
-    # MagicMock contexts in older tests return mocks here: only a real positive int counts
-    return rate if isinstance(rate, int) and not isinstance(rate, bool) and rate > 0 else PDF_TOKENS_PER_PAGE
+    """The model's ``pdf_tokens_per_page``, else its provider's PDF_TOKENS_PER_PAGE, else PDF_TOKENS_PER_PAGE."""
+    return _media_rate(model_context, "pdf_tokens_per_page", "PDF_TOKENS_PER_PAGE", PDF_TOKENS_PER_PAGE)
+
+
+def video_tokens_per_second(model_context: Any) -> int:
+    """The model's ``video_tokens_per_second``, else its provider's VIDEO_TOKENS_PER_SECOND, else the global one."""
+    return _media_rate(model_context, "video_tokens_per_second", "VIDEO_TOKENS_PER_SECOND", VIDEO_TOKENS_PER_SECOND)
 
 
 def _inflated_pages(stream: memoryview, budget: int, max_pages: int) -> tuple[int, int, bool]:
@@ -650,11 +679,14 @@ def _duration_s(attachment: MediaAttachment) -> float | None:
     return None
 
 
-def estimate_media_tokens(media: Iterable[MediaAttachment], page_rate: int = PDF_TOKENS_PER_PAGE) -> int:
+def estimate_media_tokens(
+    media: Iterable[MediaAttachment], page_rate: int = PDF_TOKENS_PER_PAGE, video_rate: int = VIDEO_TOKENS_PER_SECOND
+) -> int:
     """Input tokens the attachments are expected to cost, erring high.
 
-    ``page_rate`` is the provider's estimated tokens per PDF page (pdf_tokens_per_page). Callers
-    reserve this from the text-file budget before embedding text files. It never rejects a
+    ``page_rate`` and ``video_rate`` are the model's estimated tokens per PDF page and per second of
+    video (pdf_tokens_per_page, video_tokens_per_second); audio is always AUDIO_TOKENS_PER_SECOND.
+    Callers reserve this from the text-file budget before embedding text files. It never rejects a
     request: the provider API stays the hard limit and its over-limit error reaches the user.
     """
     total = 0
@@ -665,9 +697,17 @@ def estimate_media_tokens(media: Iterable[MediaAttachment], page_rate: int = PDF
         seconds = _duration_s(attachment)
         if seconds is None:
             seconds = attachment.size_bytes / FALLBACK_BYTES_PER_SECOND[attachment.kind]
-        rate = VIDEO_TOKENS_PER_SECOND if attachment.kind is MediaKind.VIDEO else AUDIO_TOKENS_PER_SECOND
+        rate = video_rate if attachment.kind is MediaKind.VIDEO else AUDIO_TOKENS_PER_SECOND
         total += rate * max(1, math.ceil(seconds))
     return total
+
+
+def estimate_media_tokens_for(media: Iterable[MediaAttachment], model_context: Any) -> int:
+    """estimate_media_tokens at the model context's own PDF and video rates; 0, with no rate lookup, for no media."""
+    media = list(media)
+    if not media:
+        return 0
+    return estimate_media_tokens(media, pdf_tokens_per_page(model_context), video_tokens_per_second(model_context))
 
 
 def media_prompt_section(media: Iterable[MediaAttachment]) -> str:

@@ -1090,12 +1090,12 @@ class BaseTool(ABC):
         # Native media (utils/media.py) is attached to the request by the caller, never read as text.
         # Split it out with the same classification the caller uses, so the prompt announces exactly
         # what is attached, and reserve its estimated tokens before sizing the text-file budget.
-        from utils.media import classify_media, estimate_media_tokens, media_prompt_section, pdf_tokens_per_page
+        from utils.media import classify_media, estimate_media_tokens_for, media_prompt_section
 
         request_files, media = classify_media(request_files)
         if media:
-            rate = pdf_tokens_per_page(model_context or getattr(self, "_model_context", None))
-            effective_max_tokens -= estimate_media_tokens(media, rate)
+            media_context = model_context or getattr(self, "_model_context", None)
+            effective_max_tokens -= estimate_media_tokens_for(media, media_context)
 
         # Ensure we have a reasonable minimum budget
         effective_max_tokens = max(1000, effective_max_tokens)

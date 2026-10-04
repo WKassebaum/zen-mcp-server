@@ -391,7 +391,7 @@ class BaseWorkflowMixin(ABC):
         """
         # Use read_files directly with token budgeting, bypassing filter_new_files
         from utils.file_utils import expand_paths, read_files
-        from utils.media import classify_media, estimate_media_tokens, media_prompt_section, pdf_tokens_per_page
+        from utils.media import classify_media, estimate_media_tokens_for, media_prompt_section
 
         # Native media is attached to the expert call (_call_expert_analysis), never read as text. Announce
         # it from the same classification and reserve its estimated tokens from the text-file budget.
@@ -412,9 +412,8 @@ class BaseWorkflowMixin(ABC):
         else:
             max_tokens = 100_000  # Fallback
         if media:
-            max_tokens = max(  # keeps >= 1,000 tokens for text
-                2_000, max_tokens - estimate_media_tokens(media, pdf_tokens_per_page(current_model_context))
-            )
+            # keeps >= 1,000 tokens for text
+            max_tokens = max(2_000, max_tokens - estimate_media_tokens_for(media, current_model_context))
 
         # Read files directly without conversation history filtering
         logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: Force embedding {len(files)} files for expert analysis")

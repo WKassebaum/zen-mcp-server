@@ -64,6 +64,11 @@ class ModelCapabilities:
         False  # Enables structured code generation in chat tool for substantial implementations
     )
 
+    # Estimated input tokens per PDF page / per second of video, reserved from the text budget (utils.media).
+    # Set only from measured usage; None uses the provider's rate, then the global default.
+    pdf_tokens_per_page: Optional[int] = None
+    video_tokens_per_second: Optional[int] = None
+
     # Additional attributes
     max_image_size_mb: float = 0.0
     temperature_constraint: TemperatureConstraint = field(

@@ -4,6 +4,7 @@
     "documentation": "https://github.com/BeehiveInnovations/zen-mcp-server/blob/main/docs/custom_models.md",
     "usage": "Models listed here are exposed directly through the Gemini provider. Aliases are case-insensitive.",
     "field_notes": "Matches providers/shared/model_capabilities.py.",
+    "media_token_rates": "video_tokens_per_second comes from count_tokens on 2026-10-01 (docs/plans/BACKLOG.md, 'Token estimates per model family'): Gemini 3 models charged about 100-127 tokens per second of video with audio (set 160). Gemini 2.5 models charged up to 383/s and keep the global 400 (utils/media.py).",
     "field_descriptions": {
       "model_name": "The model identifier (e.g., 'gemini-3.1-pro-preview', 'gemini-3.8-flash')",
       "aliases": "Array of short names users can type instead of the full model name",
@@ -18,6 +19,8 @@
       "supports_pdf": "Whether the model can take PDF files as native input. Set only from a recorded live probe (tests/media_probe_matrix.py)",
       "supports_audio": "Whether the model can take audio files as native input. Set only from a recorded live probe (tests/media_probe_matrix.py)",
       "supports_video": "Whether the model can take video files as native input. Set only from a recorded live probe (tests/media_probe_matrix.py)",
+      "pdf_tokens_per_page": "Estimated input tokens per PDF page, reserved from the text budget; set only from measured usage; unset uses the provider default.",
+      "video_tokens_per_second": "Estimated input tokens per second of video, reserved from the text budget; set only from measured usage; unset uses the provider default.",
       "supports_temperature": "Whether the model accepts temperature parameter in API calls (set to false for O3/O4 reasoning models)",
       "temperature_constraint": "Type of temperature constraint: 'fixed' (fixed value), 'range' (continuous range), 'discrete' (specific values), or omit for default range",
       "use_openai_response_api": "Set to true when the model must use the /responses endpoint (reasoning models like GPT-5.2 Pro). Leave false/omit for standard chat completions.",
@@ -53,6 +56,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -84,6 +88,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -113,6 +118,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -142,6 +148,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -171,6 +178,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -200,6 +208,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0
@@ -227,6 +236,7 @@
       "supports_pdf": true,
       "supports_audio": true,
       "supports_video": true,
+      "video_tokens_per_second": 160,
       "supports_temperature": true,
       "allow_code_generation": true,
       "max_image_size_mb": 32.0

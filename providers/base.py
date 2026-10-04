@@ -45,8 +45,10 @@ class ModelProvider(ABC):
     # Largest total of base64-encoded media one request may carry inline (None: not checked here; Gemini
     # uploads larger media to its Files API). Checked by ensure_media_encodable before any API call.
     MEDIA_REQUEST_MAX_BYTES: ClassVar[Optional[int]] = None
-    # Estimated input tokens per PDF page, reserved from the text budget (None: utils.media.PDF_TOKENS_PER_PAGE).
+    # Estimated input tokens per PDF page / per second of video, reserved from the text budget. A model's own
+    # catalog rate (ModelCapabilities) wins over these; None falls back to the utils.media globals of the same name.
     PDF_TOKENS_PER_PAGE: ClassVar[Optional[int]] = None
+    VIDEO_TOKENS_PER_SECOND: ClassVar[Optional[int]] = None
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize the provider with API key and optional configuration."""

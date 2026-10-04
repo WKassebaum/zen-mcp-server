@@ -6,6 +6,7 @@ per call, so they run only when ZEN_LIVE_PRO=1 is also set.
 
 import os
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -13,7 +14,7 @@ from providers.anthropic import AnthropicProvider
 from providers.gemini import GeminiModelProvider
 from providers.openai import OpenAIModelProvider
 from tests.media_probe_matrix import PROBED
-from utils.media import classify_media, estimate_media_tokens
+from utils.media import classify_media, estimate_media_tokens_for
 
 FIXTURES = Path(__file__).parent / "fixtures" / "media"
 CASES = {
@@ -31,24 +32,28 @@ GEMINI = [
 PROMPT_TOKEN_ALLOWANCE = 100  # the question and system prompt
 
 
+def own_rates(provider, model):
+    """A model context for estimate_media_tokens_for: the model's catalog entry and the provider that served it."""
+    return SimpleNamespace(provider=provider, capabilities=provider.get_capabilities(model))
+
+
 @pytest.mark.integration
 @pytest.mark.skipif(not os.getenv("GEMINI_API_KEY"), reason="needs GEMINI_API_KEY")
 @pytest.mark.parametrize("model,kind", GEMINI)
 def test_gemini_reads_media(model, kind):
     filename, question, markers = CASES[kind]
     media = classify_media([str(FIXTURES / filename)])[1]
-    response = GeminiModelProvider(api_key=os.environ["GEMINI_API_KEY"]).generate_content(
-        question, model, system_prompt="Answer tersely.", media=media
-    )
+    provider = GeminiModelProvider(api_key=os.environ["GEMINI_API_KEY"])
+    response = provider.generate_content(question, model, system_prompt="Answer tersely.", media=media)
     text = response.content.upper().replace(" ", "")
     # A marker is a string, or a tuple of acceptable alternatives. The audio probe must include the number,
     # not just "pelican", which also appears in the fixture's filename.
     assert all(
         any(alt in text for alt in marker) if isinstance(marker, tuple) else marker in text for marker in markers
     ), response.content
-    # The estimate reserved from the text budget (utils/media.py) must not undercount real usage.
+    # The text-budget reserve at the model's own rates (utils/media.py) must not undercount real usage.
     input_tokens = response.usage.get("input_tokens")
-    estimate = estimate_media_tokens(media)
+    estimate = estimate_media_tokens_for(media, own_rates(provider, model))
     assert (
         input_tokens is None or input_tokens <= estimate + PROMPT_TOKEN_ALLOWANCE
     ), f"{model}/{kind}: {input_tokens} input tokens, media estimate {estimate} + {PROMPT_TOKEN_ALLOWANCE}"
@@ -102,15 +107,16 @@ def test_inline_provider_reads_media(provider_name, model, kind):
         pytest.skip(f"{model} is a costly -pro model; set ZEN_LIVE_PRO=1 to run it")
     filename, question, markers = CASES[kind]
     media = classify_media([str(FIXTURES / filename)])[1]
-    response = provider_cls(api_key=key).generate_content(question, model, system_prompt="Answer tersely.", media=media)
+    provider = provider_cls(api_key=key)
+    response = provider.generate_content(question, model, system_prompt="Answer tersely.", media=media)
     text = response.content.upper().replace(" ", "")
     assert all(
         any(alt in text for alt in marker) if isinstance(marker, tuple) else marker in text for marker in markers
     ), response.content
     assert response.metadata["media_attached"][0]["transport"] == "inline"
-    # The provider's own page rate must not undercount real usage.
+    # The model's own page rate (its catalog entry, else the provider's) must not undercount real usage.
     input_tokens = response.usage.get("input_tokens")
-    estimate = estimate_media_tokens(media, provider_cls.PDF_TOKENS_PER_PAGE)
+    estimate = estimate_media_tokens_for(media, own_rates(provider, model))
     assert (
         input_tokens is None or input_tokens <= estimate + PROMPT_TOKEN_ALLOWANCE
     ), f"{model}/{kind}: {input_tokens} input tokens, media estimate {estimate} + {PROMPT_TOKEN_ALLOWANCE}"
