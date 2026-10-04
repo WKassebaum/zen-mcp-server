@@ -456,32 +456,24 @@ class TestAutoModeComprehensive:
 
             importlib.reload(config)
 
-            # Register only OpenRouter provider
+            # Register only OpenRouter provider, backed by the real conf/openrouter_models.json catalog
             from providers.openrouter import OpenRouterProvider
 
             ModelProviderRegistry.register_provider(ProviderType.OPENROUTER, OpenRouterProvider)
 
-            # Mock OpenRouter registry to return known models
-            mock_registry = MagicMock()
-            mock_registry.list_models.return_value = [
-                "google/gemini-2.5-flash",
-                "google/gemini-2.5-pro",
-                "openai/o3",
-                "openai/o4-mini",
-                "anthropic/claude-opus-4",
-            ]
+            picks = {
+                category: ModelProviderRegistry.get_preferred_fallback_model(category) for category in ToolModelCategory
+            }
 
-            with patch.object(OpenRouterProvider, "_registry", mock_registry):
-                # Get preferred models for different categories
-                extended_reasoning = ModelProviderRegistry.get_preferred_fallback_model(
-                    ToolModelCategory.EXTENDED_REASONING
-                )
-                fast_response = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.FAST_RESPONSE)
-
-                # Should fallback to known good models even via OpenRouter
-                # The exact model depends on _find_extended_thinking_model implementation
-                assert extended_reasoning is not None
-                assert fast_response is not None
+            # OpenRouter states no preference, so the registry ranks its canonical names (never aliases such as
+            # "5.1", which the old alphabetical pick returned for every category). The four 20-score flagships tie
+            # at the top rank and the name breaks the tie. FAST_RESPONSE backs chat: the lowest-ranked model with
+            # intelligence_score >= 15.
+            assert picks == {
+                ToolModelCategory.EXTENDED_REASONING: "anthropic/claude-fable-5.1",
+                ToolModelCategory.BALANCED: "anthropic/claude-fable-5.1",
+                ToolModelCategory.FAST_RESPONSE: "mistralai/devstral-2512",
+            }
 
     @pytest.mark.asyncio
     async def test_actual_model_name_resolution_in_auto_mode(self, tmp_path):

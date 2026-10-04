@@ -115,12 +115,10 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 
 ## Routing and ranking
 
-### Auto mode ignores the tool category for OpenRouter/Azure/DIAL/Custom-only setups
-- **Recorded:** 2026-09-27 (behaviour dates from upstream 1a8ec2e, 2025-08)
-- **What:** these providers inherit `get_preferred_model`, which returns `None` (`providers/base.py:343`). `ModelProviderRegistry.get_preferred_fallback_model` then returns `sorted(allowed_models)[0]` (`providers/registry.py:417`), an alphabetical pick across canonical names and aliases. In OpenRouter-only auto mode every category resolves to alias `5.1` (openai/gpt-5.2). With the docstring example `OPENROUTER_ALLOWED_MODELS=opus,sonnet,mistral`, chat goes to Opus 5.5, the most expensive allowed model. Requests still succeed. The default setup is unaffected because xAI is first in priority.
-- **Fix direction:** fix this in the registry: stop at the first provider that has allowed models, and when it returns no preference, rank its canonical names (not aliases) by capability for the category.
-- **Warning:** do not add an `OpenRouterProvider.get_preferred_model` override. A verifier showed it lets a lower-priority OpenRouter preference beat Custom, Azure and DIAL: with Custom+OpenRouter, FAST_RESPONSE moved from `llama3.2` to `openai/gpt-6-luna`.
-- **Tests:** strengthen `tests/test_auto_mode_comprehensive.py::test_openrouter_fallback_when_no_native_apis`, which only asserts "not None", and add a Custom+OpenRouter case.
+### Rank-based auto-mode picks ignore price and speed
+- **Recorded:** 2026-10-03
+- **What:** OpenRouter, Azure, DIAL and Custom state no preference, so the first of them with allowed models now picks by capability rank (`ModelProviderRegistry._pick_by_rank`). With every OpenRouter model allowed, EXTENDED_REASONING and BALANCED take `anthropic/claude-fable-5.1`, because four 20-score flagships tie at rank 111 and the name breaks the tie. FAST_RESPONSE takes the lowest-ranked model scored 15 or more, `mistralai/devstral-2512`, which is a coding model. Neither pick looks at price or latency: the catalogs have no field for either (some descriptions quote prices).
+- **Fix direction:** add price or latency to the catalogs, or give `_pick_by_rank` a short OpenRouter preference list. An `OpenRouterProvider.get_preferred_model` override is now safe for Custom, Azure and DIAL, because the registry stops at the first provider with allowed models. `tests/test_auto_mode_restricted_routing.py::test_custom_endpoint_keeps_every_category_ahead_of_openrouter` guards that.
 
 ## Watchlist (not addable yet)
 

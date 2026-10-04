@@ -46,6 +46,9 @@ class ModelProviderRegistry:
         ProviderType.OPENROUTER,  # Catch-all for cloud models
     ]
 
+    # FAST_RESPONSE picks by rank (for providers with no preference list) skip models scored below this.
+    FAST_RESPONSE_MIN_INTELLIGENCE = 15
+
     def __new__(cls):
         """Singleton pattern for registry."""
         if cls._instance is None:
@@ -420,15 +423,35 @@ class ModelProviderRegistry:
         return [name for name, _ in ranked[:limit]]
 
     @classmethod
+    def _pick_by_rank(cls, provider: ModelProvider, category: "ToolModelCategory", allowed_models: list[str]) -> str:
+        """Pick from a provider that states no preference by ranking its allowed canonical models.
+
+        EXTENDED_REASONING and BALANCED take the highest-ranked model. FAST_RESPONSE backs ``chat``, so quality
+        still matters: it takes the lowest-ranked model with intelligence_score >= FAST_RESPONSE_MIN_INTELLIGENCE,
+        or the lowest-ranked model when none reaches it.
+        """
+        from tools.models import ToolModelCategory
+
+        ranked = provider.rank_models(allowed_models)
+        if not ranked:
+            return allowed_models[0]
+        if category != ToolModelCategory.FAST_RESPONSE:
+            return ranked[0].model_name
+        capable = [caps for caps in ranked if caps.intelligence_score >= cls.FAST_RESPONSE_MIN_INTELLIGENCE]
+        return (capable or ranked)[-1].model_name
+
+    @classmethod
     def get_preferred_fallback_model(
         cls, tool_category: Optional["ToolModelCategory"] = None, required_media: frozenset = frozenset()
     ) -> str:
         """Get the preferred fallback model based on provider priority and tool category.
 
-        This method orchestrates model selection by:
-        1. Getting allowed models for each provider (respecting restrictions)
-        2. Asking providers for their preference from the allowed list
-        3. Falling back to first available model if no preference given
+        The first provider in PROVIDER_PRIORITY_ORDER that has allowed models (respecting restrictions and
+        required_media) decides:
+        1. It picks from its allowed list (get_preferred_model).
+        2. If it states no preference (OpenRouter, Azure, DIAL, Custom), the registry ranks that provider's
+           allowed models by capability (_pick_by_rank). A later provider is never asked: its preference would
+           beat a higher-priority provider such as Custom.
 
         Args:
             tool_category: Optional category to influence model selection
@@ -439,36 +462,29 @@ class ModelProviderRegistry:
         from tools.models import ToolModelCategory
 
         effective_category = tool_category or ToolModelCategory.BALANCED
-        first_available_model = None
 
-        # Ask each provider for their preference in priority order
         for provider_type in cls.PROVIDER_PRIORITY_ORDER:
             provider = cls.get_provider(provider_type)
-            if provider:
-                # 1. Registry filters the models first
-                allowed_models = cls._get_allowed_models_for_provider(provider, provider_type)
-                allowed_models = cls._filter_models_for_media(provider, allowed_models, required_media)
+            if not provider:
+                continue
+            allowed_models = cls._get_allowed_models_for_provider(provider, provider_type)
+            allowed_models = cls._filter_models_for_media(provider, allowed_models, required_media)
+            if not allowed_models:
+                continue
 
-                if not allowed_models:
-                    continue
+            preferred_model = provider.get_preferred_model(effective_category, allowed_models)
+            if preferred_model:
+                logging.debug(
+                    f"Provider {provider_type.value} selected '{preferred_model}' for category '{effective_category.value}'"
+                )
+                return preferred_model
 
-                # 2. Keep track of the first available model as fallback
-                if not first_available_model:
-                    first_available_model = sorted(allowed_models)[0]
-
-                # 3. Ask provider to pick from allowed list
-                preferred_model = provider.get_preferred_model(effective_category, allowed_models)
-
-                if preferred_model:
-                    logging.debug(
-                        f"Provider {provider_type.value} selected '{preferred_model}' for category '{effective_category.value}'"
-                    )
-                    return preferred_model
-
-        # If no provider returned a preference, use first available model
-        if first_available_model:
-            logging.debug(f"No provider preference, using first available: {first_available_model}")
-            return first_available_model
+            ranked_model = cls._pick_by_rank(provider, effective_category, allowed_models)
+            logging.debug(
+                f"Provider {provider_type.value} states no preference; picked '{ranked_model}' by rank "
+                f"for category '{effective_category.value}'"
+            )
+            return ranked_model
 
         # Media that no available model can take: refuse rather than return a model that would drop it
         if required_media:

@@ -123,3 +123,33 @@ def test_anthropic_fast_response_falls_back_to_the_lowest_ranked_model():
     picks = _picks({"ANTHROPIC_API_KEY": "test-key", "ANTHROPIC_ALLOWED_MODELS": "claude-fable-5-1,claude-opus-4-8"})
     assert picks[FAST] == "claude-opus-4-8"
     assert picks[EXTENDED] == "claude-fable-5-1"
+
+
+# ---------------------------------------------------------------------------
+# OpenRouter, Azure, DIAL and Custom state no preference: the first provider with allowed models picks by rank
+# ---------------------------------------------------------------------------
+
+
+def test_openrouter_allow_list_sends_chat_to_the_cheaper_capable_model():
+    # The docstring example: chat used to go to Opus 5.5 (alphabetical). mistral-large scores 14, below the
+    # FAST_RESPONSE floor of 15, so chat takes the lower-ranked of the two 19-score models.
+    picks = _picks({"OPENROUTER_API_KEY": "test-key", "OPENROUTER_ALLOWED_MODELS": "opus,sonnet,mistral"})
+    assert picks == {
+        EXTENDED: "anthropic/claude-opus-5.5",
+        BALANCED: "anthropic/claude-opus-5.5",
+        FAST: "anthropic/claude-sonnet-5.5",
+    }
+
+
+def test_fast_response_takes_the_lowest_ranked_model_when_none_reaches_the_floor():
+    picks = _picks({"OPENROUTER_API_KEY": "test-key", "OPENROUTER_ALLOWED_MODELS": "flash-2.5,gpt5nano"})
+    assert picks[FAST] == "openai/gpt-5-nano"
+    assert picks[EXTENDED] == "google/gemini-2.5-flash"
+
+
+def test_custom_endpoint_keeps_every_category_ahead_of_openrouter():
+    # Custom comes before OpenRouter in PROVIDER_PRIORITY_ORDER and has allowed models, so it decides even though
+    # it states no preference. An OpenRouterProvider.get_preferred_model override once moved FAST_RESPONSE here
+    # from llama3.2 to openai/gpt-6-luna.
+    picks = _picks({"OPENROUTER_API_KEY": "test-key", "CUSTOM_API_URL": "http://localhost:11434/v1"})
+    assert picks == {EXTENDED: "llama3.2", BALANCED: "llama3.2", FAST: "llama3.2"}
