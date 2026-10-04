@@ -28,7 +28,11 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 
 ### Media input phase 2 follow-ups
 Found while building and probing phase 2 (2026-10-03); none blocks it.
-- **gpt-5-mini and gpt-5-nano are unflagged for PDF:** with the PDF attached (241 input tokens, like every other Chat model) they mostly answered "I can't access the PDF": 1/3 and 1/3 without a system prompt, 1/3 and 0/3 with one. Re-probe with `scripts/probe_media_support.py --provider openai --repeat 3 gpt-5-mini gpt-5-nano` after model updates; flag only on 3/3.
+- **gpt-5-mini and gpt-5-nano are unflagged for PDF.**
+  - **First probe:** with the PDF attached (241 input tokens, like every other Chat model) they mostly answered "I can't access the PDF": 1/3 and 1/3 without a system prompt, 1/3 and 0/3 with one.
+  - **Re-probe 2026-10-03, without a system prompt:** gpt-5-mini 3/3, gpt-5-nano 2/3.
+  - **Through zen's provider with `CHAT_PROMPT`:** both failed the text PDF 6 times in 6, answering with the prompt's `files_required_to_continue` JSON as if nothing were attached. Both read the scanned letter page 3/3.
+  - **Conclusion:** they do see the PDF, but zen's system prompt pulls them off it. Flag only if they pass 3/3 through zen (`tests/test_media_live.py`), not just the bare probe.
 - **o3-mini is unflagged for PDF:** it has no vision, so it gets only the PDF's text layer and misread a scanned page. Text PDFs work (2/2); flag it only if zen ever distinguishes text-layer PDF support.
 - **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test). The live tests skip them unless `ZEN_LIVE_PRO=1`.
 - **Responses API `detail` is left to the default:** OpenAI's guide says `auto` means `high` page images on GPT-5.6 and later, `low` before. Set `detail` on `input_file` explicitly if PDF token cost on gpt-6 matters.
