@@ -19,15 +19,15 @@ def test_supported_media_kinds():
     assert caps.supported_media_kinds() == frozenset({MediaKind.PDF, MediaKind.VIDEO})
 
 
-def test_media_flags_raise_rank():
+def test_media_flags_leave_rank_unchanged():
+    # Media flags only break ties in ModelProviderRegistry.find_media_capable_models (tests/test_capability_rank.py).
     base = _caps(intelligence_score=15).get_effective_capability_rank()
     richer = _caps(intelligence_score=15, supports_pdf=True, supports_audio=True, supports_video=True)
-    assert richer.get_effective_capability_rank() == base + 3
+    assert richer.get_effective_capability_rank() == base
 
 
-def test_media_flags_cannot_lift_rank_past_clamp():
-    # Known limitation: the rank is clamped to 100, so a model already saturated by its
-    # other features gains nothing from media flags (19 * 5 + 3 flags alone is only 98).
+def test_flagship_rank_is_not_clamped_and_ignores_media_flags():
+    # 19 * 5, plus 3 for a 1M context, 2 output, 3 thinking, and 1 each for functions, JSON and images.
     flagship = {
         "intelligence_score": 19,
         "context_window": 1_048_576,
@@ -37,9 +37,9 @@ def test_media_flags_cannot_lift_rank_past_clamp():
         "supports_json_mode": True,
         "supports_images": True,
     }
-    assert _caps(**flagship).get_effective_capability_rank() == 100
+    assert _caps(**flagship).get_effective_capability_rank() == 106
     with_media = _caps(**flagship, supports_pdf=True, supports_audio=True, supports_video=True)
-    assert with_media.get_effective_capability_rank() == 100
+    assert with_media.get_effective_capability_rank() == 106
 
 
 def test_registry_loads_media_flags_from_catalog(tmp_path):

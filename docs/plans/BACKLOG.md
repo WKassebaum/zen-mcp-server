@@ -36,7 +36,6 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **PDF page rate per model family:** a letter-size scanned page cost 2,902 input tokens on gpt-6-luna/astra (Responses API), 1,025 on gpt-5.5 (Chat Completions) and 1,611 on claude-sonnet-5-5. OpenAI's rate (4,000) is sized for gpt-6, so it reserves about 4x too much on gpt-5.x; a text PDF on the Responses API cost far less (zebra.pdf: about 45 tokens against 240 on Chat). Solve with the per-family video rate above.
 - **Anthropic size check ignores images:** `_check_request_size` counts the PDFs, prompt and system prompt against the 32 MB body limit but not images, so a request near the limit with images gets the API's HTTP 413 (reported as an error, not dropped).
 - **Claude `cache_control` deferred to phase 5:** the design puts a cache marker on the last media block. A cache write costs 1.25x and only pays off when the same PDF is re-sent, which needs phase 5's continuation re-attach, so phase 2 sends none.
-- **Capable-model lists favour older Claude models:** a PDF refusal lists the first five capable models by rank, and the rank clamp (see "Capability rank clamps at 100") ties every flagship at 100, so the list is `claude-fable-5, claude-fable-5-1, claude-opus-4-5-20251101, claude-opus-4-6, claude-opus-4-7` rather than the best models across providers.
 
 ## Future features
 
@@ -122,13 +121,6 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **Fix direction:** fix this in the registry: stop at the first provider that has allowed models, and when it returns no preference, rank its canonical names (not aliases) by capability for the category.
 - **Warning:** do not add an `OpenRouterProvider.get_preferred_model` override. A verifier showed it lets a lower-priority OpenRouter preference beat Custom, Azure and DIAL: with Custom+OpenRouter, FAST_RESPONSE moved from `llama3.2` to `openai/gpt-6-luna`.
 - **Tests:** strengthen `tests/test_auto_mode_comprehensive.py::test_openrouter_fallback_when_no_native_apis`, which only asserts "not None", and add a Custom+OpenRouter case.
-
-### Capability rank clamps at 100, so intelligence_score above 18 is ignored
-- **Recorded:** 2026-09-27
-- **What:** `get_effective_capability_rank()` returns `max(0, min(100, score))` (`providers/shared/model_capabilities.py:111`). Every model with `intelligence_score` 18 or higher therefore ties, and ties sort by name. `listmodels` lists grok-4.5 above grok-4.7, Opus 5.5 last among the Opus entries and gpt-6-* after gpt-5.2. The auto-mode "Top models" hint in the tool schema shows gpt-5.2 and OpenRouter Opus 4.6/4.7 and none of the new flagships. Actual routing uses the hardcoded route lists and is unaffected. The 9dd618f commit message claims an ordering that does not happen.
-- **Media bonus (2026-09-30):** the +1 per media kind added in media-input phase 1 has no effect on any model that already ranks 100, including every flagged Gemini 3.x model, and it applies to every request, not only media requests, so it reorders text-only listings for unsaturated models (e.g. gemini-3-flash-preview 95 → 98). When the clamp is fixed, decide whether media kinds should raise general rank or only break ties inside media-capable selection (`find_media_capable_models`). Also: `docs/model_ranking.md` describes a "Custom endpoints: -1" penalty that no code applies.
-- **Media hints (2026-10-03):** media refusals list capable models by this rank, so a PDF refusal suggests `claude-*` models alphabetically, older Opus versions included (see "Media input phase 2 follow-ups").
-- **Fix direction:** remove the upper clamp (`return max(0, score)`). In simulation the unit suite passed and the top five became fable-5.1, gpt-6-astra, gemini-3.1-pro, gpt-6-sol and grok-4.7. Then spread the Anthropic scores, since every Opus entry is at 19. A secondary sort key would also work, but it needs edits at five sort sites.
 
 ### Gemini `find_best` ranks by reverse string order
 - **Recorded:** 2026-09-27 (code dates from 2025-08)

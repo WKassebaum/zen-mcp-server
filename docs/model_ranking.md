@@ -4,15 +4,20 @@ Auto mode needs a short, trustworthy list of models to suggest. The server
 computes a capability rank for every model at runtime using a simple recipe:
 
 1. Start with the human-supplied `intelligence_score` (1–20). This is the
-   anchor—multiply it by five to map onto the 0–100 scale the server uses.
+   anchor—multiply it by five (5–100).
 2. Add a few light bonuses for hard capabilities:
    - **Context window:** up to +5 (log-scale bonus when the model exceeds ~1K tokens).
    - **Output budget:** +2 for ≥65K tokens, +1 for ≥32K.
    - **Extended thinking:** +3 when the provider supports it.
    - **Function calling / JSON / images:** +1 each when available.
-   - **PDF / audio / video:** +1 each (native media input).
-   - **Custom endpoints:** −1 to nudge cloud-hosted defaults ahead unless tuned.
-3. Clamp the final score to 0–100 so downstream callers can rely on the range.
+3. Floor the result at 0. There is no upper clamp: a model with score 20 and
+   every bonus reaches 113, and a clamp at 100 would tie every flagship and
+   leave the order to model names.
+
+PDF, audio and video flags do not change the rank, so text-only listings are
+not reordered by media support. When a model refuses an attachment, the error
+suggests models that can take it, sorted by rank first; among equal ranks the
+model that takes more media kinds comes first, then the name.
 
 In code this looks like:
 
@@ -25,15 +30,15 @@ feature_bonus = (
     + (1 if supports_function_calling else 0)
     + (1 if supports_json_mode else 0)
     + (1 if supports_images else 0)
-    + len(supported_media_kinds())  # supports_pdf / supports_audio / supports_video
 )
-penalty = 1 if provider == CUSTOM else 0
 
-effective_rank = clamp(base + ctx_bonus + output_bonus + feature_bonus - penalty, 0, 100)
+effective_rank = max(0, base + ctx_bonus + output_bonus + feature_bonus)
 ```
 
 The bonuses are intentionally small—the human intelligence score does most
-of the work so you can enforce organisational preferences easily.
+of the work so you can enforce organisational preferences easily. One point
+of `intelligence_score` is worth 5, so a higher score usually wins, but a
+model with many more bonuses can pass one scored a point higher.
 
 ## Picking an intelligence score
 

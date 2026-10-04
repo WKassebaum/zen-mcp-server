@@ -404,15 +404,19 @@ class ModelProviderRegistry:
 
         get_available_models() lists aliases too; every alias resolves to the same capabilities, so
         dedupe on the canonical ``model_name`` or one model would be listed under several names.
+        Media breadth is not part of the capability rank; here it breaks ties between equal ranks.
         """
-        ranks: dict[str, int] = {}
+        keys: dict[str, tuple[int, int]] = {}
         for model_name, provider_type in cls.get_available_models(respect_restrictions=True).items():
             provider = cls.get_provider(provider_type)
             if not provider or not cls._filter_models_for_media(provider, [model_name], required_media):
                 continue
             capabilities = provider.get_capabilities(model_name)
-            ranks.setdefault(capabilities.model_name, capabilities.get_effective_capability_rank())
-        ranked = sorted(ranks.items(), key=lambda item: (-item[1], item[0]))
+            keys.setdefault(
+                capabilities.model_name,
+                (capabilities.get_effective_capability_rank(), len(capabilities.supported_media_kinds())),
+            )
+        ranked = sorted(keys.items(), key=lambda item: (-item[1][0], -item[1][1], item[0]))
         return [name for name, _ in ranked[:limit]]
 
     @classmethod

@@ -131,9 +131,11 @@ class ModelCapabilities:
             score += 1
         if self.supports_images:
             score += 1
-        score += len(self.supported_media_kinds())
+        # PDF/audio/video flags add nothing here: they would reorder text-only listings.
+        # ModelProviderRegistry.find_media_capable_models uses them to break ties instead.
 
-        return max(0, min(100, score))
+        # No upper clamp: a clamp at 100 tied every flagship and let names decide the order.
+        return max(0, score)
 
     @staticmethod
     def collect_aliases(model_configs: dict[str, "ModelCapabilities"]) -> dict[str, list[str]]:

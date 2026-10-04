@@ -59,7 +59,12 @@ def test_media_uses_first_available_when_no_provider_states_a_preference(gemini_
 def test_find_media_capable_models(gemini_encodes_media):
     models = ModelProviderRegistry.find_media_capable_models(frozenset({MediaKind.PDF}), limit=3)
     assert 0 < len(models) <= 3
-    assert all(m.startswith("gemini") for m in models)
     assert len(models) == len(set(models))
+    ranks = []
     for name in models:  # canonical names only, never aliases such as "flash"
-        assert ModelProviderRegistry.get_provider_for_model(name).get_capabilities(name).model_name == name
+        provider = ModelProviderRegistry.get_provider_for_model(name)
+        capabilities = provider.get_capabilities(name)
+        assert capabilities.model_name == name
+        assert MediaKind.PDF in capabilities.supported_media_kinds() & frozenset(provider.MEDIA_KINDS)
+        ranks.append(capabilities.get_effective_capability_rank())
+    assert ranks == sorted(ranks, reverse=True)

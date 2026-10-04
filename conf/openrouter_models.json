@@ -84,7 +84,7 @@
       "supports_temperature": false,
       "temperature_constraint": "fixed",
       "description": "Claude Opus 5 via OpenRouter - Previous Opus flagship, superseded by Opus 5.5. $5/$25 per 1M tokens.",
-      "intelligence_score": 19,
+      "intelligence_score": 18,
       "allow_code_generation": true
     },
     {
@@ -158,7 +158,7 @@
       "supports_images": true,
       "max_image_size_mb": 20.0,
       "description": "Claude Sonnet 4.6 - Previous Sonnet flagship, superseded by Claude Sonnet 5. Opus-level reasoning at Sonnet pricing, adaptive thinking (via OpenRouter)",
-      "intelligence_score": 18,
+      "intelligence_score": 16,
       "allow_code_generation": true
     },
     {
@@ -175,7 +175,7 @@
       "supports_images": true,
       "max_image_size_mb": 20.0,
       "description": "Claude Sonnet 4.5 - Previous best coding model (via OpenRouter)",
-      "intelligence_score": 17,
+      "intelligence_score": 15,
       "allow_code_generation": true
     },
     {
@@ -192,7 +192,7 @@
       "max_image_size_mb": 20.0,
       "allow_code_generation": true,
       "description": "Claude Opus 4.8 (released 2026-05-28) - Previous Anthropic flagship, superseded as SOTA by Claude Fable 5. Adaptive thinking and effort controls, Terminal-Bench 2.1 69.2% (via OpenRouter)",
-      "intelligence_score": 19
+      "intelligence_score": 17
     },
     {
       "model_name": "anthropic/claude-opus-4-7",
@@ -208,7 +208,7 @@
       "max_image_size_mb": 20.0,
       "allow_code_generation": true,
       "description": "Claude Opus 4.7 - Previous flagship, superseded by Opus 4.8 (via OpenRouter)",
-      "intelligence_score": 19
+      "intelligence_score": 17
     },
     {
       "model_name": "anthropic/claude-opus-4-6",
@@ -224,7 +224,7 @@
       "max_image_size_mb": 20.0,
       "allow_code_generation": true,
       "description": "Claude Opus 4.6 - Previous flagship with adaptive thinking (via OpenRouter)",
-      "intelligence_score": 19
+      "intelligence_score": 16
     },
     {
       "model_name": "anthropic/claude-opus-4.5",
@@ -241,7 +241,7 @@
       "max_image_size_mb": 20.0,
       "allow_code_generation": true,
       "description": "Claude Opus 4.5 - Previous flagship with extended thinking (via OpenRouter)",
-      "intelligence_score": 18
+      "intelligence_score": 16
     },
     {
       "model_name": "anthropic/claude-haiku-4.5",

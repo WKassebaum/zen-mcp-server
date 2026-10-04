@@ -87,7 +87,7 @@
         "opus5",
         "claude-opus-5"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 18,
       "description": "Claude Opus 5 (GA 2026-07-24) - Previous Opus flagship, superseded by Opus 5.5. API ID claude-opus-5. Adaptive thinking, default effort high. 1M context, 128K output, $5/$25 per 1M tokens.",
       "context_window": 1000000,
       "max_output_tokens": 128000,
@@ -137,7 +137,7 @@
         "claude-opus-4.8",
         "claude-opus-4-8"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 17,
       "description": "Claude Opus 4.8 (released 2026-05-28) - Previous flagship, superseded as SOTA by Claude Fable 5 and in the Opus line by Opus 5/5.5. Adaptive thinking with effort controls (extra/max), Terminal-Bench 2.1 69.2%, agentic computer use 83.4%. Rejects non-default temperature/top_p. 1M context, 128K output, $5/$25 per 1M tokens.",
       "context_window": 1000000,
       "max_output_tokens": 128000,
@@ -161,7 +161,7 @@
         "claude-opus-4.7",
         "claude-opus-4-7"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 17,
       "description": "Claude Opus 4.7 - Previous flagship (released 2026-04-16), superseded by Opus 4.8. Advanced software engineering, xhigh thinking effort, rejects non-default temperature/top_p, 1M context, 128K output, $5/$25 per 1M tokens",
       "context_window": 1000000,
       "max_output_tokens": 128000,
@@ -185,7 +185,7 @@
         "claude-opus-4.6",
         "claude-opus-4-6"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 16,
       "description": "Claude Opus 4.6 - Previous flagship with adaptive thinking, 1M context, 128K output, $5/$25 per 1M tokens",
       "context_window": 1000000,
       "max_output_tokens": 128000,
@@ -208,7 +208,7 @@
         "claude-opus-4.5",
         "claude-opus-4-5"
       ],
-      "intelligence_score": 19,
+      "intelligence_score": 16,
       "description": "Claude Opus 4.5 - Previous flagship, best for coding/agents/computer use, 200K context, effort parameter, $5/$25 per 1M tokens",
       "context_window": 200000,
       "max_output_tokens": 64000,
@@ -281,7 +281,7 @@
         "claude-sonnet-4.6",
         "claude-sonnet-4-6"
       ],
-      "intelligence_score": 18,
+      "intelligence_score": 16,
       "description": "Claude Sonnet 4.6 - Previous Sonnet flagship, superseded by Claude Sonnet 5. Opus-level reasoning at Sonnet pricing, adaptive thinking, 200K context (1M beta), 64K output, $3/$15 per 1M tokens",
       "context_window": 200000,
       "max_output_tokens": 64000,
@@ -305,7 +305,7 @@
         "sonnet4.5",
         "claude-sonnet-4-5"
       ],
-      "intelligence_score": 17,
+      "intelligence_score": 15,
       "description": "Claude Sonnet 4.5 - Previous best coding model with 30-hour autonomous operation, 200K context, 64K output",
       "context_window": 200000,
       "max_output_tokens": 64000,
