@@ -669,9 +669,11 @@ def configure_providers():
     if IS_AUTO_MODE:
         available_models = ModelProviderRegistry.get_available_models(respect_restrictions=True)
         if not available_models:
+            # Named from the restriction service's own mapping, so a new allow-list cannot be left out
+            allow_lists = ", ".join(dict.fromkeys(restriction_service.ENV_VARS.values()))
             logger.error(
                 "Auto mode is enabled but no models are available after applying restrictions. "
-                "Please check your OPENAI_ALLOWED_MODELS and GOOGLE_ALLOWED_MODELS settings."
+                f"Please check your allow-list settings: {allow_lists}."
             )
             raise ValueError(
                 "No models available for auto mode due to restrictions. "

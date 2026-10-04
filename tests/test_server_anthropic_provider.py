@@ -123,3 +123,23 @@ def test_priority_log_names_the_configured_native_providers(keys, expected):
     with patch.dict(os.environ, env, clear=True), patch.object(server.logger, "info") as info:
         _configure()
     assert expected in [call.args[0] for call in info.call_args_list]
+
+
+def test_auto_mode_restriction_error_names_every_allow_list():
+    import config
+    import server
+    from utils.model_restrictions import ModelRestrictionService
+
+    with (
+        patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-key"}, clear=True),
+        patch.object(config, "IS_AUTO_MODE", True),
+        patch.object(ModelProviderRegistry, "get_available_models", return_value={}),
+        patch.object(server.logger, "error") as error,
+    ):
+        with pytest.raises(ValueError, match="No models available for auto mode"):
+            _configure()
+    (message,) = [call.args[0] for call in error.call_args_list if "auto mode" in call.args[0].lower()]
+    names = list(ModelRestrictionService.ENV_VARS.values())
+    assert {"ANTHROPIC_ALLOWED_MODELS", "XAI_ALLOWED_MODELS", "OPENROUTER_ALLOWED_MODELS"} <= set(names)
+    assert all(message.count(name) == 1 for name in names), message
+    assert sorted(names, key=message.index) == names  # stable order: the ENV_VARS order
