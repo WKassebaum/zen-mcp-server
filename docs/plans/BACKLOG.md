@@ -122,11 +122,6 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **Warning:** do not add an `OpenRouterProvider.get_preferred_model` override. A verifier showed it lets a lower-priority OpenRouter preference beat Custom, Azure and DIAL: with Custom+OpenRouter, FAST_RESPONSE moved from `llama3.2` to `openai/gpt-6-luna`.
 - **Tests:** strengthen `tests/test_auto_mode_comprehensive.py::test_openrouter_fallback_when_no_native_apis`, which only asserts "not None", and add a Custom+OpenRouter case.
 
-### Gemini `find_best` ranks by reverse string order
-- **Recorded:** 2026-09-27 (code dates from 2025-08)
-- **What:** `sorted(candidates, reverse=True)[0]` (`providers/gemini.py:482`) ranks gemini-3.5-flash-lite above gemini-3.5-flash, and the alias `gemini3.5-flash` above gemini-3.8-flash. With `GOOGLE_ALLOWED_MODELS=gemini-3.5-flash,gemini-3.5-flash-lite`, EXTENDED_REASONING and BALANCED run on flash-lite (score 13) instead of flash (19). This needs a restriction, auto mode and no xAI key. Unrestricted routing is correct.
-- **Fix direction:** resolve candidates through `_resolve_model_name` and dedupe; a canonical-only filter would empty an alias-only allowlist. Rank by `(intelligence_score, name)`, optionally keep FAST_RESPONSE preferring flash-lite, and add a regression test for the flash/flash-lite restriction.
-
 ### OpenAI/xAI FAST_RESPONSE fallback returns the most capable model
 - **Recorded:** 2026-09-27 (code predates the GPT-6 work)
 - **What:** when no allowed model is on the FAST list, `providers/openai.py:155` and `providers/xai.py:95` return `allowed_models[0]`. That list is sorted by rank, highest first, so `OPENAI_ALLOWED_MODELS=gpt-5-nano,gpt-6-astra` routes chat to gpt-6-astra. gpt-5-nano, gpt-5.6-terra and gpt-4.1 are in no OpenAI route list. This needs an OpenAI restriction with OpenAI as the first provider that has allowed models; none of the documented examples trigger it.
