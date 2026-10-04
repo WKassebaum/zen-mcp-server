@@ -101,21 +101,19 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         # params["system"]; media-free requests keep today's layout byte for byte.
         media = list(media) if media else []  # read more than once below; an iterator would be used up
         media_attached: list[dict] = []
-        user_content = []
+        document_blocks: list[dict] = []
         if media:
             self.ensure_media_encodable(media)
             document_blocks, media_attached = self._build_document_blocks(media)
-            self._check_request_size(document_blocks, prompt, system_prompt)
-            user_content.extend(document_blocks)
-        user_content.append({"type": "text", "text": prompt})
 
         # Add images if provided and model supports vision
+        image_blocks: list[dict] = []
         if images and capabilities.supports_images:
             for image in images:
                 try:
                     # Tools pass file paths or data URLs; both resolve to raw bytes and their real MIME type.
                     image_bytes, mime_type = validate_image(image)
-                    user_content.append(
+                    image_blocks.append(
                         {
                             "type": "image",
                             "source": {
@@ -131,6 +129,9 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         elif images and not capabilities.supports_images:
             logger.warning(f"Model {resolved_model_name} does not support images, ignoring {len(images)} image(s)")
 
+        if document_blocks or image_blocks:
+            self._check_request_size(document_blocks, image_blocks, prompt, system_prompt)
+        user_content = [*document_blocks, {"type": "text", "text": prompt}, *image_blocks]
         messages.append({"role": "user", "content": user_content})
 
         # Set parameters
@@ -217,14 +218,22 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             )
         return blocks, attached
 
-    def _check_request_size(self, document_blocks: list[dict], prompt: str, system_prompt: Optional[str]) -> None:
-        """The 32 MB limit covers the whole body: fail before sending rather than surface an HTTP 413."""
-        total = sum(len(block["source"]["data"]) for block in document_blocks)
+    def _check_request_size(
+        self, document_blocks: list[dict], image_blocks: list[dict], prompt: str, system_prompt: Optional[str]
+    ) -> None:
+        """Fail before sending rather than surface an HTTP 413: the 32 MB limit covers the whole body.
+
+        The base64 data of PDF and image blocks counts, along with the prompt and system prompt.
+        """
+        total = sum(len(block["source"]["data"]) for block in (*document_blocks, *image_blocks))
         total += len(prompt.encode()) + len((system_prompt or "").encode())
         if total > self.MEDIA_REQUEST_MAX_BYTES:
+            carried = " and ".join(
+                name for name, blocks in (("PDFs", document_blocks), ("images", image_blocks)) if blocks
+            )
             raise MediaNotSupportedError(
                 f"anthropic requests are limited to {format_size(self.MEDIA_REQUEST_MAX_BYTES)}; this one would be "
-                f"{format_size(total)} with its PDFs base64-encoded. Gemini models take larger media."
+                f"{format_size(total)} with its {carried} base64-encoded. Gemini models take larger media."
             )
 
     def get_provider_type(self) -> ProviderType:

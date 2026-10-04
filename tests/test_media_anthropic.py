@@ -140,3 +140,39 @@ def test_bytes_are_read_from_the_validated_source_path(tmp_path):
     provider = _provider()
     provider.generate_content("q", MODEL, media=[moved])
     assert _sent(provider)["messages"][0]["content"][0] == _document_block(real)
+
+
+def _image(raw_bytes: int) -> str:
+    """A data-URL image whose base64 block data is 4 * ceil(raw_bytes / 3) characters."""
+    return "data:image/png;base64," + base64.b64encode(b"x" * raw_bytes).decode()
+
+
+@pytest.mark.parametrize(
+    "with_pdf,wording",
+    [(True, "with its PDFs and images base64-encoded"), (False, "with its images base64-encoded")],
+)
+def test_images_count_toward_the_cap(with_pdf, wording):
+    # The PDF (784 encoded bytes, when sent) and the prompt fit under the cap; the 400-character image block does not.
+    provider = _provider()
+    media = classify_media([PDF])[1] if with_pdf else None
+    with patch.object(AnthropicProvider, "MEDIA_REQUEST_MAX_BYTES", (base64_size(587) if with_pdf else 0) + 50):
+        with pytest.raises(MediaNotSupportedError, match=wording):
+            provider.generate_content("q", MODEL, images=[_image(300)], media=media)
+    provider._client.messages.stream.assert_not_called()
+
+
+def test_pdf_only_refusal_names_pdfs_only():
+    provider = _provider()
+    with patch.object(AnthropicProvider, "MEDIA_REQUEST_MAX_BYTES", base64_size(587) + 10):
+        with pytest.raises(MediaNotSupportedError, match="with its PDFs base64-encoded"):
+            provider.generate_content("x" * 100, MODEL, media=classify_media([PDF])[1])
+
+
+@pytest.mark.parametrize("with_pdf", [True, False])
+def test_request_with_images_under_the_cap_is_sent(with_pdf):
+    provider = _provider()
+    media = classify_media([PDF])[1] if with_pdf else None
+    with patch.object(AnthropicProvider, "MEDIA_REQUEST_MAX_BYTES", base64_size(587) + base64_size(300) + 50):
+        provider.generate_content("q", MODEL, images=[_image(300)], media=media)
+    content = _sent(provider)["messages"][0]["content"]
+    assert [part["type"] for part in content] == (["document"] if with_pdf else []) + ["text", "image"]
