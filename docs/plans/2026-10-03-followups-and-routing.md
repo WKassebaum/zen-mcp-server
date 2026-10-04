@@ -57,8 +57,8 @@
 - **Estimate API.** `estimate_media_tokens(media, page_rate=PDF_TOKENS_PER_PAGE, video_rate=VIDEO_TOKENS_PER_SECOND)`. Audio stays at 32 tokens per second.
 - **One helper for callers.** Add `estimate_media_tokens_for(media, model_context)` in `utils.media`, which applies both lookups. Use it from both call sites so the lookup logic lives in one place. The existing "no media, no rate lookup" guard (`tests/test_media_provider_limits.py:152`) must still hold.
 - **Catalog values.** Set rates only where usage was measured. Measured figures are per letter-size scanned page, with roughly 45% margin added:
-  - **OpenAI, `pdf_tokens_per_page: 1500`** (measured about 1,025): `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.4`, `gpt-5.2`, `o4-mini`.
-  - **OpenAI, `pdf_tokens_per_page: 500`** (measured 323): `gpt-5`, `gpt-5.1`, `o3`, `gpt-4.1`.
+  - **OpenAI, `pdf_tokens_per_page: 1500`** (measured about 1,025; raised to 2500 after the final review, to add the 1,000-token text allowance): `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.4`, `gpt-5.2`, `o4-mini`.
+  - **OpenAI, `pdf_tokens_per_page: 500`** (measured 323; raised to 1500 after the final review): `gpt-5`, `gpt-5.1`, `o3`, `gpt-4.1`.
   - **OpenAI, no field:** the gpt-6 models (measured 2,902, so the provider's 4,000 stands) and the three `-pro` models (unmeasured).
   - **Gemini, `video_tokens_per_second: 160`** (measured about 100–127 per second with audio): every `gemini-3*` model flagged `supports_video`. Gemini 2.5 models keep the global 400.
   - **Anthropic:** unchanged, at 3,000 per page.
@@ -74,7 +74,7 @@
   - `gemini-3.8-flash` has a video rate of 160.
   - `gemini-2.5-pro` has a video rate of 400.
 - **Guard:** a mock or `bool` capability value is ignored.
-- **Call sites:** a 3-page PDF reserves 4,500 tokens on `gpt-5.5`, and a 3 s video reserves 480 on `gemini-3.8-flash`.
+- **Call sites:** a 3-page PDF reserves 4,500 tokens on `gpt-5.5` (7,500 after the final review's rate change), and a 3 s video reserves 480 on `gemini-3.8-flash`.
 
 ### A2. The Anthropic body-size check counts images
 

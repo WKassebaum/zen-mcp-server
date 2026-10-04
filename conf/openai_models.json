@@ -17,7 +17,7 @@
       "supports_function_calling": "Whether the model supports function/tool calling",
       "supports_images": "Whether the model can process images/visual input",
       "supports_pdf": "Whether the model can take PDF files as native input. Set only from a recorded live probe (tests/media_probe_matrix.py)",
-      "premium": "Priced far above models of a similar score (the -pro tier). Auto mode never picks it by rank for FAST_RESPONSE unless nothing else is allowed",
+      "premium": "Priced several times above models of a similar score (the -pro tier, o3-pro, Fable 5/5.1 and gpt-6-astra at $10/$50 against $2/$10). Auto mode never picks it by rank for FAST_RESPONSE unless nothing else is allowed",
       "pdf_tokens_per_page": "Estimated input tokens per PDF page, reserved from the text budget; set only from measured usage; unset uses the provider default.",
       "video_tokens_per_second": "Estimated input tokens per second of video, reserved from the text budget; set only from measured usage; unset uses the provider default.",
       "max_image_size_mb": "Maximum total size in MB for all images combined (capped at 40MB max for custom models)",
@@ -41,6 +41,7 @@
         "gpt-6-astra",
         "gpt6-astra"
       ],
+      "premium": true,
       "intelligence_score": 20,
       "description": "GPT-6 Astra (released 2026-09-03) - OpenAI flagship. Responses API ID gpt-6-astra. 1.05M context, 128K output, knowledge cutoff Apr 30 2026. $10/$50 per 1M tokens. No temperature; reasoning.effort has no 'none' (start at low). Tool calling requires Responses API.",
       "context_window": 1050000,

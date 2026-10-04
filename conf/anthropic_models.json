@@ -9,6 +9,7 @@
       "aliases": "Array of short names users can type instead of the full model name",
       "context_window": "Total number of tokens the model can process (input + output combined)",
       "max_output_tokens": "Maximum number of tokens the model can generate in a single response",
+      "premium": "Priced several times above models of a similar score (the -pro tier, o3-pro, Fable 5/5.1 and gpt-6-astra at $10/$50 against $2/$10). Auto mode never picks it by rank for FAST_RESPONSE unless nothing else is allowed",
       "supports_extended_thinking": "Whether the model supports extended reasoning mode",
       "supports_json_mode": "Whether the model can guarantee valid JSON output",
       "supports_function_calling": "Whether the model supports function/tool calling",
@@ -36,6 +37,7 @@
         "claude-fable-5-1",
         "claude-fable"
       ],
+      "premium": true,
       "intelligence_score": 20,
       "description": "Claude Fable 5.1 (GA 2026-09-01) - Current Mythos-class flagship for demanding reasoning and long-horizon agents. API ID claude-fable-5-1. Adaptive thinking always-on, default effort high. 1M context, 128K output, knowledge cutoff Jun 2026. $10/$50 per 1M tokens.",
       "context_window": 1000000,
@@ -112,6 +114,7 @@
         "fable-5",
         "claude-fable-5"
       ],
+      "premium": true,
       "intelligence_score": 19,
       "description": "Claude Fable 5 (GA 2026-07-01) - Previous Mythos flagship; prefer claude-fable-5-1. Still above Opus 4.8 (SWE-bench Verified ~95%, Terminal-Bench 2.0 84.3%). Adaptive thinking always-on with effort controls; safety classifiers may return stop_reason 'refusal'. Rejects non-default temperature/top_p. 1M context, 128K output, $10/$50 per 1M tokens.",
       "context_window": 1000000,

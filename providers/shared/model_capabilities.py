@@ -63,7 +63,7 @@ class ModelCapabilities:
     allow_code_generation: bool = (
         False  # Enables structured code generation in chat tool for substantial implementations
     )
-    # Priced far above models of a similar score (the -pro tier): rank-based FAST_RESPONSE picks skip it
+    # Priced several times above models of a similar score (the -pro tier, Fable, gpt-6-astra): rank-based FAST_RESPONSE picks skip it
     # (ModelProvider.pick_fast_by_rank) unless nothing else is allowed.
     premium: bool = False
 

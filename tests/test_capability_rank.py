@@ -89,6 +89,36 @@ def test_media_breadth_breaks_ties_only_in_media_capable_selection():
     assert picks == ["c-pdf-and-json", "b-pdf-and-video", "a-pdf-only"]
 
 
+def test_media_tie_break_counts_only_kinds_the_provider_can_send():
+    provider = _MediaProvider(
+        _caps("a-pdf", intelligence_score=15, supports_pdf=True),
+        _caps("b-pdf-flagged-video", intelligence_score=15, supports_pdf=True, supports_video=True),
+    )
+    provider.MEDIA_KINDS = frozenset({MediaKind.PDF})  # its encoder cannot send the video the flag claims
+    available = dict.fromkeys(provider._capabilities, ProviderType.GOOGLE)
+    with (
+        patch.object(ModelProviderRegistry, "get_available_models", return_value=available),
+        patch.object(ModelProviderRegistry, "get_provider", return_value=provider),
+    ):
+        picks = ModelProviderRegistry.find_media_capable_models(PDF)
+    assert picks == ["a-pdf", "b-pdf-flagged-video"]  # equal: the name decides
+
+
+def test_rank_models_skips_names_whose_lookup_raises():
+    provider = OpenAIModelProvider(api_key="test-key")
+    real_lookup = provider.get_capabilities
+
+    def lookup(name):
+        if name == "broken":
+            raise AttributeError("no registry entry")
+        if name == "unknown":
+            raise ValueError("unsupported model")
+        return real_lookup(name)
+
+    with patch.object(provider, "get_capabilities", side_effect=lookup):
+        assert [caps.model_name for caps in provider.rank_models(["broken", "gpt-5.5", "unknown"])] == ["gpt-5.5"]
+
+
 @pytest.fixture
 def gemini_anthropic_openai_keys():
     """Register exactly the Gemini, Anthropic and OpenAI providers, as the MCP server would for those keys."""
