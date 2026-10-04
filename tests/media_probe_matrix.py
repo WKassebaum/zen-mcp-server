@@ -22,6 +22,13 @@ o3-mini read zebra.pdf twice but has no vision: on the image-only letter-size PD
 "HERON-5" twice (260 input tokens; vision models 323-2,902), so it sees only a text layer and stays unflagged
 (OpenAI's file-inputs guide: page images need a vision model). Every other flagged non-pro OpenAI model read
 that scanned page on 2026-10-03.
+
+xai: scripts/probe_media_support.py --provider xai --repeat 2, run 2026-10-03 through XAIModelProvider (input_file on
+/v1/responses; Chat Completions refuses file parts). PDF only. All 7 models read zebra.pdf 2/2. Through the same provider
+with zen's chat system prompt, every model also read an image-only letter page and an image-only four-page PDF (all four
+markers, in order). xAI's server-side attachment_search ran unpredictably: 0 calls on most models (about 500-600 input
+tokens per page), 2-3 calls on the grok-4.20 models even for one page (up to 8,889 input tokens). Grok gets PDFs only
+when the user names a Grok model (XAIModelProvider.MEDIA_AUTO_ROUTING is False).
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
@@ -65,4 +72,11 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("openai", "o4-mini"): frozenset({"pdf"}),
     ("openai", "gpt-4.1"): frozenset({"pdf"}),
     ("openai", "gpt-5.2"): frozenset({"pdf"}),
+    ("xai", "grok-4.7"): frozenset({"pdf"}),
+    ("xai", "grok-4.6"): frozenset({"pdf"}),
+    ("xai", "grok-4.5"): frozenset({"pdf"}),
+    ("xai", "grok-4.3"): frozenset({"pdf"}),
+    ("xai", "grok-4.20-0309-reasoning"): frozenset({"pdf"}),
+    ("xai", "grok-4.20-0309-non-reasoning"): frozenset({"pdf"}),
+    ("xai", "grok-build-0.1"): frozenset({"pdf"}),
 }
