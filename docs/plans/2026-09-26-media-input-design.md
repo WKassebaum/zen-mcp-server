@@ -1,7 +1,7 @@
 # Media Input (PDF, Audio, Video) — Design
 
 **Date:** 2026-09-26
-**Status:** Phase 1 (core + Gemini) merged 2026-10-01; phase 2 (Claude and OpenAI, PDF) done 2026-10-03; phase 3 (xAI, PDF only, named Grok models only; `docs/plans/2026-10-03-media-input-phase3-xai.md`) implemented 2026-10-03, flags pending the live probe; phases 4–5 pending
+**Status:** Phase 1 (core + Gemini) merged 2026-10-01; phase 2 (Claude and OpenAI, PDF) done 2026-10-03; phase 3 (xAI, PDF only, named Grok models only; `docs/plans/2026-10-03-media-input-phase3-xai.md`) done 2026-10-03, all 7 Grok models flagged; phases 4–5 pending
 **Branch for implementation:** `feat/media-input` (merged to `zen-cli-v2` via PR)
 
 ## Goal

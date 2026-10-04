@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) implemented 2026-10-03; the Grok flags wait for the live probe: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phases 4–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
+- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phases 4–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -41,6 +41,7 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 ### Media input phase 3 follow-ups
 Found while building phase 3 (2026-10-03); none blocks it.
 - **Server-side tool calls are not surfaced:** `metadata["server_side_tool_calls"]` is not in `--json` or MCP output, `cost_in_usd_ticks` is not copied, and the design's logged warning when xAI's paid search ran is not implemented.
+- **xAI's document search is unpredictable:** on 2026-10-03 the grok-4.20 models ran `attachment_search` 2–3 times even for a one-page PDF (up to 8,889 input tokens), while the other Grok models ran none on four pages. The per-page reserve (2,500; 7,500 on grok-4.20) is set from one run each. Re-probe with longer PDFs (20+ pages) before relying on Grok for long documents, and consider whether `server_side_tool_calls` should raise a warning.
 - **No sampling parameters on the Responses path:** Grok media requests, like every Responses API request, carry no `temperature`; text-only Grok requests do.
 
 ## Future features
