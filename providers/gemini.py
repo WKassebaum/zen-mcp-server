@@ -21,7 +21,7 @@ from utils.media import MediaKind
 from .base import ModelProvider
 from .registries.gemini import GeminiModelRegistry
 from .registry_provider_mixin import RegistryBackedProviderMixin
-from .shared import ModelCapabilities, ModelResponse, ProviderType
+from .shared import ModelCapabilities, ModelResponse, ProviderType, usage_count
 
 logger = logging.getLogger(__name__)
 
@@ -376,6 +376,11 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 # Calculate total only if both values are available and valid
                 if input_tokens is not None and output_tokens is not None:
                     usage["total_tokens"] = input_tokens + output_tokens
+
+                # Input served from a cache (implicit prefix caching); absent when not reported
+                cached = usage_count(getattr(metadata, "cached_content_token_count", None))
+                if cached is not None:
+                    usage["cached_input_tokens"] = cached
         except (AttributeError, TypeError):
             # response doesn't have usage_metadata
             pass

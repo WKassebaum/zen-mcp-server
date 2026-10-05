@@ -151,7 +151,13 @@ def test_server_side_tool_calls_reach_the_metadata():
     provider = _provider(usage=usage)
     response = provider.generate_content("What code?", GROK, media=_media())
     assert response.metadata["server_side_tool_calls"] == 1
-    assert response.usage == {"input_tokens": 9_997, "output_tokens": 20, "total_tokens": 10_017}
+    # The usage object reports cached_tokens 0, so the count is 0, not absent
+    assert response.usage == {
+        "input_tokens": 9_997,
+        "output_tokens": 20,
+        "total_tokens": 10_017,
+        "cached_input_tokens": 0,
+    }
 
 
 def test_zero_server_side_tool_calls_are_recorded_too():

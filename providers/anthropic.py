@@ -16,7 +16,7 @@ from utils.media import MediaKind, MediaNotSupportedError, format_size
 from .base import ModelProvider, ModelResponse
 from .registries.anthropic import AnthropicModelRegistry
 from .registry_provider_mixin import RegistryBackedProviderMixin
-from .shared import ModelCapabilities, ProviderType
+from .shared import ModelCapabilities, ProviderType, usage_count
 
 logger = logging.getLogger(__name__)
 
@@ -167,11 +167,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
 
                 # Extract usage info from final message
                 if hasattr(final_message, "usage"):
-                    usage = {
-                        "input_tokens": final_message.usage.input_tokens,
-                        "output_tokens": final_message.usage.output_tokens,
-                        "total_tokens": final_message.usage.input_tokens + final_message.usage.output_tokens,
-                    }
+                    usage = self._extract_usage(final_message.usage)
 
                 # Extract finish reason
                 if hasattr(final_message, "stop_reason") and final_message.stop_reason:
@@ -195,6 +191,27 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         except Exception as e:
             logger.error(f"Anthropic API error: {e}")
             raise RuntimeError(f"Anthropic API error for model {resolved_model_name}: {e}") from e
+
+    @staticmethod
+    def _extract_usage(usage) -> dict[str, int]:
+        """Token counts from a Messages API ``usage``.
+
+        ``input_tokens`` counts uncached input only. Prompt-cache reads are recorded as ``cached_input_tokens`` and
+        cache writes as ``cache_write_input_tokens``, each only when the API reports it.
+        """
+        counts = {
+            "input_tokens": usage.input_tokens,
+            "output_tokens": usage.output_tokens,
+            "total_tokens": usage.input_tokens + usage.output_tokens,
+        }
+        for field_name, key in (
+            ("cache_read_input_tokens", "cached_input_tokens"),
+            ("cache_creation_input_tokens", "cache_write_input_tokens"),
+        ):
+            value = usage_count(getattr(usage, field_name, None))
+            if value is not None:
+                counts[key] = value
+        return counts
 
     def _build_document_blocks(self, media) -> tuple[list[dict], list[dict]]:
         """Base64 document blocks in input order, and the media_attached records for the response metadata.

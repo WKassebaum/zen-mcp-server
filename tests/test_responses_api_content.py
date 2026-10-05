@@ -78,6 +78,7 @@ def test_usage_from_the_sdks_response_usage_object():
         "input_tokens": 12,
         "output_tokens": 5,
         "total_tokens": 17,
+        "cached_input_tokens": 0,  # reported as 0, so 0 rather than absent
     }
 
 

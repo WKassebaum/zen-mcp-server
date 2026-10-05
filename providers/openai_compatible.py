@@ -19,6 +19,7 @@ from .shared import (
     ModelCapabilities,
     ModelResponse,
     ProviderType,
+    usage_count,
 )
 
 # Chat Completions `input_audio` format names by MIME type (OpenRouter's audio guide lists wav, mp3, flac, ogg, m4a,
@@ -931,6 +932,14 @@ class OpenAICompatibleProvider(ModelProvider):
             usage["input_tokens"] = _count("prompt_tokens", "input_tokens")
             usage["output_tokens"] = _count("completion_tokens", "output_tokens")
             usage["total_tokens"] = getattr(u, "total_tokens", 0) or 0
+
+            # Input served from the provider's prompt cache: Chat Completions report it under
+            # prompt_tokens_details, the Responses API under input_tokens_details. Absent when not reported.
+            for details_name in ("prompt_tokens_details", "input_tokens_details"):
+                cached = usage_count(getattr(getattr(u, details_name, None), "cached_tokens", None))
+                if cached is not None:
+                    usage["cached_input_tokens"] = cached
+                    break
 
         return usage
 

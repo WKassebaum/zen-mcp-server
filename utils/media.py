@@ -814,16 +814,21 @@ def upload_notice(media_attached: Any) -> str | None:
 
 
 def response_media_metadata(model_response: Any) -> dict[str, Any]:
-    """The media fields of a provider's ModelResponse that a tool copies into its output metadata.
+    """The media and cache fields of a provider's ModelResponse that a tool copies into its output metadata.
 
     ``media_attached`` (what was attached and how: inline, uploaded or cached, with the Files API name) and xAI's
     ``server_side_tool_calls``, when the response carries them, plus a one-line ``media_notice`` for uploads (so a
     user can delete one before Google's 48 h expiry) and for xAI's separately billed search calls.
+    ``cached_input_tokens`` (input served from the provider's prompt cache) when the usage reports it.
     """
+    fields: dict[str, Any] = {}
+    usage = getattr(model_response, "usage", None)
+    cached = usage.get("cached_input_tokens") if isinstance(usage, dict) else None
+    if isinstance(cached, int) and not isinstance(cached, bool):
+        fields["cached_input_tokens"] = cached
     metadata = getattr(model_response, "metadata", None)
     if not isinstance(metadata, dict):
-        return {}
-    fields: dict[str, Any] = {}
+        return fields
     notices: list[str] = []
     attached = metadata.get("media_attached")
     if isinstance(attached, list) and attached:
