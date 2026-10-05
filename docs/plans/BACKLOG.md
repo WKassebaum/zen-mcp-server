@@ -136,17 +136,22 @@ Found while building phase 5b (2026-10-04); none blocks it.
 - **System prompt role:** the system prompt is sent as a `user` message instead of `instructions` or a `developer` message. `Responses.create` accepts `instructions` from openai 1.66.0 onwards.
 - **Multi-turn continuation never run live:** earlier assistant turns are replayed as `output_text` parts. The `responses_api_endpoint` simulator test covers one turn only and is not in `TEST_REGISTRY`.
 
-### Unit tests still reach the network with dummy keys
-- **Recorded:** 2026-09-28; narrowed 2026-10-03.
+### Unit tests reached the network and read machine-local config (fixed)
+- **Recorded:** 2026-09-28; narrowed 2026-10-03; fixed 2026-10-05 after John's report.
 - **Fixed 2026-10-03:**
   - `tests/conftest.py` gives every test not marked integration dummy Gemini, OpenAI and xAI keys and no other provider key (`unit_tests_use_dummy_keys`). Real keys from the shell, the checkout's `.env` (loaded by `utils/env.py`) and `~/.zen/.env` no longer reach unit runs; `ZEN_NO_USER_ENV=1` stops `zen_cli.main` loading the last one. `tests/test_unit_suite_keys.py` guards both.
   - The suite went from 37 s to 13 s with the developer's keys exported, because `tests/test_large_prompt_handling.py` had been making paid Gemini calls on every local run.
   - The checkout's own `src/` comes first on `sys.path`, since a worktree's editable install otherwise imports the main checkout's `zen_cli`.
-- **Still open:** 9 unit tests open real connections, now with a dummy key, so they fail fast and cost nothing. A socket-blocking run on 2026-10-03 found them:
-  - **Gemini API:** 5 in `test_large_prompt_handling.py` (chat, prompt-file, boundary and empty-prompt cases) and 3 in `test_collaboration.py::TestDynamicContextRequests`. The `test_collaboration.py` ones reach Google despite mocking `get_provider`.
-  - **GitHub:** `test_server.py::test_handle_version`, through the version check.
+- **Fixed 2026-10-05:**
+  - **Offline:** 9 unit tests still called the Gemini API (with the dummy key) or GitHub. The 2026-10-03 note assumed they failed fast; on John's network the Gemini call stalled and the run never finished. They mocked `BaseTool.get_model_provider`, but tools take their provider from the registry (`ModelContext.provider`); they now patch `ModelProviderRegistry.get_provider_for_model` (and the version check). An autouse fixture (`unit_tests_stay_offline`, `tests/network_guard.py`) refuses non-loopback lookups and connections and fails any unit test that tries one.
+  - **Local models:** `conf/*.local.json` overrides changed auto-mode picks in tests (a developer's LM Studio model won FAST_RESPONSE). `ZEN_NO_LOCAL_MODELS=1` skips them; it is read at import, because tests that patch `os.environ` with `clear=True` would otherwise turn it off. conftest sets it.
+  - **Custom endpoint:** `CUSTOM_API_URL` from the checkout's `.env` registered the Custom provider in unit runs (`llama3.2` joined the consensus panel). The fixture now unsets it with the keys (`UNSET_PROVIDER_VARS`).
 
-  Mock them, or block sockets for unit tests, to make the suite offline.
+### Gemini requests have no timeout by default
+- **Recorded:** 2026-10-05 (found while fixing the hanging unit test above)
+- **No default:** `providers/gemini.py` sets `HttpOptions.timeout` only when a `CUSTOM_*_TIMEOUT` variable is set. Otherwise google-genai sends `timeout=None` to httpx, so a stalled connection waits forever, in the MCP server and the CLI as in the test.
+- **Wrong unit:** `_resolve_http_timeout` passes seconds, but `HttpOptions.timeout` is in milliseconds (`google/genai/_api_client.py:get_timeout_in_seconds`), so `CUSTOM_READ_TIMEOUT=600` gives Gemini a 0.6 s timeout.
+- **Fix:** convert to milliseconds and set a default (the OpenAI-compatible providers default to a 30 s connect and 10 min read timeout). Large uploads go through the Files API, so check that path's timeout too.
 
 ### Simulator tests omit `working_directory_absolute_path`
 - **Recorded:** 2026-09-28

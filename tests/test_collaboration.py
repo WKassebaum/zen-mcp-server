@@ -26,7 +26,7 @@ class TestDynamicContextRequests:
         return DebugIssueTool()
 
     @pytest.mark.asyncio
-    @patch("tools.shared.base_tool.BaseTool.get_model_provider")
+    @patch("providers.registry.ModelProviderRegistry.get_provider_for_model")
     async def test_clarification_request_parsing(self, mock_get_provider, analyze_tool):
         """Test that tools correctly parse clarification requests"""
         # Mock model to return a clarification request
@@ -115,7 +115,7 @@ class TestDynamicContextRequests:
         assert "required_actions" in response_data
 
     @pytest.mark.asyncio
-    @patch("tools.shared.base_tool.BaseTool.get_model_provider")
+    @patch("providers.registry.ModelProviderRegistry.get_provider_for_model")
     async def test_malformed_clarification_request_treated_as_normal(self, mock_get_provider, analyze_tool):
         """Test that malformed JSON clarification requests are treated as normal responses"""
         malformed_json = '{"status": "files_required_to_continue", "prompt": "Missing closing brace"'
@@ -303,10 +303,12 @@ class TestDynamicContextRequests:
         assert request.suggested_next_action["tool"] == "analyze"
 
     @pytest.mark.asyncio
-    @patch("tools.shared.base_tool.BaseTool.get_model_provider")
+    @patch("providers.registry.ModelProviderRegistry.get_provider_for_model")
     async def test_error_response_format(self, mock_get_provider, analyze_tool):
         """Test error response format"""
-        mock_get_provider.side_effect = Exception("API connection failed")
+        mock_provider = create_mock_provider()
+        mock_provider.generate_content.side_effect = Exception("API connection failed")
+        mock_get_provider.return_value = mock_provider
 
         result = await analyze_tool.execute(
             {

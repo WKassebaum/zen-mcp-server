@@ -8,6 +8,8 @@ import os
 # collection) otherwise copies it into os.environ for the whole session, so real API keys would reach tests that
 # expect none and could turn an unmocked provider call into a paid one. Set before anything imports zen_cli.
 os.environ["ZEN_NO_USER_ENV"] = "1"
+# Likewise the developer's own models in conf/*.local.json (gitignored), which would change auto-mode picks.
+os.environ["ZEN_NO_LOCAL_MODELS"] = "1"
 
 import asyncio  # noqa: E402
 import importlib  # noqa: E402
@@ -35,6 +37,7 @@ if str(parent_dir / "src") not in sys.path:
     sys.path.insert(0, str(parent_dir / "src"))
 
 import utils.env as env_config  # noqa: E402
+from tests.network_guard import block_network  # noqa: E402
 
 # Ensure tests operate with runtime environment rather than .env overrides during imports
 env_config.reload_env({"ZEN_MCP_FORCE_ENV_OVERRIDE": "false"})
@@ -101,9 +104,16 @@ def project_path(tmp_path):
 
 
 DUMMY_KEY = "dummy-key-for-tests"
-# Unit tests run with these providers registered on a dummy key, and with no key for the others (CI conditions)
+# Unit tests run with these providers registered on a dummy key, and with nothing that enables the others (CI
+# conditions). CUSTOM_API_URL alone registers the Custom provider, so a local LM Studio or Ollama URL counts too.
 DUMMY_KEY_VARS = ("GEMINI_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY")
-UNSET_KEY_VARS = ("ANTHROPIC_API_KEY", "OPENROUTER_API_KEY", "DIAL_API_KEY", "AZURE_OPENAI_API_KEY")
+UNSET_PROVIDER_VARS = (
+    "ANTHROPIC_API_KEY",
+    "OPENROUTER_API_KEY",
+    "DIAL_API_KEY",
+    "AZURE_OPENAI_API_KEY",
+    "CUSTOM_API_URL",
+)
 
 
 def _set_dummy_keys_if_missing():
@@ -221,7 +231,7 @@ def mock_provider_availability(request, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def unit_tests_use_dummy_keys(request, monkeypatch):
-    """Replace real API keys for every test not marked integration, as in CI.
+    """Replace real API keys, and unset a custom endpoint URL, for every test not marked integration, as in CI.
 
     Real keys reach local runs from the shell and from the checkout's .env (loaded into os.environ by utils.env),
     and an unmocked provider call with one is paid. Integration tests keep the environment's keys.
@@ -230,8 +240,24 @@ def unit_tests_use_dummy_keys(request, monkeypatch):
         return
     for var in DUMMY_KEY_VARS:
         monkeypatch.setenv(var, DUMMY_KEY)
-    for var in UNSET_KEY_VARS:
+    for var in UNSET_PROVIDER_VARS:
         monkeypatch.delenv(var, raising=False)
+
+
+@pytest.fixture(autouse=True)
+def unit_tests_stay_offline(request):
+    """Fail any test not marked integration that tries to reach a non-loopback host.
+
+    The attempt itself is refused at once (tests/network_guard.py), so an unmocked provider call can neither hang the
+    run nor quietly pass on its error path.
+    """
+    if request.node.get_closest_marker("integration"):
+        yield
+        return
+    with block_network() as attempts:
+        yield
+    if attempts:
+        pytest.fail(f"test tried to reach the network; mock the provider or fetch: {sorted(set(attempts))}")
 
 
 @pytest.fixture(autouse=True)

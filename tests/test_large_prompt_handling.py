@@ -15,9 +15,23 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from config import MCP_PROMPT_SIZE_LIMIT
+from providers.registry import ModelProviderRegistry
+from tests.mock_helpers import create_mock_provider
 from tools.chat import ChatTool
 from tools.codereview import CodeReviewTool
 from tools.shared.exceptions import ToolExecutionError
+
+
+def _mock_registry_provider(content: str = "Mock response"):
+    """Serve every model from a mock provider.
+
+    The tools take their provider from the registry (ModelContext), so patching tool.get_model_provider alone leaves
+    the real provider, and a network call, in place.
+    """
+    provider = create_mock_provider()
+    provider.generate_content.return_value.content = content
+    return patch.object(ModelProviderRegistry, "get_provider_for_model", return_value=provider)
+
 
 # from tools.debug import DebugIssueTool  # Commented out - debug tool refactored
 
@@ -108,13 +122,16 @@ class TestLargePromptHandling:
 
         temp_dir = tempfile.mkdtemp()
 
-        # This test runs in the test environment which uses dummy keys
-        # The chat tool will return an error for dummy keys, which is expected
         try:
             try:
-                result = await tool.execute(
-                    {"prompt": normal_prompt, "model": "gemini-2.5-flash", "working_directory_absolute_path": temp_dir}
-                )
+                with _mock_registry_provider():
+                    result = await tool.execute(
+                        {
+                            "prompt": normal_prompt,
+                            "model": "gemini-2.5-flash",
+                            "working_directory_absolute_path": temp_dir,
+                        }
+                    )
             except ToolExecutionError as exc:
                 output = json.loads(exc.payload if hasattr(exc, "payload") else str(exc))
             else:
@@ -141,22 +158,22 @@ class TestLargePromptHandling:
 
         try:
             try:
-                result = await tool.execute(
-                    {
-                        "prompt": "",
-                        "absolute_file_paths": [temp_prompt_file],
-                        "model": "gemini-2.5-flash",
-                        "working_directory_absolute_path": temp_dir,
-                    }
-                )
+                with _mock_registry_provider():
+                    result = await tool.execute(
+                        {
+                            "prompt": "",
+                            "absolute_file_paths": [temp_prompt_file],
+                            "model": "gemini-2.5-flash",
+                            "working_directory_absolute_path": temp_dir,
+                        }
+                    )
             except ToolExecutionError as exc:
                 output = json.loads(exc.payload if hasattr(exc, "payload") else str(exc))
             else:
                 assert len(result) == 1
                 output = json.loads(result[0].text)
 
-            # The test may fail with dummy API keys, which is expected behavior.
-            # We're mainly testing that the tool processes prompt files correctly without size errors.
+            # The tool processes prompt files without size errors
             assert output["status"] != "resend_prompt"
         finally:
             # Cleanup
@@ -354,18 +371,7 @@ class TestLargePromptHandling:
         exact_prompt = "x" * MCP_PROMPT_SIZE_LIMIT
 
         # Mock the model provider to avoid real API calls
-        with patch.object(tool, "get_model_provider") as mock_get_provider:
-            mock_provider = MagicMock()
-            mock_provider.get_provider_type.return_value = MagicMock(value="google")
-            mock_provider.get_capabilities.return_value = MagicMock(supports_extended_thinking=False)
-            mock_provider.generate_content.return_value = MagicMock(
-                content="Response to the large prompt",
-                usage={"input_tokens": 12000, "output_tokens": 10, "total_tokens": 12010},
-                model_name="gemini-2.5-flash",
-                metadata={"finish_reason": "STOP"},
-            )
-            mock_get_provider.return_value = mock_provider
-
+        with _mock_registry_provider("Response to the large prompt"):
             # With the fix, this should now pass because we check at MCP transport boundary before adding internal content
             temp_dir = tempfile.mkdtemp()
             try:
@@ -402,18 +408,7 @@ class TestLargePromptHandling:
         """Test empty prompt without prompt.txt file."""
         tool = ChatTool()
 
-        with patch.object(tool, "get_model_provider") as mock_get_provider:
-            mock_provider = MagicMock()
-            mock_provider.get_provider_type.return_value = MagicMock(value="google")
-            mock_provider.get_capabilities.return_value = MagicMock(supports_extended_thinking=False)
-            mock_provider.generate_content.return_value = MagicMock(
-                content="Success",
-                usage={"input_tokens": 10, "output_tokens": 20, "total_tokens": 30},
-                model_name="gemini-2.5-flash",
-                metadata={"finish_reason": "STOP"},
-            )
-            mock_get_provider.return_value = mock_provider
-
+        with _mock_registry_provider("Success"):
             temp_dir = tempfile.mkdtemp()
             try:
                 try:
@@ -625,20 +620,20 @@ class TestLargePromptHandling:
             small_user_input = "Hello"
 
             try:
-                result = await tool.execute(
-                    {
-                        "prompt": small_user_input,
-                        "model": "gemini-2.5-flash",
-                        "working_directory_absolute_path": temp_dir,
-                    }
-                )
+                with _mock_registry_provider():
+                    result = await tool.execute(
+                        {
+                            "prompt": small_user_input,
+                            "model": "gemini-2.5-flash",
+                            "working_directory_absolute_path": temp_dir,
+                        }
+                    )
             except ToolExecutionError as exc:
                 output = json.loads(exc.payload if hasattr(exc, "payload") else str(exc))
             else:
                 output = json.loads(result[0].text)
 
-            # The test will fail with dummy API keys, which is expected behavior
-            # We're mainly testing that the tool processes small prompts correctly without size errors
+            # The tool processes small prompts without size errors
             assert output["status"] != "resend_prompt"
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)

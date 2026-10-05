@@ -2,6 +2,8 @@
 Tests for the main server functionality
 """
 
+from unittest.mock import patch
+
 import pytest
 
 from server import handle_call_tool
@@ -89,7 +91,8 @@ class TestServerTools:
     @pytest.mark.asyncio
     async def test_handle_version(self):
         """Test getting version info"""
-        result = await handle_call_tool("version", {})
+        with patch("tools.version.fetch_github_version", return_value=None):  # no network
+            result = await handle_call_tool("version", {})
         assert len(result) == 1
 
         response = result[0].text

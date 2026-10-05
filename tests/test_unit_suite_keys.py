@@ -7,7 +7,7 @@ reported, so a failure can never print a key.
 
 import os
 
-from tests.conftest import DUMMY_KEY, DUMMY_KEY_VARS, UNSET_KEY_VARS
+from tests.conftest import DUMMY_KEY, DUMMY_KEY_VARS, UNSET_PROVIDER_VARS
 
 
 def test_unit_tests_see_dummy_keys_only():
@@ -16,5 +16,5 @@ def test_unit_tests_see_dummy_keys_only():
 
 
 def test_unit_tests_see_no_other_provider_keys():
-    still_set = [name for name in UNSET_KEY_VARS if os.environ.get(name)]
-    assert not still_set, f"provider key variables still set: {still_set}"
+    still_set = [name for name in UNSET_PROVIDER_VARS if os.environ.get(name)]
+    assert not still_set, f"provider variables still set: {still_set}"

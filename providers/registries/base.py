@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 CAPABILITY_FIELD_NAMES = {field.name for field in fields(ModelCapabilities)}
 
 
+def _local_overrides_opted_out() -> bool:
+    """True when ZEN_NO_LOCAL_MODELS is 1, true or yes (any case): skip conf/<name>.local.json."""
+    return (get_env("ZEN_NO_LOCAL_MODELS") or "").strip().lower() in ("1", "true", "yes")
+
+
+# Read once at import, so a test that clears os.environ cannot turn the local files back on. The unit tests opt out
+# (tests/conftest.py) so a developer's own models never change what they pick.
+SKIP_LOCAL_OVERRIDES = _local_overrides_opted_out()
+
+
 class CustomModelRegistryBase:
     """Load and expose capability metadata from a JSON manifest."""
 
@@ -130,7 +140,7 @@ class CustomModelRegistryBase:
 
         # Merge local overrides (e.g. custom_models.local.json) if present
         local_path = self.config_path.with_suffix(".local.json")
-        if local_path.exists():
+        if local_path.exists() and not SKIP_LOCAL_OVERRIDES:
             local_data = read_json_file(str(local_path))
             if local_data and "models" in local_data:
                 existing_names = {m["model_name"] for m in data.get("models", []) if isinstance(m, dict)}
