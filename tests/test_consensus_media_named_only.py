@@ -56,7 +56,7 @@ def _recorder(calls, provider_type):
     return generate_content
 
 
-async def _run(models, files_from_step=2):
+async def _run(models, files_from_step=2, files_only_on=None):
     """Run every consensus step; steps from ``files_from_step`` on attach the PDF. Returns (calls, step results)."""
     calls, results = [], []
     tool = ConsensusTool()
@@ -91,7 +91,7 @@ async def _run(models, files_from_step=2):
                 "findings": "x",
                 "continuation_id": thread_id,
             }
-            if step >= files_from_step:
+            if (step == files_only_on) if files_only_on is not None else step >= files_from_step:
                 arguments["relevant_files"] = [PDF]
             results.append(json.loads((await tool.execute(arguments))[0].text))
     return calls, results, [m["model"] for m in tool.models_to_consult]
@@ -151,3 +151,18 @@ def test_an_x_ai_openrouter_model_never_gets_auto_routed_media_even_if_flagged()
             == []
         )
     assert not ModelProviderRegistry.takes_media_only_when_named(provider, "google/gemini-3.5-flash")
+
+
+@pytest.mark.asyncio
+async def test_a_grok_member_picked_by_frontier_never_gets_re_attached_media():
+    # The PDF is attached on step 2 only (to gemini); later steps re-attach it from the thread (phase 5b), and the
+    # Grok member's step names no files of its own
+    calls, results, roster = await _run(
+        [{"model": "frontier", "stance": "for"}, {"model": "frontier", "stance": "against"}], files_only_on=2
+    )
+    assert roster.count("grok-4.7") == 2
+    assert not [call for call in calls if call[0] == ProviderType.XAI and call[2]]
+    later_grok = [r["model_response"] for r in results[2:] if r.get("model_response", {}).get("model") == "grok-4.7"]
+    assert later_grok and all(response["status"] == "error" for response in later_grok)
+    # Not vacuous: members after step 2 that name no files got the PDF re-attached
+    assert len([call for call in calls if call[0] != ProviderType.XAI and call[2] == ["zebra.pdf"]]) >= 2
