@@ -465,14 +465,14 @@ class TestAutoModeComprehensive:
                 category: ModelProviderRegistry.get_preferred_fallback_model(category) for category in ToolModelCategory
             }
 
-            # OpenRouter states no preference, so the registry ranks its canonical names (never aliases such as
-            # "5.1", which the old alphabetical pick returned for every category). The four 20-score flagships tie
-            # at the top rank and the name breaks the tie. FAST_RESPONSE backs chat: the lowest-ranked model with
-            # intelligence_score >= 15.
+            # OpenRouter picks from its per-category preference lists (OpenRouterProvider.PREFERRED_MODELS), always
+            # canonical ids (never aliases such as "5.1", which the old alphabetical pick returned for every
+            # category). By rank, Fable 5.1 took EXTENDED_REASONING and BALANCED on the name tie-break and chat went
+            # to mistralai/devstral-2512.
             assert picks == {
-                ToolModelCategory.EXTENDED_REASONING: "anthropic/claude-fable-5.1",
-                ToolModelCategory.BALANCED: "anthropic/claude-fable-5.1",
-                ToolModelCategory.FAST_RESPONSE: "mistralai/devstral-2512",
+                ToolModelCategory.EXTENDED_REASONING: "openai/gpt-6-astra",
+                ToolModelCategory.BALANCED: "openai/gpt-6-sol",
+                ToolModelCategory.FAST_RESPONSE: "openai/gpt-6-luna",
             }
 
     @pytest.mark.asyncio

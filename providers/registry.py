@@ -455,9 +455,9 @@ class ModelProviderRegistry:
         The first provider in PROVIDER_PRIORITY_ORDER that has allowed models (respecting restrictions and
         required_media) decides:
         1. It picks from its allowed list (get_preferred_model).
-        2. If it states no preference (OpenRouter, Azure, DIAL, Custom), the registry ranks that provider's
-           allowed models by capability (_pick_by_rank). A later provider is never asked: its preference would
-           beat a higher-priority provider such as Custom.
+        2. If it states no preference (Azure, DIAL, Custom, or OpenRouter with nothing on its lists allowed), the
+           registry ranks that provider's allowed models by capability (_pick_by_rank). A later provider is never
+           asked: its preference (OpenRouter's lists) would beat a higher-priority provider such as Custom.
 
         Args:
             tool_category: Optional category to influence model selection

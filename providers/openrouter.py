@@ -1,6 +1,7 @@
 """OpenRouter provider implementation."""
 
 import logging
+from typing import TYPE_CHECKING, ClassVar, Optional
 
 from utils.env import get_env
 
@@ -11,6 +12,9 @@ from .shared import (
     ProviderType,
     RangeTemperatureConstraint,
 )
+
+if TYPE_CHECKING:
+    from tools.models import ToolModelCategory
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
@@ -42,6 +46,34 @@ class OpenRouterProvider(OpenAICompatibleProvider):
 
     # Model registry for managing configurations and aliases
     _registry: OpenRouterModelRegistry | None = None
+
+    # Auto-mode picks per tool category (ToolModelCategory value), first allowed wins. They mirror the native
+    # providers' first choices, interleaving vendors, with ids exactly as in conf/openrouter_models.json. With none
+    # of a list allowed, the registry ranks the allowed models instead (ModelProviderRegistry._pick_by_rank).
+    PREFERRED_MODELS: ClassVar[dict[str, tuple[str, ...]]] = {
+        "extended_reasoning": (
+            "openai/gpt-6-astra",
+            "anthropic/claude-fable-5.1",
+            "google/gemini-3.1-pro-preview",
+            "x-ai/grok-4.7",
+            "anthropic/claude-opus-5.5",
+            "openai/gpt-6-sol",
+        ),
+        "balanced": (
+            "openai/gpt-6-sol",
+            "anthropic/claude-sonnet-5.5",
+            "google/gemini-3.1-pro-preview",
+            "x-ai/grok-4.7",
+            "openai/gpt-5.6-sol",
+        ),
+        "fast_response": (
+            "openai/gpt-6-luna",
+            "google/gemini-3.5-flash",
+            "anthropic/claude-sonnet-5.5",
+            "x-ai/grok-4.6",
+            "google/gemini-3.6-flash",
+        ),
+    }
 
     def __init__(self, api_key: str, **kwargs):
         """Initialize OpenRouter provider.
@@ -111,6 +143,19 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     def get_provider_type(self) -> ProviderType:
         """Identify this provider for restrictions and logging."""
         return ProviderType.OPENROUTER
+
+    def get_preferred_model(self, category: "ToolModelCategory", allowed_models: list[str]) -> Optional[str]:
+        """The first id on this category's PREFERRED_MODELS list that is allowed; None when none is.
+
+        allowed_models mixes aliases and canonical ids, so it is compared as canonical ids. None hands the pick to
+        the registry's rank-based fallback. The registry asks only the first provider with allowed models, so this
+        never beats Custom, Azure or DIAL.
+        """
+        allowed = {self._resolve_model_name(name) for name in allowed_models}
+        for model_name in self.PREFERRED_MODELS.get(category.value, ()):
+            if model_name in allowed:
+                return model_name
+        return None
 
     # ------------------------------------------------------------------
     # Registry helpers

@@ -141,19 +141,60 @@ def test_openai_fast_response_fallback_skips_premium_and_below_floor_models(allo
 
 
 # ---------------------------------------------------------------------------
-# OpenRouter, Azure, DIAL and Custom state no preference: the first provider with allowed models picks by rank
+# OpenRouter picks by purpose from its preference lists, and by rank when none of a list is allowed
 # ---------------------------------------------------------------------------
 
 
+def test_openrouter_alone_picks_by_purpose():
+    # By rank, four 20-score flagships tied at 111 and the name gave every category but chat to Fable 5.1, and chat
+    # went to mistralai/devstral-2512, a coding model.
+    picks = _picks({"OPENROUTER_API_KEY": "test-key"})
+    assert picks == {
+        EXTENDED: "openai/gpt-6-astra",
+        BALANCED: "openai/gpt-6-sol",
+        FAST: "openai/gpt-6-luna",
+    }
+
+
 def test_openrouter_allow_list_sends_chat_to_the_cheaper_capable_model():
-    # The docstring example: chat used to go to Opus 5.5 (alphabetical). mistral-large scores 14, below the
-    # FAST_RESPONSE floor of 15. Opus 5.5 and Sonnet 5.5 rank the same (106): Sonnet wins only on the name tie-break.
+    # The docstring example: chat used to go to Opus 5.5 (alphabetical). Sonnet 5.5 is on the FAST and BALANCED
+    # lists, Opus 5.5 on the EXTENDED_REASONING list; mistral-large is on none.
     picks = _picks({"OPENROUTER_API_KEY": "test-key", "OPENROUTER_ALLOWED_MODELS": "opus,sonnet,mistral"})
     assert picks == {
         EXTENDED: "anthropic/claude-opus-5.5",
-        BALANCED: "anthropic/claude-opus-5.5",
+        BALANCED: "anthropic/claude-sonnet-5.5",
         FAST: "anthropic/claude-sonnet-5.5",
     }
+
+
+def test_openrouter_preference_lists_name_catalog_ids():
+    import json
+    from pathlib import Path
+
+    from providers.openrouter import OpenRouterProvider
+
+    catalog = Path(__file__).resolve().parent.parent / "conf" / "openrouter_models.json"
+    ids = {entry["model_name"] for entry in json.loads(catalog.read_text())["models"]}
+    assert set(OpenRouterProvider.PREFERRED_MODELS) == {category.value for category in ToolModelCategory}
+    for category, preferences in OpenRouterProvider.PREFERRED_MODELS.items():
+        assert preferences, category
+        assert [name for name in preferences if name not in ids] == [], category
+
+
+def test_openrouter_preference_matches_an_allowed_alias():
+    # Called directly with aliases only: the list's canonical ids still match, and the canonical id is returned.
+    from providers.openrouter import OpenRouterProvider
+
+    provider = OpenRouterProvider(api_key="test-key")
+    assert provider.get_preferred_model(FAST, ["sonnet", "luna"]) == "openai/gpt-6-luna"
+    assert provider.get_preferred_model(EXTENDED, ["sonnet", "opus"]) == "anthropic/claude-opus-5.5"
+    assert provider.get_preferred_model(BALANCED, ["mistral", "devstral"]) is None  # the registry ranks these
+
+
+# ---------------------------------------------------------------------------
+# Azure, DIAL and Custom state no preference, nor does OpenRouter beyond its lists: the first provider with
+# allowed models picks by rank
+# ---------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -180,7 +221,7 @@ def test_fast_response_takes_the_lowest_ranked_model_when_none_reaches_the_floor
 
 def test_custom_endpoint_keeps_every_category_ahead_of_openrouter():
     # Custom comes before OpenRouter in PROVIDER_PRIORITY_ORDER and has allowed models, so it decides even though
-    # it states no preference. An OpenRouterProvider.get_preferred_model override once moved FAST_RESPONSE here
-    # from llama3.2 to openai/gpt-6-luna.
+    # it states no preference. When the registry asked every provider, OpenRouterProvider.get_preferred_model moved
+    # FAST_RESPONSE here from llama3.2 to openai/gpt-6-luna.
     picks = _picks({"OPENROUTER_API_KEY": "test-key", "CUSTOM_API_URL": "http://localhost:11434/v1"})
     assert picks == {EXTENDED: "llama3.2", BALANCED: "llama3.2", FAST: "llama3.2"}
