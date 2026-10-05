@@ -87,3 +87,14 @@ Recorded in `docs/plans/BACKLOG.md` under "Media input phase 5b follow-ups".
 - **Gemini through OpenRouter.** OpenRouter alternates between two Google endpoints (Google and Google AI Studio), each with its own cache. A raw call hit 3,881 tokens right after zen's calls, then missed again. zen does not pin the endpoint, to keep availability.
 
 **Re-attach, end to end.** On Gemini, through `server.handle_call_tool`, turn 1 attached the PDF and was asked about page 1 (OSPREY-11). Turn 2 named no files and asked about page 5. The PDF was re-attached (`media_attached` lists it) and the answer was correct (HERON-5).
+
+## Final review fixes (2026-10-05)
+
+The final review found nothing Critical. Fixes, one commit each, test-first:
+- **`a3e8d1f`** (Important): a call's own text files come before re-attached media. Earlier media gets the file budget minus the own text files' estimate (floor 0), against the same budget each tool embeds with.
+- **`a4675f1`** (Important): earlier media a follow-up left out is reported in the output as `media_omitted`, plus a `media_notice` line.
+- **`e6140d4`:** first-turn media that no turn recorded (threads stored before 5b, clink-started threads) re-attaches as the oldest earlier media.
+- **`637c5ea`:** follow-up history is sized for a model that takes the thread's media.
+- **`3ed56f6`:** consensus intent words pick for the thread's media too. A thread with a PDF gets no Grok member through `frontier`.
+- **`3e5f719`:** re-attach plans under the inline request cap with headroom for the prompt.
+- **`a7e9d00`:** docs: Claude's `total_tokens` excludes cached input.
