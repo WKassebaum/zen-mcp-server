@@ -65,6 +65,8 @@ Found while building phase 5a (2026-10-04); none blocks it.
 
 ### Media input phase 5b follow-ups
 Found while building phase 5b (2026-10-04); none blocks it.
+- **gpt-6 on the Responses API rarely reads its prompt cache for file requests:** on 2026-10-04 the cache was written on 10 of 11 identical-prefix requests (`cache_write_tokens`) and read once. `prompt_cache_key`, dropping `reasoning`, and a 45 s gap made no difference. Re-check after model updates; it may need OpenAI-side changes.
+- **Gemini through OpenRouter misses the implicit cache:** OpenRouter spreads requests over two Google endpoints, each with its own cache. Pinning one (`provider.order` plus `allow_fallbacks: false`) would raise the hit rate but cost availability. Decide if Gemini-via-OpenRouter media turns out to be common.
 - **Threads stored before 5b lose their first-turn media:** `initial_context` no longer carries media and old turns recorded none, so a follow-up to a thread from before the upgrade (file storage keeps threads 3 hours) re-attaches nothing.
 - **Gemini can switch an earlier file to an upload:** above the 60 MB inline cap the largest files upload first, so a follow-up that adds media can move an earlier inline file to the Files API. That turn's prefix changes and misses the cache; later turns are stable again. Uploading the newest files first would keep the prefix.
 - **Media a refused call named is not re-attached, and not mentioned:** turns record only what a model call actually attached, and the old "media not attached" note is gone. A follow-up to a refused PDF call does not resend that PDF.

@@ -3,7 +3,7 @@
 **Date:** 2026-10-04
 **Plan:** `docs/plans/2026-10-04-media-input-phase5b-continuation.md`
 **Branch:** `feat/media-phase5b-continuation` (worktree `zen-media-phase5b`)
-**Outcome:** Follow-ups re-attach the media any earlier turn attached, not only first-turn media. Media requests keep a byte-stable prefix, Claude gets a cache breakpoint after the media, and every provider reports `cached_input_tokens`. The Grok CLI preset runs with `--no-auto-update`, and the docs cover media and Grok Build via clink. The live cache probes (controller steps 1 and 2) are still to run.
+**Outcome:** Follow-ups re-attach the media any earlier turn attached, not only first-turn media. Media requests keep a byte-stable prefix, Claude gets a cache breakpoint after the media, and every provider reports `cached_input_tokens`. The Grok CLI preset runs with `--no-auto-update`, and the docs cover media and Grok Build via clink. Live checks: see "Live results".
 
 ## Tasks
 
@@ -66,3 +66,24 @@
 ## Follow-ups
 
 Recorded in `docs/plans/BACKLOG.md` under "Media input phase 5b follow-ups".
+
+
+## Live results (2026-10-04, controller)
+
+**Cache probe.** Two calls per provider with the same 8-page image-only PDF and different questions, through zen's providers. Turn 2 figures:
+
+| Provider and model | Turn 2 cache |
+|---|---|
+| Gemini gemini-3.5-flash | 1,898 cached |
+| Claude claude-sonnet-5-5 (cache_control) | turn 1 wrote 12,470, turn 2 read 12,470 |
+| OpenAI gpt-5.5 (Chat) | 5,888 cached |
+| xAI grok-4.7 | 5,888 cached |
+| OpenRouter anthropic/claude-sonnet-5.5 (cache_control text part) | 12,478 cached |
+| OpenAI gpt-6-luna (Responses) | 0 cached |
+| OpenRouter google/gemini-3.5-flash | 0 cached |
+
+**The two misses:**
+- **gpt-6-luna.** Over 11 tries, the response's `cache_write_tokens` was nonzero every time and only one try hit, with or without `prompt_cache_key` and `reasoning`, and at gaps of up to 45 s. zen reads the field correctly (checked offline against the SDK type), and now also reports `cache_write_input_tokens`.
+- **Gemini through OpenRouter.** OpenRouter alternates between two Google endpoints (Google and Google AI Studio), each with its own cache. A raw call hit 3,881 tokens right after zen's calls, then missed again. zen does not pin the endpoint, to keep availability.
+
+**Re-attach, end to end.** On Gemini, through `server.handle_call_tool`, turn 1 attached the PDF and was asked about page 1 (OSPREY-11). Turn 2 named no files and asked about page 5. The PDF was re-attached (`media_attached` lists it) and the answer was correct (HERON-5).

@@ -947,13 +947,15 @@ def response_media_metadata(model_response: Any) -> dict[str, Any]:
     ``media_attached`` (what was attached and how: inline, uploaded or cached, with the Files API name) and xAI's
     ``server_side_tool_calls``, when the response carries them, plus a one-line ``media_notice`` for uploads (so a
     user can delete one before Google's 48 h expiry) and for xAI's separately billed search calls.
-    ``cached_input_tokens`` (input served from the provider's prompt cache) when the usage reports it.
+    ``cached_input_tokens`` (input served from the provider's prompt cache) and ``cache_write_input_tokens`` (input
+    written to it) when the usage reports them.
     """
     fields: dict[str, Any] = {}
     usage = getattr(model_response, "usage", None)
-    cached = usage.get("cached_input_tokens") if isinstance(usage, dict) else None
-    if isinstance(cached, int) and not isinstance(cached, bool):
-        fields["cached_input_tokens"] = cached
+    for key in ("cached_input_tokens", "cache_write_input_tokens"):
+        count = usage.get(key) if isinstance(usage, dict) else None
+        if isinstance(count, int) and not isinstance(count, bool):
+            fields[key] = count
     metadata = getattr(model_response, "metadata", None)
     if not isinstance(metadata, dict):
         return fields

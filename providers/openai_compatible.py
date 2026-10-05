@@ -943,10 +943,16 @@ class OpenAICompatibleProvider(ModelProvider):
 
             # Input served from the provider's prompt cache: Chat Completions report it under
             # prompt_tokens_details, the Responses API under input_tokens_details. Absent when not reported.
+            # Some also report the input written to the cache (cache_write_tokens: OpenRouter, and gpt-6 on the
+            # Responses API, which wrote the cache on every file request in a 2026-10-04 probe).
             for details_name in ("prompt_tokens_details", "input_tokens_details"):
-                cached = usage_count(getattr(getattr(u, details_name, None), "cached_tokens", None))
+                details = getattr(u, details_name, None)
+                cached = usage_count(getattr(details, "cached_tokens", None))
                 if cached is not None:
                     usage["cached_input_tokens"] = cached
+                    written = usage_count(getattr(details, "cache_write_tokens", None))
+                    if written is not None:
+                        usage["cache_write_input_tokens"] = written
                     break
 
         return usage

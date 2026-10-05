@@ -204,3 +204,45 @@ async def test_chat_output_metadata_shows_cached_input_tokens(tmp_path):
             }
         )
     assert json.loads(result[0].text)["metadata"]["cached_input_tokens"] == 4_096
+
+
+def test_cache_write_tokens_from_openai_and_openrouter_usage():
+    # Live 2026-10-04: gpt-6-luna on the Responses API reported input_tokens_details.cache_write_tokens on every file
+    # request; OpenRouter reports prompt_tokens_details.cache_write_tokens. Both become cache_write_input_tokens.
+    responses = ResponseUsage.model_validate(
+        {
+            "input_tokens": 22_847,
+            "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 22_844},
+            "output_tokens": 8,
+            "output_tokens_details": {"reasoning_tokens": 0},
+            "total_tokens": 22_855,
+        }
+    )
+    usage = OpenAIModelProvider(api_key="test-key")._extract_usage(SimpleNamespace(usage=responses))
+    assert usage["cached_input_tokens"] == 0 and usage["cache_write_input_tokens"] == 22_844
+
+    chat = CompletionUsage.model_validate(
+        {
+            "prompt_tokens": 12_492,
+            "completion_tokens": 9,
+            "total_tokens": 12_501,
+            "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 12_470},
+        }
+    )
+    usage = OpenRouterProvider(api_key="test-key")._extract_usage(SimpleNamespace(usage=chat))
+    assert usage["cache_write_input_tokens"] == 12_470
+
+
+def test_cache_write_tokens_absent_leaves_the_key_out():
+    usage = OpenAIModelProvider(api_key="test-key")._extract_usage(SimpleNamespace(usage=_responses_usage(cached=5)))
+    assert "cache_write_input_tokens" not in usage
+
+
+def test_tool_metadata_shows_cache_writes_too():
+    response = ModelResponse(
+        content="ok",
+        usage={"input_tokens": 9, "cached_input_tokens": 0, "cache_write_input_tokens": 12_470},
+        model_name="claude-sonnet-5-5",
+        provider=ProviderType.ANTHROPIC,
+    )
+    assert response_media_metadata(response) == {"cached_input_tokens": 0, "cache_write_input_tokens": 12_470}
