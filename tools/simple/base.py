@@ -327,11 +327,17 @@ class SimpleTool(BaseTool):
 
             # Plus the media earlier turns attached (re-attach), trimmed to what this model and budget take. The
             # prompt's file section announces exactly this list (_prepare_file_content_for_prompt reads the plan).
+            # The prompt so far (over MCP, the history too) and the system prompt count against a provider's inline
+            # request cap with the media
+            request_text_bytes = len(str(arguments.get("prompt") or "").encode()) + len(
+                self.get_system_prompt().encode()
+            )
             self._media_plan = self._plan_call_media(
                 own_media,
                 continuation_id,
                 self._model_context,
                 self._file_token_budget(arguments=arguments, model_context=self._model_context),
+                request_text_bytes=request_text_bytes,
             )
             media = list(self._media_plan.attachments)
 

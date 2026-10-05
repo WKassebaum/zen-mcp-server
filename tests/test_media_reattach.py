@@ -31,7 +31,7 @@ from utils.conversation_memory import (
     get_storage,
     get_thread,
 )
-from utils.media import MediaKind
+from utils.media import MediaKind, format_size
 
 FIXTURES = Path(__file__).parent / "fixtures" / "media"
 PDF = str(FIXTURES / "zebra.pdf")
@@ -698,3 +698,64 @@ async def test_auto_follow_up_sizes_history_for_a_model_that_takes_the_threads_p
     takes = sized_for.capabilities.supported_media_kinds() & frozenset(sized_for.provider.MEDIA_KINDS)
     assert MediaKind.PDF in takes, sized_for.model_name
     assert not ModelProviderRegistry.takes_media_only_when_named(sized_for.provider, sized_for.model_name)
+
+
+# --- the inline request cap leaves room for the prompt ---------------------------------------------------------------
+
+
+def _plan_against_cap(tmp_path, cap, **kwargs):
+    from utils.media import base64_size, classify_media, plan_media
+
+    own, earlier = _pdf(tmp_path, "own.pdf", b"OWNPD"), _pdf(tmp_path, "old.pdf", b"OLDPD")
+    own_media = classify_media([own])[1]
+    exact = base64_size(own_media[0].size_bytes) + base64_size(Path(earlier).stat().st_size)
+    plan = plan_media(
+        own_media,
+        [earlier],
+        [earlier],
+        supported=frozenset({MediaKind.PDF}),
+        model_name="m",
+        budget_tokens=None,
+        model_context=None,
+        max_request_bytes=cap(exact),
+        **kwargs,
+    )
+    return plan, exact
+
+
+def test_media_filling_the_inline_cap_exactly_leaves_room_for_the_prompt(tmp_path):
+    # Anthropic's 32 MB counts the prompt and system prompt too: media summing to exactly the cap would be refused
+    plan, exact = _plan_against_cap(tmp_path, lambda exact: exact)
+    assert [a.name for a in plan.attachments] == ["own.pdf"]
+    assert plan.omitted == (f"[omitted: older old.pdf — over the {format_size(exact)} request size limit]",)
+
+
+def test_the_inline_cap_margin_is_one_megabyte_plus_the_prompt_when_known(tmp_path):
+    margin = 1_000_000
+    plan, _ = _plan_against_cap(tmp_path, lambda exact: exact + margin + 500, request_text_bytes=500)
+    assert [a.name for a in plan.attachments] == ["old.pdf", "own.pdf"]  # exactly what the margin leaves
+    plan, _ = _plan_against_cap(tmp_path, lambda exact: exact + margin + 500, request_text_bytes=501)
+    assert [a.name for a in plan.attachments] == ["own.pdf"]
+
+
+def test_the_inline_cap_margin_is_ten_percent_when_the_prompt_is_unknown(tmp_path):
+    plan, _ = _plan_against_cap(tmp_path, lambda exact: -(-exact * 10 // 9))  # 90% of it is just over exact
+    assert [a.name for a in plan.attachments] == ["old.pdf", "own.pdf"]
+    plan, _ = _plan_against_cap(tmp_path, lambda exact: exact * 10 // 9 - 10)
+    assert [a.name for a in plan.attachments] == ["own.pdf"]
+
+
+@pytest.mark.asyncio
+async def test_simple_tool_counts_its_prompt_against_the_inline_cap(tmp_path):
+    from utils.media import base64_size
+
+    first, second = _pdf(tmp_path, "a.pdf"), _pdf(tmp_path, "b.pdf", b"HORSE")
+    thread_id, _ = await _chat(tmp_path, files=[first])
+    exact = base64_size(Path(first).stat().st_size) + base64_size(Path(second).stat().st_size)
+    with patch.object(OpenAIModelProvider, "MEDIA_REQUEST_MAX_BYTES", exact + 1_000_000 + 64):
+        _, generate = await _chat(
+            tmp_path, files=[second], model="o3", continuation_id=thread_id, provider_class=OpenAIModelProvider
+        )
+    # The media fits the cap less 1 MB, but not once the prompt and system prompt (far over 64 bytes) count too
+    assert _names(generate.call_args) == ["b.pdf"]
+    assert "[omitted: older a.pdf — over the" in generate.call_args.kwargs["prompt"]

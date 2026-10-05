@@ -802,6 +802,22 @@ def media_file_identity(path: str) -> str:
         return expanded
 
 
+# Headroom re-attach leaves under a provider's inline request cap (MEDIA_REQUEST_MAX_BYTES). check_inline_media_size
+# counts media alone, but Anthropic's limit (_check_request_size) also counts the prompt, the system prompt and images,
+# and the prompt grows after the plan is made (embedded text files, the media manifest). Earlier media planned up to
+# the cap itself would get the call refused instead of proceeding with a note. When the caller knows how many bytes
+# its prompt and system prompt take, the margin is 1 MB on top of those; otherwise a tenth of the cap.
+INLINE_REQUEST_MARGIN_BYTES = 1_000_000
+INLINE_REQUEST_UNKNOWN_TEXT_DIVISOR = 10
+
+
+def inline_media_allowance(max_request_bytes: int, request_text_bytes: int | None = None) -> int:
+    """Base64 bytes re-attached media may fill of a provider's inline request cap (see INLINE_REQUEST_MARGIN_BYTES)."""
+    if request_text_bytes is None:
+        return max_request_bytes - max_request_bytes // INLINE_REQUEST_UNKNOWN_TEXT_DIVISOR
+    return max(0, max_request_bytes - INLINE_REQUEST_MARGIN_BYTES - request_text_bytes)
+
+
 def plan_media(
     own: Iterable[MediaAttachment],
     earlier: Iterable[str],
@@ -812,6 +828,7 @@ def plan_media(
     budget_tokens: int | None,
     model_context: Any,
     max_request_bytes: int | None = None,
+    request_text_bytes: int | None = None,
 ) -> MediaPlan:
     """The media a follow-up sends: its own media, then the earlier turns' media it can still take.
 
@@ -821,8 +838,9 @@ def plan_media(
     - An earlier file is left out, with a note, when it no longer exists, is no longer readable media, is over
       MEDIA_MAX_BYTES, or its kind is not in ``supported`` (the model's flags and its provider's encoder).
     - Budget: while the estimated tokens (estimate_media_tokens_for at ``model_context``'s rates) of everything to
-      send exceed ``budget_tokens``, or its base64 size exceeds ``max_request_bytes`` (a provider that only takes
-      media inline), the oldest earlier file is dropped. Own media is never dropped.
+      send exceed ``budget_tokens``, or its base64 size exceeds what inline_media_allowance leaves of
+      ``max_request_bytes`` (a provider that only takes media inline; ``request_text_bytes``: the prompt and system
+      prompt, when known), the oldest earlier file is dropped. Own media is never dropped.
     - Attachment order is first-seen across the thread (``first_seen``, oldest first), with media new to the thread
       last in the call's own order, so a follow-up's media parts start with the previous turn's, byte for byte.
     """
@@ -860,8 +878,9 @@ def plan_media(
             total -= cost[id(dropped)]
             omitted.append(OmittedMedia(dropped.name, "over budget", age="older"))
     if candidates and max_request_bytes is not None:
+        allowance = inline_media_allowance(max_request_bytes, request_text_bytes)
         encoded = sum(base64_size(a.size_bytes) for a in (*own, *candidates))
-        while candidates and encoded > max_request_bytes:
+        while candidates and encoded > allowance:
             dropped = candidates.pop()
             encoded -= base64_size(dropped.size_bytes)
             omitted.append(

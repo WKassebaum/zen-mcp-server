@@ -1580,6 +1580,7 @@ When recommending searches, be specific about what information you need and why 
         model_context: Any,
         budget_tokens: Optional[int],
         own_text_files: Optional[list[str]] = None,
+        request_text_bytes: Optional[int] = None,
     ):
         """What one model call attaches (utils.media.MediaPlan): ``own_media`` (already validated), plus the media
         earlier turns of the thread attached (re-attach), in first-seen order.
@@ -1590,8 +1591,9 @@ When recommending searches, be specific about what information you need and why 
         tool's file budget, net of read_files' reserve). ``own_text_files`` are the files that embedding reads as
         text: the call's own files come first, so earlier media gets only what their estimated tokens leave
         (floor 0). Simple tools pass none: over MCP their text is already in the history, which ``_remaining_tokens``
-        is net of. Without earlier media the plan is ``own_media`` as is, so first turns are unchanged and nothing is
-        read twice.
+        is net of. ``request_text_bytes``: the prompt and system prompt's size when the caller knows it, for the
+        headroom left under a provider's inline request cap (utils.media.inline_media_allowance). Without earlier
+        media the plan is ``own_media`` as is, so first turns are unchanged and nothing is read twice.
         """
         from utils.media import MediaPlan, classify_media, plan_media
 
@@ -1622,6 +1624,7 @@ When recommending searches, be specific about what information you need and why 
             budget_tokens=budget_tokens,
             model_context=model_context,
             max_request_bytes=max_request_bytes,
+            request_text_bytes=request_text_bytes,
         )
 
     def _validate_image_limits(

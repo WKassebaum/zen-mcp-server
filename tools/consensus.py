@@ -737,13 +737,19 @@ of the evidence, even when it strongly points in one direction.""",
             self._sent_own_media = [attachment.path for attachment in own_media]
             # Plus the media earlier turns of the thread attached (re-attach), trimmed for this model and to what
             # the file budget leaves after this step's own text files (the CONTEXT FILES section below embeds them
-            # with that same budget and announces exactly this plan)
+            # with that same budget and announces exactly this plan). The proposal and this member's system prompt
+            # count against an inline request cap with the media.
+            stance_system_prompt = self._get_stance_enhanced_prompt(
+                model_config.get("stance", "neutral"), model_config.get("stance_prompt")
+            )
+            proposal = self.original_proposal or self.initial_prompt or ""
             plan = self._plan_call_media(
                 own_media,
                 request.continuation_id,
                 model_context,
                 self._file_token_budget(model_context=model_context),
                 own_text_files=request.relevant_files or [],
+                request_text_bytes=len(proposal.encode()) + len(stance_system_prompt.encode()),
             )
             media = list(plan.attachments)
             self._media_plan = plan
