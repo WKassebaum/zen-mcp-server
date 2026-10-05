@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from collections.abc import Mapping
 from contextlib import contextmanager
 from pathlib import Path
@@ -89,6 +90,12 @@ def get_all_env() -> dict[str, str | None]:
     return dict(_DOTENV_VALUES)
 
 
+# One suppression at a time: os.environ is process-wide, and provider clients are built in worker threads (model calls
+# run off the event loop), so two overlapping blocks would otherwise restore a variable inside the other one's block.
+# Re-entrant, so a block may nest inside another in the same thread.
+_SUPPRESS_LOCK = threading.RLock()
+
+
 @contextmanager
 def suppress_env_vars(*names: str):
     """Temporarily remove environment variables during the context.
@@ -98,14 +105,15 @@ def suppress_env_vars(*names: str):
     """
 
     removed: dict[str, str] = {}
-    try:
-        for name in names:
-            if not name:
-                continue
-            if name in os.environ:
-                removed[name] = os.environ[name]
-                del os.environ[name]
-        yield
-    finally:
-        for name, value in removed.items():
-            os.environ[name] = value
+    with _SUPPRESS_LOCK:
+        try:
+            for name in names:
+                if not name:
+                    continue
+                if name in os.environ:
+                    removed[name] = os.environ[name]
+                    del os.environ[name]
+            yield
+        finally:
+            for name, value in removed.items():
+                os.environ[name] = value

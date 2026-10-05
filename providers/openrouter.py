@@ -228,14 +228,21 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             for part in _items(_field(item, "content"))
             for annotation in _items(_field(part, "annotations"))
         ]
-        file_annotations = [annotation for annotation in annotations if _field(annotation, "type") == "file"]
+        # Chat Completions marks a parsed file with a "file" annotation; /responses with a "file_citation" one
+        # (live, 2026-10-04: the cloudflare-ai engine left no other trace). Native replies carry neither.
+        file_annotations = [
+            annotation for annotation in annotations if _field(annotation, "type") in ("file", "file_citation")
+        ]
         pipeline = _items(_field(_field(response, "openrouter_metadata"), "pipeline"))
         parser_ran = any(
             isinstance(_field(stage, "name"), str) and "parser" in _field(stage, "name").lower() for stage in pipeline
         )
         if not file_annotations and not parser_ran:
             return None
-        names = [_field(_field(annotation, "file"), "name") for annotation in file_annotations]
+        names = [
+            _field(_field(annotation, "file"), "name") or _field(annotation, "filename")
+            for annotation in file_annotations
+        ]
         return list(dict.fromkeys(name for name in names if isinstance(name, str) and name))
 
     def _is_error_retryable(self, error: Exception) -> bool:

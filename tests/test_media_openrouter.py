@@ -571,3 +571,14 @@ def test_readme_describes_the_media_fields_like_the_native_catalogs():
     for field in (*MEDIA_FLAGS, *RATE_FIELDS):
         assert ours["field_descriptions"][field] == gemini[field], field
     assert "openai_models.json" in ours["media_token_rates"] and "gemini_models.json" in ours["media_token_rates"]
+
+
+def test_responses_file_citation_annotation_raises():
+    # Live 2026-10-04: with the cloudflare-ai engine forced, OpenRouter's /responses reply marks the parse only with
+    # a file_citation annotation on the output text ({"type": "file_citation", "filename": "zebra.pdf", ...}); no
+    # type "file" annotation and no pipeline in openrouter_metadata. Native replies carried no file_citation.
+    citation = SimpleNamespace(type="file_citation", file_id="aa84", filename="zebra.pdf", index=0)
+    provider = _provider(responses=_responses_response(annotations=[citation]))
+    with pytest.raises(RuntimeError, match=r"OpenRouter parsed zebra\.pdf into text"):
+        provider.generate_content("What code?", RESPONSES_MODEL, media=_media())
+    assert provider._client.responses.create.call_count == 1

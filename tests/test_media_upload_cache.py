@@ -270,3 +270,17 @@ async def test_simple_tool_retry_uploads_once(cache_file, upload_everything, tmp
         )
     assert client.models.generate_content.call_count == 2
     assert client.files.upload.call_count == 1
+
+
+def test_reuse_ends_an_hour_before_googles_own_expiration_time(cache_file, upload_everything):
+    # A long PROCESSING wait means the 48 h started before zen wrote the entry: Google's File.expiration_time counts
+    from datetime import datetime, timedelta, timezone
+
+    provider = _provider()
+    expiration = datetime.now(timezone.utc) + timedelta(hours=48) - timedelta(minutes=20)
+    uploaded = _file()
+    uploaded.expiration_time = expiration
+    provider._client.files.upload.return_value = uploaded
+    _send(provider)
+    entry = _entries(cache_file)[_wav_key()]
+    assert abs(entry["expires_at"] - (expiration.timestamp() - 3600)) <= 1

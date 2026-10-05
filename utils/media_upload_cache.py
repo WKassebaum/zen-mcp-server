@@ -90,15 +90,23 @@ def store(
     mime_type: str,
     size_bytes: int,
     now: float | None = None,
+    remote_expiration: float | None = None,
 ) -> None:
-    """Record an upload made now (or at ``now``); it is reused until 47 hours later."""
+    """Record an upload made now (or at ``now``); it is reused until 47 hours later.
+
+    ``remote_expiration`` (unix seconds) is Google's own File.expiration_time when the API reports it: reuse then ends
+    an hour before it, since the 48 hours started at upload, before any wait for the file to become ACTIVE.
+    """
     now = time.time() if now is None else now
+    expires_at = now + REUSE_SECONDS
+    if remote_expiration is not None:
+        expires_at = min(expires_at, remote_expiration - (48 * 3600 - REUSE_SECONDS))
     entry = {
         "file_name": file_name,
         "file_uri": file_uri,
         "mime_type": mime_type,
         "size_bytes": int(size_bytes),
-        "expires_at": int(now + REUSE_SECONDS),
+        "expires_at": int(expires_at),
         "key_fingerprint": fingerprint,
     }
     path = cache_path()

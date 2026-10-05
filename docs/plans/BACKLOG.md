@@ -44,7 +44,11 @@ Found while building phase 3 (2026-10-03); none blocks it.
 ### Media input phase 4 follow-ups
 Found while building phase 4 (2026-10-04); none blocks it.
 - **Four catalog ids are not in OpenRouter's models list:** `anthropic/claude-sonnet-4-6`, `anthropic/claude-opus-4-8`, `-4-7` and `-4-6`. OpenRouter lists them with dots (`anthropic/claude-sonnet-4.6`), so `--candidates` finds no kinds for them and the probe skips them. Check whether OpenRouter still accepts the hyphenated ids; rename them or add aliases if not.
-- **The parse check never fired on a native answer:** 34 PDF models passed live on 2026-10-04, with no false refusals. Its refusal path (a parsed answer) has not been seen live: every candidate read the file natively. Watch for a first real refusal.
+- **Parse check, verified live 2026-10-04:**
+  - Forcing a parser engine was refused on both endpoints (`mistral-ocr`; `cloudflare-ai`).
+  - Chat Completions marks a parsed file with a `type: "file"` annotation; `/responses` marks it only with `file_citation`.
+  - No reply carried an `openrouter_metadata.pipeline`, so the stage-name match is untested and kept only as a fallback.
+  - A parsed reply also used far fewer prompt tokens (90 against 553 natively for zebra.pdf).
 - **mistralai/mistral-large-2512 is unverified:** upstream 429s on most tries (2026-10-04). Re-probe it later; it read the scanned page once.
 - **OpenRouter usage extras are not surfaced:** `usage.cost` and the cached-token counts (`prompt_tokens_details.cached_tokens` on Chat, `input_tokens_details.cached_tokens` on Responses) are not copied into the response metadata.
 - **The x-ai/* models are PDF candidates:** their `input_modalities` list `file`, so a default `--provider openrouter` probe run sends them PDFs although policy never flags them. Name the models to probe, or skip `x-ai/` in the default list.
@@ -52,6 +56,8 @@ Found while building phase 4 (2026-10-04); none blocks it.
 
 ### Media input phase 5a follow-ups
 Found while building phase 5a (2026-10-04); none blocks it.
+- **Two consensus runs at once share one roster between steps (older than 5a):** the per-tool lock covers one call, but `ConsensusTool` keeps `models_to_consult`, `accumulated_responses` and `work_history` on the shared instance across calls. A second consensus started between another's steps resets them. It is easier to hit now that model calls no longer block the server. Fix: rebuild the roster from the thread (`continuation_id`) on every step.
+- **Proxy variables during client creation:** `suppress_env_vars` now serializes overlapping suppressions (a lock), but a Gemini or Anthropic client built in another thread at that moment still sees the proxy variables missing. This matters only with proxies set. Passing `trust_env=False` to the httpx clients, instead of editing `os.environ`, would remove the window.
 - **Calls of one tool queue behind each other:** `server.handle_call_tool` holds a per-tool lock, because the shared instances in `server.TOOLS` keep per-run state. A chat call waiting on a 600 s Gemini upload makes the next chat call wait too; other tools are unaffected. A fresh tool instance per call (or per-run state moved off the instance) would remove the lock.
 - **Workflow and consensus turns do not persist `media_attached`:** the output now shows it, but only simple-tool turns store it in conversation memory; workflow and consensus turns keep no record of their uploads.
 - **The cache hashes the whole file on every upload-sized call:** up to 2 GB read per attachment above the inline cap (off the event loop since 5a). A memo keyed on `(path, size, mtime_ns, inode)` would skip it.
