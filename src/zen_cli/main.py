@@ -438,10 +438,50 @@ def codereview(ctx, files, review_type, model, output_json):
         sys.exit(1)
 
 
+async def _run_consensus(arguments: dict) -> list:
+    """Run every consensus step: step 1 consults the first model, each later step the next one.
+
+    One ConsensusTool instance runs them all, since it keeps the expanded roster between steps. Returns each
+    step's parsed result, stopping at consensus_complete (or at a result that is not a step).
+    """
+    from tools.consensus import ConsensusTool
+
+    tool = ConsensusTool()
+    # Each step's model reads the files of that step's request, so every step carries step 1's
+    shared = {key: arguments[key] for key in ("relevant_files", "images") if arguments.get(key)}
+    steps: list = []
+    while True:
+        data = _parse_tool_result(await tool.execute(arguments))
+        steps.append(data)
+        if not isinstance(data, dict) or data.get("consensus_complete") or "step_number" not in data:
+            return steps
+        total_steps = data.get("total_steps", 0)
+        if data["step_number"] >= total_steps:  # no model left to consult: never loop past the roster
+            return steps
+        step_number = data["step_number"] + 1
+        offer = data.get("continuation_offer") or {}
+        consulted = data.get("model_consulted", "the model")
+        arguments = {
+            "step": f"Recorded {consulted}'s response.",
+            "step_number": step_number,
+            "total_steps": total_steps,
+            "next_step_required": step_number < total_steps,
+            "findings": f"{consulted} gave its {data.get('model_stance', 'neutral')} verdict.",
+            "continuation_id": offer.get("continuation_id") or arguments.get("continuation_id"),
+            "current_model_index": data.get("current_model_index", step_number - 1),
+            **shared,
+        }
+
+
 @cli.command()
 @click.argument("question")
-@click.option("--models", "-m", multiple=True, help="Models to consult (e.g., gemini-pro,o3)")
-@click.option("--json", "output_json", is_flag=True, help="Output as JSON")
+@click.option(
+    "--models",
+    "-m",
+    multiple=True,
+    help="Models to consult (e.g., gemini-pro,o3). Default: frontier, the top model of each configured provider",
+)
+@click.option("--json", "output_json", is_flag=True, help="Output every step's result as a JSON list")
 @click.pass_context
 def consensus(ctx, question, models, output_json):
     """Get consensus from multiple AI models
@@ -459,11 +499,11 @@ def consensus(ctx, question, models, output_json):
             # Handle comma-separated models in single argument
             model_list.extend(m.strip() for m in model_str.split(",") if m.strip())
 
-    # If no models specified, use default set
+    # No models: 'frontier', which the tool expands into the top model of each configured provider
     if not model_list:
-        model_list = ["gemini-2.5-flash", "gpt-4o-mini"]
+        model_list = ["frontier"]
 
-    # Build workflow arguments matching ConsensusRequest schema
+    # Build workflow arguments matching ConsensusRequest schema. The tool sets total_steps from the expanded roster.
     arguments = {
         "step": question,  # The proposal/question for models to evaluate
         "step_number": 1,
@@ -477,35 +517,30 @@ def consensus(ctx, question, models, output_json):
     }
 
     try:
-        from tools.consensus import ConsensusTool
-
-        result = asyncio.run(ConsensusTool().execute(arguments))
+        steps = asyncio.run(_run_consensus(arguments))
 
         if output_json:
-            # Result is a list of TextContent objects
-            if isinstance(result, list) and len(result) > 0:
-                result_data = json.loads(result[0].text)
-                console.print_json(data=result_data)
-            else:
-                console.print_json(data=result)
+            console.print_json(data=steps)
         else:
-            # Extract and display content
-            if isinstance(result, list) and len(result) > 0:
-                result_data = json.loads(result[0].text)
+            for result_data in steps:
+                if not isinstance(result_data, dict):
+                    console.print(result_data)
+                    continue
 
-                # Display model consultations
+                # Display each model consultation
                 if "model_response" in result_data:
                     model_resp = result_data["model_response"]
                     console.print(f"\n[bold cyan]Model:[/bold cyan] {model_resp.get('model', 'unknown')}")
                     console.print(f"[bold cyan]Stance:[/bold cyan] {model_resp.get('stance', 'neutral')}\n")
-                    console.print(Markdown(model_resp.get("verdict", "")))
+                    if model_resp.get("status") == "error":
+                        console.print(f"[red]Error:[/red] {model_resp.get('error', 'unknown error')}")
+                    else:
+                        console.print(Markdown(model_resp.get("verdict", "")))
 
                 # Display synthesis if complete
                 if result_data.get("consensus_complete"):
                     console.print("\n[bold green]Consensus Complete![/bold green]")
                     console.print("\n" + result_data.get("next_steps", ""))
-            else:
-                console.print(result)
 
     except Exception as e:
         console.print(f"[red]Error:[/red] {str(e)}")

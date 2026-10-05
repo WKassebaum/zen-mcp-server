@@ -200,9 +200,9 @@ class TestConsensusCommand:
         assert result.exit_code == 0
         assert "consensus" in result.output.lower()
 
-    @pytest.mark.asyncio
-    async def test_consensus_with_models(self):
+    def test_consensus_with_models(self):
         """Test consensus with multiple models"""
+        # Synchronous: the CLI calls asyncio.run, which raises inside a running event loop (an async test)
         with patch("tools.consensus.ConsensusTool.execute", new_callable=AsyncMock) as mock_execute:
             mock_execute.return_value = {"content": "Consensus reached"}
 

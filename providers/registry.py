@@ -50,6 +50,18 @@ class ModelProviderRegistry:
         ProviderType.OPENROUTER,  # Catch-all for cloud models
     ]
 
+    # Environment variable holding each provider's API key
+    API_KEY_ENV_VARS = {
+        ProviderType.GOOGLE: "GEMINI_API_KEY",
+        ProviderType.OPENAI: "OPENAI_API_KEY",
+        ProviderType.ANTHROPIC: "ANTHROPIC_API_KEY",
+        ProviderType.AZURE: "AZURE_OPENAI_API_KEY",
+        ProviderType.XAI: "XAI_API_KEY",
+        ProviderType.OPENROUTER: "OPENROUTER_API_KEY",
+        ProviderType.CUSTOM: "CUSTOM_API_KEY",  # Can be empty for providers that don't need auth
+        ProviderType.DIAL: "DIAL_API_KEY",
+    }
+
     def __new__(cls):
         """Singleton pattern for registry."""
         if cls._instance is None:
@@ -336,18 +348,7 @@ class ModelProviderRegistry:
         Returns:
             API key string or None if not found
         """
-        key_mapping = {
-            ProviderType.GOOGLE: "GEMINI_API_KEY",
-            ProviderType.OPENAI: "OPENAI_API_KEY",
-            ProviderType.ANTHROPIC: "ANTHROPIC_API_KEY",
-            ProviderType.AZURE: "AZURE_OPENAI_API_KEY",
-            ProviderType.XAI: "XAI_API_KEY",
-            ProviderType.OPENROUTER: "OPENROUTER_API_KEY",
-            ProviderType.CUSTOM: "CUSTOM_API_KEY",  # Can be empty for providers that don't need auth
-            ProviderType.DIAL: "DIAL_API_KEY",
-        }
-
-        env_var = key_mapping.get(provider_type)
+        env_var = cls.API_KEY_ENV_VARS.get(provider_type)
         if not env_var:
             return None
 
@@ -545,6 +546,53 @@ class ModelProviderRegistry:
             word, tool_category
         )
         return cls.get_preferred_fallback_model(category, required_media=required_media)
+
+    @classmethod
+    def frontier_panel(cls, limit: int = 4, required_media: frozenset = frozenset()) -> list[str]:
+        """The top model of each vendor, as consensus consults them for 'frontier' or an empty model list.
+
+        Providers are visited in PROVIDER_PRIORITY_ORDER, each model highest rank first, and a model joins the panel
+        when its vendor (_model_vendor) is not on it yet. A native provider adds its top allowed model; OpenRouter
+        adds the top model of each vendor not already there, so a native Anthropic key and OpenRouter never give
+        two Anthropic models. Restrictions and required_media apply as in resolve_model_intent. Stops at ``limit``.
+        """
+        panel: list[str] = []
+        vendors: set[str] = set()
+        for provider_type, ranked in cls._ranked_allowed_models(required_media):
+            for capabilities in ranked:
+                vendor = cls._model_vendor(provider_type, capabilities.model_name)
+                if vendor in vendors:
+                    continue
+                vendors.add(vendor)
+                panel.append(capabilities.model_name)
+                if len(panel) >= limit:
+                    return panel
+        return panel
+
+    # OpenRouter id prefixes of the vendors that also have a native provider
+    _OPENROUTER_VENDORS = {"x-ai": "xai", "google": "google", "anthropic": "anthropic", "openai": "openai"}
+
+    @classmethod
+    def _model_vendor(cls, provider_type: ProviderType, model_name: str) -> str:
+        """Who makes the model: the provider type, or for OpenRouter the id prefix ('x-ai/grok-4.7' -> 'xai').
+
+        Custom, Azure and DIAL count as their own provider type.
+        """
+        if provider_type != ProviderType.OPENROUTER:
+            return provider_type.value
+        prefix = model_name.split("/", 1)[0].lower()
+        return cls._OPENROUTER_VENDORS.get(prefix, prefix)
+
+    @classmethod
+    def configured_key_names(cls) -> list[str]:
+        """Env vars of the providers that are configured, in PROVIDER_PRIORITY_ORDER (Custom: CUSTOM_API_URL)."""
+        names = []
+        for provider_type in cls.PROVIDER_PRIORITY_ORDER:
+            if cls.get_provider(provider_type) is not None:
+                names.append(
+                    "CUSTOM_API_URL" if provider_type == ProviderType.CUSTOM else cls.API_KEY_ENV_VARS[provider_type]
+                )
+        return names
 
     @classmethod
     def _ranked_allowed_models(cls, required_media: frozenset = frozenset()):

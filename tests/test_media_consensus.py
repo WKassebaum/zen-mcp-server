@@ -19,6 +19,8 @@ PDF = str(Path(__file__).parent / "fixtures" / "media" / "zebra.pdf")
 VIDEO = str(Path(__file__).parent / "fixtures" / "media" / "otter.mp4")
 
 
+# Consensus refuses a roster of fewer than two models, so single-model cases list a second one that step 1 never
+# consults (step 1 consults the first model only).
 def _step1(models, media=PDF):
     return {
         "step": "Should we ship this spec?",
@@ -51,7 +53,7 @@ async def test_consensus_sends_media_to_capable_model():
         patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)),
         patch.object(GeminiModelProvider, "generate_content", return_value=reply) as generate,
     ):
-        await ConsensusTool().execute(_step1(["gemini-3.8-flash"]))
+        await ConsensusTool().execute(_step1(["gemini-3.8-flash", "gemini-3.5-flash"]))  # step 1 consults the first
     assert [m.name for m in generate.call_args.kwargs["media"]] == ["zebra.pdf"]
     assert "attached to this request as native pdf input" in generate.call_args.kwargs["prompt"]
 
@@ -60,7 +62,7 @@ async def test_consensus_sends_media_to_capable_model():
 async def test_consensus_preflight_refusal_is_a_readable_tool_error():
     with patch.object(OpenAIModelProvider, "generate_content") as generate:
         with pytest.raises(ToolExecutionError) as exc:
-            await ConsensusTool().execute(_step1(["o3"], media=VIDEO))
+            await ConsensusTool().execute(_step1(["o3", "gemini-3.8-flash"], media=VIDEO))  # Gemini takes video
     generate.assert_not_called()
     payload = json.loads(str(exc.value))
     assert payload["status"] == "error"
@@ -86,7 +88,7 @@ async def test_consensus_without_media_passes_none(tmp_path):
     notes = tmp_path / "notes.md"
     notes.write_text("# Notes\n")
     reply = ModelResponse(content="Ship it.", usage={}, model_name="gemini-3.8-flash", provider=ProviderType.GOOGLE)
-    arguments = _step1(["gemini-3.8-flash"])
+    arguments = _step1(["gemini-3.8-flash", "gemini-3.5-flash"])
     arguments["relevant_files"] = [str(notes)]
     with patch.object(GeminiModelProvider, "generate_content", return_value=reply) as generate:
         await ConsensusTool().execute(arguments)
@@ -107,5 +109,5 @@ async def test_preflight_leaves_unavailable_models_to_their_usual_error_entry():
 async def test_consensus_sends_pdf_to_an_openai_model():
     reply = ModelResponse(content="Ship it.", usage={}, model_name="o3", provider=ProviderType.OPENAI)
     with patch.object(OpenAIModelProvider, "generate_content", return_value=reply) as generate:
-        await ConsensusTool().execute(_step1(["o3"]))
+        await ConsensusTool().execute(_step1(["o3", "gpt-5.5"]))
     assert [m.name for m in generate.call_args.kwargs["media"]] == ["zebra.pdf"]

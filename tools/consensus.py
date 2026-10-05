@@ -50,7 +50,9 @@ CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS = {
     ),
     "relevant_files": "Optional supporting files that help the consensus analysis. Must be absolute full, non-abbreviated paths.",
     "models": (
-        "User-specified list of models to consult (provide at least two entries). "
+        "Name models explicitly, or use 'frontier' for the top model of each configured provider "
+        "(also the default when models is empty); 'fast', 'balanced' and 'auto' each pick one model. "
+        "At least two models once 'frontier' is expanded. "
         "Each entry may include model, stance (for/against/neutral), and stance_prompt. "
         "Each (model, stance) pair must be unique, e.g. [{'model':'gpt5','stance':'for'}, {'model':'pro','stance':'against'}]."
     ),
@@ -236,11 +238,9 @@ of the evidence, even when it strongly points in one direction.""",
                     },
                     "required": ["model"],
                 },
-                "description": (
-                    "User-specified roster of models to consult (provide at least two entries). "
-                    + CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["models"]
-                ),
-                "minItems": 2,
+                "description": "Roster of models to consult. " + CONSENSUS_WORKFLOW_FIELD_DESCRIPTIONS["models"],
+                # One entry is enough when it is 'frontier'; fewer than two models after expansion is refused
+                "minItems": 1,
             },
             "current_model_index": {
                 "type": "integer",
@@ -441,6 +441,11 @@ of the evidence, even when it strongly points in one direction.""",
         # Store arguments
         self._current_arguments = arguments
 
+        # Step 1: replace intent words with concrete models before validation, so the thread and every later
+        # step see the names actually consulted
+        if arguments.get("step_number") == 1:
+            arguments["models"] = self._expand_models(arguments)
+
         # Validate request
         request = self.get_workflow_request_model()(**arguments)
 
@@ -546,6 +551,80 @@ of the evidence, even when it strongly points in one direction.""",
 
         # Otherwise, use standard workflow execution
         return await super().execute_workflow(arguments)
+
+    def _expand_models(self, arguments: dict[str, Any]) -> list:
+        """Step 1's models with every intent word replaced by concrete names.
+
+        - No models, or an entry 'frontier': the frontier panel (ModelProviderRegistry.frontier_panel), expanded in
+          place, each member copying that entry's stance and stance_prompt. No models means neutral stances.
+        - 'fast', 'balanced', 'auto': one model each, resolved as for a single-model tool with this tool's category.
+        - Any other name is kept exactly as named.
+
+        A member the request already names with the same stance is not added twice. Picks respect the attached
+        media. Fewer than two models after expansion is an error naming the configured keys.
+        """
+        from providers.registry import ModelProviderRegistry
+        from tools.models import ToolOutput
+        from utils.media import MediaNotSupportedError, format_kinds, media_kinds_from_arguments
+
+        entries = arguments.get("models") or [{"model": "frontier", "stance": "neutral"}]
+        if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
+            return entries  # malformed: ConsensusRequest reports it
+        required_media = media_kinds_from_arguments(arguments)
+
+        def combination(entry: dict) -> tuple[str, str]:
+            return entry.get("model", ""), entry.get("stance", "neutral")
+
+        named = {
+            combination(entry) for entry in entries if not ModelProviderRegistry.is_model_intent(entry.get("model"))
+        }
+        models: list[dict] = []
+        added: set[tuple[str, str]] = set()
+        expanded = False
+        for entry in entries:
+            word = entry.get("model")
+            if not ModelProviderRegistry.is_model_intent(word):
+                models.append(entry)
+                continue
+            expanded = True
+            try:
+                if word.strip().lower() == "frontier":
+                    names = ModelProviderRegistry.frontier_panel(required_media=required_media)
+                else:
+                    names = [
+                        ModelProviderRegistry.resolve_model_intent(
+                            word, self.get_model_category(), required_media=required_media
+                        )
+                    ]
+            except MediaNotSupportedError as exc:
+                output = ToolOutput(status="error", content=str(exc), content_type="text")
+                raise ToolExecutionError(output.model_dump_json()) from exc
+            logger.info(f"{word.strip().lower()} resolved to {', '.join(names) or 'no model'} for consensus")
+            for name in names:
+                member = {**entry, "model": name}
+                if combination(member) in named or combination(member) in added:
+                    continue
+                added.add(combination(member))
+                models.append(member)
+
+        if len(models) < 2:
+            listed = ", ".join(str(model.get("model", "")) for model in models) or "none"
+            # Only intent picks are limited to media-capable models; named ones are checked by _preflight_media
+            media_note = (
+                f" that take the attached {format_kinds(required_media)} input" if expanded and required_media else ""
+            )
+            keys = ", ".join(ModelProviderRegistry.configured_key_names()) or "none"
+            output = ToolOutput(
+                status="error",
+                content=(
+                    f"Consensus needs at least 2 models{media_note}; got {len(models)} ({listed}). "
+                    f"Configured keys: {keys}. Name at least two models, or use 'frontier' for the top model of "
+                    "each configured provider."
+                ),
+                content_type="text",
+            )
+            raise ToolExecutionError(output.model_dump_json())
+        return models
 
     def _preflight_media(self, request) -> None:
         """Before consulting anyone, every listed model must be able to read the attached media.
