@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phase 5a (upload cache, non-blocking model calls, media metadata in the output) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase5a-status.md`. Phases 4 and 5b pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
+- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phase 5a (upload cache, non-blocking model calls, media metadata in the output) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase5a-status.md`. Phase 4 (OpenRouter, PDF/audio/video, native reading only) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase4-status.md`. Phase 5b pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -39,6 +39,14 @@ Found while building phase 3 (2026-10-03); none blocks it.
 - **xAI's reported cost is not copied:** `server_side_tool_calls` reaches the output with a warning and a `media_notice` line (phase 5a), but the usage's `cost_in_usd_ticks` is not copied.
 - **xAI's document search is unpredictable:** on 2026-10-03 the grok-4.20 models ran `attachment_search` 2–3 times even for a one-page PDF (up to 8,889 input tokens), while the other Grok models ran none on four pages. The per-page reserve (2,500; 7,500 on grok-4.20) is set from one run each. Re-probe with longer PDFs (20+ pages) before relying on Grok for long documents. (Phase 5a warns, and notes it in the output, whenever the search runs.)
 - **No sampling parameters on the Responses path:** Grok media requests, like every Responses API request, carry no `temperature`; text-only Grok requests do.
+
+### Media input phase 4 follow-ups
+Found while building phase 4 (2026-10-04); none blocks it.
+- **Four catalog ids are not in OpenRouter's models list:** `anthropic/claude-sonnet-4-6`, `anthropic/claude-opus-4-8`, `-4-7` and `-4-6`. OpenRouter lists them with dots (`anthropic/claude-sonnet-4.6`), so `--candidates` finds no kinds for them and the probe skips them. Check whether OpenRouter still accepts the hyphenated ids; rename them or add aliases if not.
+- **The parse check's signals are unverified live:** zen refuses a response with a `type: "file"` annotation or a pipeline stage whose name contains "parser". If the native engine also reports a `file-parser` stage, native answers would be refused. The phase 4 live probe shows which.
+- **OpenRouter usage extras are not surfaced:** `usage.cost` and the cached-token counts (`prompt_tokens_details.cached_tokens` on Chat, `input_tokens_details.cached_tokens` on Responses) are not copied into the response metadata.
+- **The x-ai/* models are PDF candidates:** their `input_modalities` list `file`, so a default `--provider openrouter` probe run sends them PDFs although policy never flags them. Name the models to probe, or skip `x-ai/` in the default list.
+- **The 32 MB inline cap is inferred:** OpenRouter documents no limit for inline data; 32 MB is the smallest upstream body limit (Anthropic's). Raise it per model if larger requests prove to work.
 
 ### Media input phase 5a follow-ups
 Found while building phase 5a (2026-10-04); none blocks it.

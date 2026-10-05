@@ -504,3 +504,70 @@ def test_sdk_router_metadata_with_a_parser_stage_raises():
     with pytest.raises(RuntimeError, match="OpenRouter parsed zebra.pdf into text"):
         provider.generate_content("What code?", CHAT_MODEL, media=_media())
     assert len(sent) == 1
+
+
+# --- Catalog plumbing (conf/openrouter_models.json) ------------------------------------------------------------
+
+CONF = Path(__file__).resolve().parent.parent / "conf"
+MEDIA_FLAGS = ("supports_pdf", "supports_audio", "supports_video")
+RATE_FIELDS = ("pdf_tokens_per_page", "video_tokens_per_second")
+# OpenRouter prefix -> the native catalog whose measured rates the OpenRouter entries mirror
+NATIVE_TWINS = {"openai/": "openai_models.json", "google/": "gemini_models.json"}
+
+
+def _catalog(filename):
+    return json.loads((CONF / filename).read_text())
+
+
+def test_no_grok_model_takes_media_through_openrouter():
+    # xAI reads files with a paid server-side search tool (media phase 3): Grok PDFs stay native-xAI, named-model only.
+    flagged = [
+        entry["model_name"]
+        for entry in _catalog("openrouter_models.json")["models"]
+        if entry["model_name"].startswith("x-ai/") and any(entry.get(flag) for flag in MEDIA_FLAGS)
+    ]
+    assert flagged == []
+    grok = {
+        name: capabilities.supported_media_kinds()
+        for name, capabilities in OpenRouterProvider("test-key").get_all_model_capabilities().items()
+        if name.startswith("x-ai/")
+    }
+    assert grok and not any(grok.values())
+
+
+def test_openrouter_media_rates_mirror_the_native_catalogs():
+    native = {
+        prefix + entry["model_name"]: entry
+        for prefix, filename in NATIVE_TWINS.items()
+        for entry in _catalog(filename)["models"]
+    }
+    mismatches = [
+        (entry["model_name"], field, entry.get(field), (native.get(entry["model_name"]) or {}).get(field))
+        for entry in _catalog("openrouter_models.json")["models"]
+        for field in RATE_FIELDS
+        if entry.get(field) != (native.get(entry["model_name"]) or {}).get(field)
+    ]
+    assert mismatches == []
+
+
+def test_mirrored_rates_reach_the_capabilities():
+    from utils.media import pdf_tokens_per_page, video_tokens_per_second
+
+    provider = OpenRouterProvider("test-key")
+
+    def context(model):
+        return SimpleNamespace(capabilities=provider.get_capabilities(model), provider=provider)
+
+    assert pdf_tokens_per_page(context("openai/gpt-5.5")) == 2_500
+    assert pdf_tokens_per_page(context("openai/o3")) == 1_500
+    assert pdf_tokens_per_page(context("openai/gpt-6-sol")) == 4_000  # unmeasured here: the provider's rate
+    assert video_tokens_per_second(context("google/gemini-3.8-flash")) == 160
+    assert video_tokens_per_second(context("google/gemini-2.5-pro")) == 400  # Gemini 2.5 keeps the global rate
+
+
+def test_readme_describes_the_media_fields_like_the_native_catalogs():
+    ours = _catalog("openrouter_models.json")["_README"]
+    gemini = _catalog("gemini_models.json")["_README"]["field_descriptions"]
+    for field in (*MEDIA_FLAGS, *RATE_FIELDS):
+        assert ours["field_descriptions"][field] == gemini[field], field
+    assert "openai_models.json" in ours["media_token_rates"] and "gemini_models.json" in ours["media_token_rates"]

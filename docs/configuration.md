@@ -235,6 +235,14 @@ PDF, audio and video files passed to a tool (`-f` on the CLI, `absolute_file_pat
 - **Gemini** (`GEMINI_API_KEY`): PDF, audio and video.
 - **Claude** (`ANTHROPIC_API_KEY`) and **OpenAI** (`OPENAI_API_KEY`): PDF.
 - **Grok** (`XAI_API_KEY`): PDF, only when you name a Grok model, for example `zen chat "Summarize this" --model grok-4.7 -f report.pdf`.
+- **OpenRouter** (`OPENROUTER_API_KEY`): PDF, audio and video, each only on the models whose live probe passed (their flags in `conf/openrouter_models.json`). No Grok (`x-ai/*`) model takes media through OpenRouter; use `XAI_API_KEY` and name a Grok model instead.
+
+OpenRouter only passes files to models that read them natively:
+- zen asks for OpenRouter's native PDF engine. If OpenRouter parses or OCRs a file into text instead (its `file-parser` plugin, `mistral-ocr` by default), zen refuses the answer with an error rather than answer from the extracted text. It does not retry, and never resends the prompt without the file.
+- Requests are not pinned to one upstream provider, so a model stays available through every provider OpenRouter routes it to.
+- Auto mode uses OpenRouter for media only when no higher-priority provider (Gemini, Claude, OpenAI) has a model that takes every attached kind.
+- One OpenRouter request takes at most 32 MB of media once base64-encoded, about 24 MB of raw files.
+- Models that zen calls through the Responses API (`use_openai_response_api` in the catalog) take audio as MP3 or WAV only.
 
 In auto mode, zen picks a model that takes every attached kind. It never routes a PDF to Grok, even when `XAI_API_KEY` is set and xAI comes first in provider priority: Gemini, Claude and OpenAI read every page, while xAI may read an attached document through a server-side search tool (`attachment_search`). In zen's probes on 2026-10-03, the grok-4.20 models searched even a one-page PDF, and the other Grok models read four pages without searching. That tool is billed at $5 per 1,000 calls plus the tokens of each search pass, and it may read a long document only in part. zen sends Grok PDF requests with `store=false`; xAI's default, `store=true`, keeps them for 30 days. A Grok request takes at most 50 MB of PDF once base64-encoded, about 37.5 MB of raw files.
 

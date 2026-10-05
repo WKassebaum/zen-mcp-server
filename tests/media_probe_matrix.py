@@ -29,6 +29,13 @@ with zen's chat system prompt, every model also read an image-only letter page a
 markers, in order). xAI's server-side attachment_search ran unpredictably: 0 calls on most models (about 500-600 input
 tokens per page), 2-3 calls on the grok-4.20 models even for one page (up to 8,889 input tokens). Grok gets PDFs only
 when the user names a Grok model (XAIModelProvider.MEDIA_AUTO_ROUTING is False).
+
+openrouter: no model is flagged yet. Candidates are the kinds a model's architecture.input_modalities lists in
+OpenRouter's public models list (scripts/probe_media_support.py --provider openrouter --candidates). A flag needs a
+probe through OpenRouterProvider (--provider openrouter), which asks for OpenRouter's native PDF engine and refuses a
+response OpenRouter parsed into text (file annotations, or a parser stage in openrouter_metadata), so a model only
+passes when it read the file itself. x-ai/* models are never flagged: xAI reads files with its billed
+attachment_search tool (see xai above), so Grok PDFs stay native-xAI and named-model only.
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
