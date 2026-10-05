@@ -670,3 +670,31 @@ async def test_media_a_workflow_step_named_without_an_expert_call_is_re_attached
     assert not any(turn.media for turn in get_thread(thread_id).turns)
     _, generate = await _chat(tmp_path, continuation_id=thread_id)
     assert _names(generate.call_args) == ["spec.pdf"]
+
+
+# --- history sizing on a follow-up counts the thread's media -------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_auto_follow_up_sizes_history_for_a_model_that_takes_the_threads_pdf(tmp_path):
+    # The follow-up names no files, but re-attaches the thread's PDF: the history must be sized for the model auto mode
+    # will pick for a PDF (the MCP boundary routes on _call_media_kinds), not for the text-only pick (Grok here)
+    import server
+
+    thread_id = create_thread("chat", {"prompt": "look"})
+    add_turn(thread_id, "assistant", "seen", media=[PDF], tool_name="chat")  # no model_name: nothing to reuse
+    with patch("utils.conversation_memory.build_conversation_history", return_value=("", 0)) as build_history:
+        arguments = await server.reconstruct_thread_context(
+            {
+                "prompt": "And page two?",
+                "model": "auto",
+                "continuation_id": thread_id,
+                "working_directory_absolute_path": str(tmp_path),
+            },
+            tool_name="chat",
+        )
+    sized_for = build_history.call_args.args[1]
+    assert arguments["_model_context"] is sized_for
+    takes = sized_for.capabilities.supported_media_kinds() & frozenset(sized_for.provider.MEDIA_KINDS)
+    assert MediaKind.PDF in takes, sized_for.model_name
+    assert not ModelProviderRegistry.takes_media_only_when_named(sized_for.provider, sized_for.model_name)

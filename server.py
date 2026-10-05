@@ -1048,8 +1048,14 @@ def _carries_media_to_explicit_only_provider(
     provider = ModelProviderRegistry.get_provider_for_model(model_name)
     if provider is None or not ModelProviderRegistry.takes_media_only_when_named(provider, model_name):
         return False
+    return bool(_follow_up_media_kinds(tool_name, arguments, context))
+
+
+def _follow_up_media_kinds(tool_name: Optional[str], arguments: dict[str, Any], context: Any) -> frozenset:
+    """Media kinds a follow-up on thread ``context`` sends (_call_media_kinds): its arguments with the first turn's
+    merged in where it names none, plus the media earlier turns attached and a workflow's earlier steps' files."""
     effective = {**(context.initial_context or {}), **arguments}
-    return bool(_call_media_kinds(tool_name, TOOLS.get(tool_name) if tool_name else None, effective, context))
+    return _call_media_kinds(tool_name, TOOLS.get(tool_name) if tool_name else None, effective, context)
 
 
 def _without_media(paths: Any, context: Any) -> Any:
@@ -1287,7 +1293,7 @@ async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optio
             context = get_thread(continuation_id) or context
 
     # Create model context early to use for history building
-    from utils.media import FILE_ARGUMENT_KEYS, MediaNotSupportedError, media_kinds_from_arguments
+    from utils.media import FILE_ARGUMENT_KEYS, MediaNotSupportedError
     from utils.model_context import ModelContext
 
     tool = TOOLS.get(context.tool_name)
@@ -1325,8 +1331,11 @@ async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optio
                 fallback_model = None
                 if tool is not None:
                     try:
+                        # Size the history for a model that takes what the call sends: its own media and what it
+                        # re-attaches (the MCP boundary routes on the same kinds)
                         fallback_model = ModelProviderRegistry.get_preferred_fallback_model(
-                            tool.get_model_category(), required_media=media_kinds_from_arguments(arguments)
+                            tool.get_model_category(),
+                            required_media=_follow_up_media_kinds(tool_name or context.tool_name, arguments, context),
                         )
                     except MediaNotSupportedError as media_exc:
                         # No available model takes this call's media: refuse with the hint instead of
@@ -1361,12 +1370,13 @@ async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optio
             if tool is not None:
                 try:
                     # 'auto' or an intent word: size the history for the model the MCP boundary will resolve it
-                    # to. Any other unavailable name: the tool category's pick.
-                    required_media = media_kinds_from_arguments(arguments)
+                    # to, counting the media the call re-attaches as the boundary does. Any other unavailable name:
+                    # the tool category's pick.
+                    call_media = _follow_up_media_kinds(tool_name or context.tool_name, arguments, context)
                     fallback_model = ModelProviderRegistry.resolve_model_intent(
-                        model_context.model_name, tool.get_model_category(), required_media=required_media
+                        model_context.model_name, tool.get_model_category(), required_media=call_media
                     ) or ModelProviderRegistry.get_preferred_fallback_model(
-                        tool.get_model_category(), required_media=required_media
+                        tool.get_model_category(), required_media=call_media
                     )
                 except MediaNotSupportedError as media_exc:
                     # model=auto lands here: refuse media no available model takes, as the auto block does
