@@ -85,7 +85,8 @@ def _consensus(model=MODEL):
         "total_steps": 1,
         "next_step_required": False,
         "findings": "Looks ready.",
-        "models": [{"model": model, "stance": "neutral"}],
+        # Consensus needs two models; step 1 consults only the first
+        "models": [{"model": model, "stance": "for"}, {"model": model, "stance": "against"}],
     }
 
 

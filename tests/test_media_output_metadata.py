@@ -133,7 +133,8 @@ async def test_consensus_model_response_carries_media():
                 "total_steps": 1,
                 "next_step_required": False,
                 "findings": "Initial look.",
-                "models": [{"model": GEMINI, "stance": "neutral"}],
+                # Consensus needs two models; step 1 consults only the first
+                "models": [{"model": GEMINI, "stance": "for"}, {"model": GEMINI, "stance": "against"}],
                 "relevant_files": [MP4],
             }
         )
