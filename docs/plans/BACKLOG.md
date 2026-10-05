@@ -24,11 +24,12 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 
 ### Media input phase 2 follow-ups
 Found while building and probing phase 2 (2026-10-03); none blocks it.
-- **gpt-5-mini and gpt-5-nano are unflagged for PDF.**
-  - **First probe:** with the PDF attached (241 input tokens, like every other Chat model) they mostly answered "I can't access the PDF": 1/3 and 1/3 without a system prompt, 1/3 and 0/3 with one.
-  - **Re-probe 2026-10-03, without a system prompt:** gpt-5-mini 3/3, gpt-5-nano 2/3.
-  - **Through zen's provider with `CHAT_PROMPT`:** both failed the text PDF 6 times in 6, answering with the prompt's `files_required_to_continue` JSON as if nothing were attached. Both read the scanned letter page 3/3.
-  - **Conclusion:** they do see the PDF, but zen's system prompt pulls them off it. Flag only if they pass 3/3 through zen (`tests/test_media_live.py`), not just the bare probe.
+- **gpt-5-mini and gpt-5-nano are unflagged for PDF (natively and on OpenRouter):** their results vary from day to day.
+  - **2026-10-03, phase 2:** with the PDF attached (241 input tokens) they mostly answered "I can't access the PDF": 1/3 each.
+  - **2026-10-03, bare re-probe:** mini 3/3, nano 2/3.
+  - **2026-10-04, through zen's provider with `CHAT_PROMPT`:** zebra.pdf 3/3 each, and the image-only letter page 3/3 each. OpenRouter: 2/2 each, plus both checks.
+  - **Correction:** a 2026-10-03 note said they failed 0/6 under `CHAT_PROMPT`. That run passed the fixture by a relative path, which zen classifies as a text file, so no PDF was attached. It is retracted.
+  - **To do:** flag both after another clean 3/3 day through `tests/test_media_live.py`.
 - **o3-mini is unflagged for PDF:** it has no vision, so it gets only the PDF's text layer and misread a scanned page. Text PDFs work (2/2); flag it only if zen ever distinguishes text-layer PDF support.
 - **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test). The live tests skip them unless `ZEN_LIVE_PRO=1`.
 - **Responses API `detail` is left to the default:** OpenAI's guide says `auto` means `high` page images on GPT-5.6 and later, `low` before. Set `detail` on `input_file` explicitly if PDF token cost on gpt-6 matters.
@@ -43,7 +44,8 @@ Found while building phase 3 (2026-10-03); none blocks it.
 ### Media input phase 4 follow-ups
 Found while building phase 4 (2026-10-04); none blocks it.
 - **Four catalog ids are not in OpenRouter's models list:** `anthropic/claude-sonnet-4-6`, `anthropic/claude-opus-4-8`, `-4-7` and `-4-6`. OpenRouter lists them with dots (`anthropic/claude-sonnet-4.6`), so `--candidates` finds no kinds for them and the probe skips them. Check whether OpenRouter still accepts the hyphenated ids; rename them or add aliases if not.
-- **The parse check's signals are unverified live:** zen refuses a response with a `type: "file"` annotation or a pipeline stage whose name contains "parser". If the native engine also reports a `file-parser` stage, native answers would be refused. The phase 4 live probe shows which.
+- **The parse check never fired on a native answer:** 34 PDF models passed live on 2026-10-04, with no false refusals. Its refusal path (a parsed answer) has not been seen live: every candidate read the file natively. Watch for a first real refusal.
+- **mistralai/mistral-large-2512 is unverified:** upstream 429s on most tries (2026-10-04). Re-probe it later; it read the scanned page once.
 - **OpenRouter usage extras are not surfaced:** `usage.cost` and the cached-token counts (`prompt_tokens_details.cached_tokens` on Chat, `input_tokens_details.cached_tokens` on Responses) are not copied into the response metadata.
 - **The x-ai/* models are PDF candidates:** their `input_modalities` list `file`, so a default `--provider openrouter` probe run sends them PDFs although policy never flags them. Name the models to probe, or skip `x-ai/` in the default list.
 - **The 32 MB inline cap is inferred:** OpenRouter documents no limit for inline data; 32 MB is the smallest upstream body limit (Anthropic's). Raise it per model if larger requests prove to work.

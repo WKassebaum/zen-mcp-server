@@ -48,7 +48,23 @@ Among the 56 catalog models: pdf 44, audio 8, video 9. Four catalog ids are not 
 
 ## Live results
 
-Pending: the controller runs the probe (plan, "Controller steps").
+Live results, 2026-10-04 (controller):
+- **`--candidates`:** 44 PDF (5 of them `x-ai/*`, not probed), 8 audio, 9 video.
+- **PDF probe** (`--repeat 2`; the four -pro models `--repeat 1`): every candidate read zebra.pdf. mistralai/mistral-large-2512 got upstream 429s and is unverified.
+- **Through `OpenRouterProvider` with zen's `CHAT_PROMPT`:**
+  - the image-only letter page was read by every candidate except openai/o3-mini and o3-mini-high, which read only the text layer, as natively;
+  - zebra.pdf was read by every candidate.
+- **Parse check:** never fired on these native answers.
+- **Audio/video:** 2/2 on the 8 Gemini candidates; kimi-k3 video 2/2.
+- **Flagged:**
+  - **PDF on 34 models:** 10 Claude, 8 Gemini, 15 OpenAI (the four -pro models included) and mistralai/devstral-2512.
+  - **Audio** on 7 Gemini models; **video** on 8 Gemini models and kimi-k3.
+- **Left unflagged though they passed:**
+  - gpt-5-mini and gpt-5-nano, flaky natively;
+  - gemini-2.5-flash audio, flaky natively.
+- **Token figures:**
+  - Input for one scanned letter page with `CHAT_PROMPT`: 3,631 (gpt-5.6/6), 2,922 (Claude 5.x), 1,297 (Gemini 3), 2,068 (Gemini 2.5).
+  - devstral and mistral-large read it in about 830 tokens: Mistral's upstream OCRs it. The parse check stays silent, since OpenRouter itself did not parse.
 
 ## Verification
 

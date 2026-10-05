@@ -30,12 +30,19 @@ markers, in order). xAI's server-side attachment_search ran unpredictably: 0 cal
 tokens per page), 2-3 calls on the grok-4.20 models even for one page (up to 8,889 input tokens). Grok gets PDFs only
 when the user names a Grok model (XAIModelProvider.MEDIA_AUTO_ROUTING is False).
 
-openrouter: no model is flagged yet. Candidates are the kinds a model's architecture.input_modalities lists in
+openrouter: candidates are the kinds a model's architecture.input_modalities lists in
 OpenRouter's public models list (scripts/probe_media_support.py --provider openrouter --candidates). A flag needs a
 probe through OpenRouterProvider (--provider openrouter), which asks for OpenRouter's native PDF engine and refuses a
 response OpenRouter parsed into text (file annotations, or a parser stage in openrouter_metadata), so a model only
-passes when it read the file itself. x-ai/* models are never flagged: xAI reads files with its billed
-attachment_search tool (see xai above), so Grok PDFs stay native-xAI and named-model only.
+passes when it read the file itself.
+Run 2026-10-04 through OpenRouterProvider (file parts with the
+native PDF engine pinned; zen refuses an answer OpenRouter parsed). PDF: every candidate read zebra.pdf 2/2 (the four
+-pro models 1/1). Every one also read zebra.pdf and an image-only letter page through zen's chat system prompt, except
+openai/o3-mini and o3-mini-high, which read only the text layer (as natively) and stay unflagged. Audio (pelican.wav)
+and video (otter.mp4): 2/2 on the 8 Gemini candidates and kimi-k3 (video). Left unflagged though they passed:
+openai/gpt-5-mini and gpt-5-nano (flaky natively across days), google/gemini-2.5-flash audio (flaky natively).
+mistralai/mistral-large-2512 got upstream 429s on most tries and is unverified. x-ai/* models are never flagged:
+xAI reads files through a paid search tool, and Grok takes media only through the native provider, by name.
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
@@ -86,4 +93,39 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("xai", "grok-4.20-0309-reasoning"): frozenset({"pdf"}),
     ("xai", "grok-4.20-0309-non-reasoning"): frozenset({"pdf"}),
     ("xai", "grok-build-0.1"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-fable-5.1"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-opus-5.5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-opus-5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-fable-5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-sonnet-5.5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-sonnet-5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-sonnet-4.5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-opus-4.5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-haiku-4.5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-opus-4.1"): frozenset({"pdf"}),
+    ("openrouter", "google/gemini-3.1-pro-preview"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-3.8-flash"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-3.7-flash"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-3.6-flash"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-3.5-flash"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-3.5-flash-lite"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-2.5-pro"): frozenset({"pdf", "audio", "video"}),
+    ("openrouter", "google/gemini-2.5-flash"): frozenset({"pdf", "video"}),
+    ("openrouter", "mistralai/devstral-2512"): frozenset({"pdf"}),
+    ("openrouter", "openai/o3"): frozenset({"pdf"}),
+    ("openrouter", "openai/o3-pro"): frozenset({"pdf"}),
+    ("openrouter", "openai/o4-mini"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6-astra"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6-sol"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6-luna"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.6-sol"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.6-terra"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.6-luna"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.5-pro"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.5"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5-pro"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.2-pro"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-5.2"): frozenset({"pdf"}),
+    ("openrouter", "moonshotai/kimi-k3"): frozenset({"video"}),
 }
