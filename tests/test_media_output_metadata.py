@@ -2,6 +2,7 @@
 
 import json
 import logging
+from contextlib import nullcontext
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -142,6 +143,112 @@ async def test_consensus_model_response_carries_media():
     assert response_metadata["provider"] == "google" and response_metadata["model_name"] == GEMINI
     assert response_metadata["media_attached"] == [UPLOADED]
     assert response_metadata["media_notice"] == UPLOAD_NOTICE
+
+
+# --- earlier media left out of a follow-up ---------------------------------------------------------------------------
+
+GONE_NOTICE = "Not re-sent: gone.pdf (file no longer exists)"
+
+
+def _thread_with_deleted_pdf(tmp_path):
+    """A thread whose earlier turn attached gone.pdf, since deleted: every follow-up leaves it out with a note."""
+    from utils.conversation_memory import add_turn, create_thread
+
+    gone = tmp_path / "gone.pdf"
+    gone.write_bytes(Path(PDF).read_bytes())
+    thread_id = create_thread("chat", {"prompt": "look"})
+    add_turn(thread_id, "assistant", "seen", media=[str(gone)], tool_name="chat")
+    gone.unlink()
+    return thread_id
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("offer", [True, False], ids=["continuation-offer", "no-offer"])
+async def test_simple_tool_reports_media_left_out(tmp_path, offer):
+    thread_id = _thread_with_deleted_pdf(tmp_path)
+    with (
+        patch.object(GeminiModelProvider, "generate_content", return_value=_reply()),
+        patch.object(ChatTool, "_create_continuation_offer", return_value=None) if not offer else nullcontext(),
+    ):
+        result = await ChatTool().execute(
+            {
+                "prompt": "And now?",
+                "continuation_id": thread_id,
+                "working_directory_absolute_path": str(tmp_path),
+                **_model_args(),
+            }
+        )
+    metadata = json.loads(result[0].text)["metadata"]
+    assert metadata["media_omitted"] == [{"name": "gone.pdf", "reason": "file no longer exists"}]
+    assert metadata["media_notice"] == GONE_NOTICE
+
+
+@pytest.mark.asyncio
+async def test_media_left_out_is_appended_to_an_existing_notice(tmp_path):
+    thread_id = _thread_with_deleted_pdf(tmp_path)
+    with patch.object(GeminiModelProvider, "generate_content", return_value=_reply(attached=[UPLOADED])):
+        result = await ChatTool().execute(
+            {
+                "prompt": "And this clip?",
+                "absolute_file_paths": [MP4],
+                "continuation_id": thread_id,
+                "working_directory_absolute_path": str(tmp_path),
+                **_model_args(),
+            }
+        )
+    metadata = json.loads(result[0].text)["metadata"]
+    assert metadata["media_notice"] == f"{UPLOAD_NOTICE}\n{GONE_NOTICE}"
+
+
+@pytest.mark.asyncio
+async def test_nothing_left_out_adds_no_fields(tmp_path):
+    metadata = await _chat(tmp_path, _reply(attached=[INLINE]), files=(PDF,))
+    assert "media_omitted" not in metadata and "media_notice" not in metadata
+
+
+@pytest.mark.asyncio
+async def test_workflow_expert_analysis_reports_media_left_out(tmp_path):
+    thread_id = _thread_with_deleted_pdf(tmp_path)
+    with patch.object(GeminiModelProvider, "generate_content", return_value=_reply('{"status": "analysis_complete"}')):
+        result = await ThinkDeepTool().execute(
+            {
+                "step": "What changed?",
+                "step_number": 1,
+                "total_steps": 1,
+                "next_step_required": False,
+                "findings": "Nothing yet.",
+                "continuation_id": thread_id,
+                **_model_args(),
+            }
+        )
+    expert = json.loads(result[0].text)["expert_analysis"]
+    assert expert["metadata"]["media_omitted"] == [{"name": "gone.pdf", "reason": "file no longer exists"}]
+    assert expert["metadata"]["media_notice"] == GONE_NOTICE
+
+
+@pytest.mark.asyncio
+async def test_consensus_model_response_reports_media_left_out(tmp_path):
+    thread_id = _thread_with_deleted_pdf(tmp_path)
+    with patch.object(GeminiModelProvider, "generate_content", return_value=_reply("Ship it.")):
+        result = await ConsensusTool().execute(
+            {
+                "step": "Ship it?",
+                "step_number": 1,
+                "total_steps": 2,
+                "next_step_required": True,
+                "findings": "Initial look.",
+                "models": [{"model": GEMINI, "stance": "for"}, {"model": GEMINI, "stance": "against"}],
+                "continuation_id": thread_id,
+            }
+        )
+    response_metadata = json.loads(result[0].text)["model_response"]["metadata"]
+    assert response_metadata["media_omitted"] == [{"name": "gone.pdf", "reason": "file no longer exists"}]
+    assert response_metadata["media_notice"] == GONE_NOTICE
+
+
+def test_cli_prints_the_media_left_out_notice():
+    payload = {"content": "Answer.", "model_response": {"metadata": {"media_notice": GONE_NOTICE}}}
+    assert GONE_NOTICE in _human("print_media_notices", payload)
 
 
 # --- xAI server-side search ---------------------------------------------------------------------------------------

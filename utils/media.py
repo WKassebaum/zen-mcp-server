@@ -741,22 +741,49 @@ def media_prompt_section(media: Iterable[MediaAttachment], omitted: Iterable[str
 
 
 @dataclass(frozen=True)
+class OmittedMedia:
+    """One earlier turn's media file a call leaves out: its file name and why.
+
+    ``age`` is "earlier" for a file the call cannot send at all, "older" for one dropped to make room.
+    """
+
+    name: str
+    reason: str
+    age: str = "earlier"
+
+    @property
+    def note(self) -> str:
+        """The manifest line for the model (media_prompt_section)."""
+        return f"[omitted: {self.age} {self.name} — {self.reason}]"
+
+    def as_metadata(self) -> dict[str, str]:
+        """The tool output's ``media_omitted`` entry."""
+        return {"name": self.name, "reason": self.reason}
+
+
+@dataclass(frozen=True)
 class MediaPlan:
     """The media one model call attaches, and what it leaves out of the media earlier turns attached.
 
     ``attachments`` is in attachment order (first-seen across the thread, see plan_media): pass it as the provider's
     ``media`` and announce it with media_prompt_section(attachments, omitted). ``own`` is the media the call named
-    itself: what its turn records (ConversationTurn.media).
+    itself: what its turn records (ConversationTurn.media). ``left_out`` is the earlier media it does not send, which
+    the prompt manifest (``omitted``, the notes) and the tool output (response_media_metadata) both report.
     """
 
     attachments: tuple[MediaAttachment, ...] = ()
     own: tuple[MediaAttachment, ...] = ()
-    omitted: tuple[str, ...] = ()
+    left_out: tuple[OmittedMedia, ...] = ()
 
     @classmethod
     def own_only(cls, media: Iterable[MediaAttachment]) -> MediaPlan:
         media = tuple(media)
         return cls(attachments=media, own=media)
+
+    @property
+    def omitted(self) -> tuple[str, ...]:
+        """One manifest note per file left out, in the order they were left out."""
+        return tuple(item.note for item in self.left_out)
 
     def prompt_section(self) -> str:
         return media_prompt_section(self.attachments, self.omitted)
@@ -802,7 +829,7 @@ def plan_media(
     own = tuple(own)
     taken = {media_file_identity(attachment.source_path) for attachment in own}
     candidates: list[MediaAttachment] = []  # newest first
-    omitted: list[str] = []
+    omitted: list[OmittedMedia] = []
     for path in earlier:
         expanded = os.path.expanduser(str(path))
         identity = media_file_identity(expanded)
@@ -811,17 +838,17 @@ def plan_media(
         taken.add(identity)
         name = Path(expanded).name
         if not os.path.exists(expanded):
-            omitted.append(f"[omitted: earlier {name} — file no longer exists]")
+            omitted.append(OmittedMedia(name, "file no longer exists"))
             continue
         found = classify_media([expanded])[1]
         if not found:
-            omitted.append(f"[omitted: earlier {name} — no longer a readable media file]")
+            omitted.append(OmittedMedia(name, "no longer a readable media file"))
             continue
         attachment = found[0]
         if attachment.kind not in supported:
-            omitted.append(f"[omitted: earlier {name} — {model_name} does not take {attachment.kind.value}]")
+            omitted.append(OmittedMedia(name, f"{model_name} does not take {attachment.kind.value}"))
         elif attachment.size_bytes > MEDIA_MAX_BYTES:
-            omitted.append(f"[omitted: earlier {name} — over the {format_size(MEDIA_MAX_BYTES)} per-file limit]")
+            omitted.append(OmittedMedia(name, f"over the {format_size(MEDIA_MAX_BYTES)} per-file limit"))
         else:
             candidates.append(attachment)
 
@@ -831,14 +858,14 @@ def plan_media(
         while candidates and total > budget_tokens:
             dropped = candidates.pop()
             total -= cost[id(dropped)]
-            omitted.append(f"[omitted: older {dropped.name} — over budget]")
+            omitted.append(OmittedMedia(dropped.name, "over budget", age="older"))
     if candidates and max_request_bytes is not None:
         encoded = sum(base64_size(a.size_bytes) for a in (*own, *candidates))
         while candidates and encoded > max_request_bytes:
             dropped = candidates.pop()
             encoded -= base64_size(dropped.size_bytes)
             omitted.append(
-                f"[omitted: older {dropped.name} — over the {format_size(max_request_bytes)} request size limit]"
+                OmittedMedia(dropped.name, f"over the {format_size(max_request_bytes)} request size limit", age="older")
             )
 
     rank: dict[str, int] = {}
@@ -851,7 +878,7 @@ def plan_media(
     }
     # New own media keeps its own order after everything seen before; sorted() is stable
     ordered = sorted(sending, key=lambda attachment: order[id(attachment)])
-    return MediaPlan(attachments=tuple(ordered), own=own, omitted=tuple(omitted))
+    return MediaPlan(attachments=tuple(ordered), own=own, left_out=tuple(omitted))
 
 
 # ---------------------------------------------------------------------------
@@ -941,7 +968,13 @@ def upload_notice(media_attached: Any) -> str | None:
     return f"Uploaded to the Gemini Files API: {', '.join(dict.fromkeys(named))}; Google deletes uploads after 48 h."
 
 
-def response_media_metadata(model_response: Any) -> dict[str, Any]:
+def omitted_notice(left_out: Iterable[OmittedMedia]) -> str | None:
+    """One line naming the earlier media a follow-up did not send, and why; None when nothing was left out."""
+    entries = [f"{item.name} ({item.reason})" for item in left_out]
+    return f"Not re-sent: {'; '.join(entries)}" if entries else None
+
+
+def response_media_metadata(model_response: Any, left_out: Iterable[OmittedMedia] = ()) -> dict[str, Any]:
     """The media and cache fields of a provider's ModelResponse that a tool copies into its output metadata.
 
     ``media_attached`` (what was attached and how: inline, uploaded or cached, with the Files API name) and xAI's
@@ -949,6 +982,8 @@ def response_media_metadata(model_response: Any) -> dict[str, Any]:
     user can delete one before Google's 48 h expiry) and for xAI's separately billed search calls.
     ``cached_input_tokens`` (input served from the provider's prompt cache) and ``cache_write_input_tokens`` (input
     written to it) when the usage reports them.
+    ``left_out`` (the call's MediaPlan.left_out): earlier turns' media the call did not re-send, as ``media_omitted``
+    (``{name, reason}`` each) and a ``media_notice`` line after any other.
     """
     fields: dict[str, Any] = {}
     usage = getattr(model_response, "usage", None)
@@ -956,22 +991,25 @@ def response_media_metadata(model_response: Any) -> dict[str, Any]:
         count = usage.get(key) if isinstance(usage, dict) else None
         if isinstance(count, int) and not isinstance(count, bool):
             fields[key] = count
-    metadata = getattr(model_response, "metadata", None)
-    if not isinstance(metadata, dict):
-        return fields
     notices: list[str] = []
-    attached = metadata.get("media_attached")
-    if isinstance(attached, list) and attached:
-        fields["media_attached"] = [dict(record) if isinstance(record, dict) else record for record in attached]
-        notice = upload_notice(attached)
-        if notice:
-            notices.append(notice)
-    calls = metadata.get("server_side_tool_calls")
-    if isinstance(calls, int) and not isinstance(calls, bool):
-        fields["server_side_tool_calls"] = calls
-        provider = getattr(model_response, "provider", None)
-        if calls > 0 and getattr(provider, "value", provider) == "xai":
-            notices.append(xai_search_notice(calls, getattr(model_response, "model_name", "unknown")))
+    metadata = getattr(model_response, "metadata", None)
+    if isinstance(metadata, dict):
+        attached = metadata.get("media_attached")
+        if isinstance(attached, list) and attached:
+            fields["media_attached"] = [dict(record) if isinstance(record, dict) else record for record in attached]
+            notice = upload_notice(attached)
+            if notice:
+                notices.append(notice)
+        calls = metadata.get("server_side_tool_calls")
+        if isinstance(calls, int) and not isinstance(calls, bool):
+            fields["server_side_tool_calls"] = calls
+            provider = getattr(model_response, "provider", None)
+            if calls > 0 and getattr(provider, "value", provider) == "xai":
+                notices.append(xai_search_notice(calls, getattr(model_response, "model_name", "unknown")))
+    left_out = tuple(left_out)
+    if left_out:
+        fields["media_omitted"] = [item.as_metadata() for item in left_out]
+        notices.append(omitted_notice(left_out))
     if notices:
         fields["media_notice"] = "\n".join(notices)
     return fields

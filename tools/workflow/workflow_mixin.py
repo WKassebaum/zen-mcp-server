@@ -1634,7 +1634,7 @@ class BaseWorkflowMixin(ABC):
                 try:
                     # Try to parse as JSON
                     analysis_result = json.loads(content)
-                    return self._with_response_metadata(analysis_result, model_response)
+                    return self._with_response_metadata(analysis_result, model_response, plan.left_out)
                 except json.JSONDecodeError as e:
                     # Log the parse error with more details but don't fail
                     logger.info(
@@ -1650,10 +1650,10 @@ class BaseWorkflowMixin(ABC):
                         "format": "text",  # Indicate it's plain text, not an error
                         "note": "Analysis provided in plain text format",
                     }
-                    return self._with_response_metadata(plain_text_analysis, model_response)
+                    return self._with_response_metadata(plain_text_analysis, model_response, plan.left_out)
             else:
                 empty = {"error": "No response from model", "status": "empty_response"}
-                return self._with_response_metadata(empty, model_response)
+                return self._with_response_metadata(empty, model_response, plan.left_out)
 
         except ToolExecutionError:
             raise  # media validation: the user must see why, not a vague "expert analysis failed"
@@ -1664,12 +1664,13 @@ class BaseWorkflowMixin(ABC):
             self._media_plan = None  # only this call's prompt reads it
 
     @staticmethod
-    def _with_response_metadata(analysis: Any, model_response) -> Any:
-        """Copy the response's media fields (utils.media.response_media_metadata) into the block's ``metadata``.
+    def _with_response_metadata(analysis: Any, model_response, left_out=()) -> Any:
+        """Copy the response's media fields (utils.media.response_media_metadata) into the block's ``metadata``, with
+        the earlier media the call did not re-send (``left_out``, its MediaPlan.left_out).
 
         The block is the expert model's parsed JSON or zen's plain-text wrapper; a non-dict JSON answer is left as is.
         """
-        fields = response_media_metadata(model_response)
+        fields = response_media_metadata(model_response, left_out)
         if fields and isinstance(analysis, dict):
             existing = analysis.get("metadata")
             analysis["metadata"] = {**existing, **fields} if isinstance(existing, dict) else fields

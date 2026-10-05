@@ -647,7 +647,7 @@ class SimpleTool(BaseTool):
                         except AttributeError:
                             # Fallback if provider doesn't have get_provider_type method
                             metadata["provider_used"] = str(provider)
-                metadata.update(response_media_metadata(model_info.get("model_response")))
+                metadata.update(response_media_metadata(model_info.get("model_response"), self._media_left_out()))
 
             return ToolOutput(
                 status="success",
@@ -745,7 +745,7 @@ class SimpleTool(BaseTool):
                             # Fallback if provider doesn't have get_provider_type method
                             metadata["provider_used"] = str(provider)
                 # What was attached and how (uploads named so a user can delete them), and xAI's paid search calls
-                metadata.update(response_media_metadata(model_info.get("model_response")))
+                metadata.update(response_media_metadata(model_info.get("model_response"), self._media_left_out()))
 
             return ToolOutput(
                 status="continuation_available",
@@ -757,6 +757,13 @@ class SimpleTool(BaseTool):
         except Exception:
             # Fallback to simple success if continuation offer fails
             return ToolOutput(status="success", content=content, content_type="text")
+
+    def _media_left_out(self) -> tuple:
+        """Earlier turns' media this call's plan did not re-send (utils.media.MediaPlan.left_out), for the output."""
+        from utils.media import MediaPlan
+
+        plan = getattr(self, "_media_plan", None)
+        return plan.left_out if isinstance(plan, MediaPlan) else ()
 
     def _record_assistant_turn(
         self, continuation_id: str, response_text: str, request, model_info: Optional[dict]

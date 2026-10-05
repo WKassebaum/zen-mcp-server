@@ -804,8 +804,9 @@ of the evidence, even when it strongly points in one direction.""",
                 "metadata": {
                     "provider": provider.get_provider_type().value,
                     "model_name": model_name,
-                    # What was attached and how (uploads named so a user can delete them), and xAI's paid search
-                    **response_media_metadata(response),
+                    # What was attached and how (uploads named so a user can delete them), xAI's paid search, and
+                    # the earlier media this consultation did not re-send
+                    **response_media_metadata(response, plan.left_out),
                 },
             }
 
