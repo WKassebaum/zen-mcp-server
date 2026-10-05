@@ -13,6 +13,7 @@ import asyncio  # noqa: E402
 import importlib  # noqa: E402
 import sys  # noqa: E402
 import tempfile  # noqa: E402
+import uuid  # noqa: E402
 from pathlib import Path  # noqa: E402
 
 import pytest  # noqa: E402
@@ -126,6 +127,16 @@ def pytest_collection_modifyitems(session, config, items):
     # Always set dummy keys if real keys are missing
     # This ensures tests work in CI even with no_mock_provider marker
     _set_dummy_keys_if_missing()
+
+
+@pytest.fixture(autouse=True)
+def isolated_media_upload_cache(monkeypatch, tmp_path_factory):
+    """Give every test its own Gemini upload cache file, so no test reads or writes ~/.zen/media_uploads.json.
+
+    The file sits in the session's temp dir and is only created if the test uploads, so this costs no I/O otherwise.
+    """
+    path = tmp_path_factory.getbasetemp() / "media_upload_cache" / f"{uuid.uuid4().hex}.json"
+    monkeypatch.setenv("ZEN_MEDIA_UPLOAD_CACHE", str(path))
 
 
 @pytest.fixture(autouse=True)

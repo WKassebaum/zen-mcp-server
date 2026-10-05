@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 from google import genai
 from google.genai import types
 
+from utils import media_upload_cache
 from utils.env import get_env
 from utils.image_utils import validate_image
 from utils.media import MediaKind
@@ -463,6 +464,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
         zen never deletes uploads: Google deletes them after 48 hours. The Files API name is recorded
         in the response metadata (media_attached[*]["file_name"]) so a user can delete one sooner.
+        Callers go through _remote_media, which reuses an earlier upload of the same bytes when it can.
         """
         try:
             uploaded = self.client.files.upload(
@@ -487,10 +489,66 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
             raise RuntimeError(f"Gemini Files API upload of {attachment.name} returned no URI ({uploaded.name})")
         return uploaded
 
+    def _remote_media(self, attachment, this_request: dict[str, dict]) -> tuple[dict, str]:
+        """Files API reference ``{"name", "uri", "mime_type"}`` for an attachment, and how it got there.
+
+        Reused when possible ("cached"): an upload of the same bytes made earlier in this request, else one in the
+        upload cache made with this API key and still ACTIVE on Google's side. Otherwise uploaded ("uploaded") and
+        cached, so follow-ups, other consensus models and tool-level retries reuse it (utils.media_upload_cache).
+        """
+        try:
+            key = media_upload_cache.content_key(attachment.source_path, attachment.mime_type)
+        except OSError as exc:
+            logger.warning("Upload cache skipped for %s: cannot read it (%s)", attachment.name, exc)
+            key = None
+        if key is not None and key in this_request:
+            return this_request[key], "cached"
+
+        fingerprint = media_upload_cache.api_key_fingerprint(self.api_key)
+        if key is not None:
+            cached = media_upload_cache.lookup(key, fingerprint)
+            if cached is not None:
+                if self._upload_still_usable(cached):
+                    logger.info("Gemini Files API: reusing %s for %s", cached["file_name"], attachment.name)
+                    remote = {"name": cached["file_name"], "uri": cached["file_uri"], "mime_type": cached["mime_type"]}
+                    this_request[key] = remote
+                    return remote, "cached"
+                media_upload_cache.evict(key)
+
+        uploaded = self._upload_media(attachment)
+        remote = {"name": uploaded.name, "uri": uploaded.uri, "mime_type": uploaded.mime_type or attachment.mime_type}
+        if key is not None:
+            media_upload_cache.store(
+                key,
+                fingerprint,
+                file_name=remote["name"],
+                file_uri=remote["uri"],
+                mime_type=remote["mime_type"],
+                size_bytes=attachment.size_bytes,
+            )
+            this_request[key] = remote
+        return remote, "uploaded"
+
+    def _upload_still_usable(self, cached: dict) -> bool:
+        """True when Google still has the cached upload, ACTIVE and at the same URI."""
+        try:
+            remote = self.client.files.get(name=cached["file_name"])
+        except Exception as exc:  # 404 once Google has deleted it, 403 for another project's file, ...
+            logger.info(
+                "Gemini Files API: cached upload %s is unusable (%s); uploading again", cached["file_name"], exc
+            )
+            return False
+        state = getattr(getattr(remote, "state", None), "name", None)
+        if state == "ACTIVE" and getattr(remote, "uri", None) == cached["file_uri"]:
+            return True
+        logger.info("Gemini Files API: cached upload %s is %s; uploading again", cached["file_name"], state)
+        return False
+
     def _build_media_parts(self, media) -> tuple[list[dict], list[dict]]:
         """Inline what fits under INLINE_MEDIA_MAX_BYTES (largest files upload first); keep input order.
 
-        Uploads happen here, before the retry loop in generate_content, so a retried request reuses them.
+        Uploads happen here, before the retry loop in generate_content, so a retried request reuses them; the
+        upload cache lets later requests (follow-ups, consensus models, tool-level retries) reuse them too.
         """
         inline_total = sum(attachment.size_bytes for attachment in media)
         to_upload: set[int] = set()
@@ -502,13 +560,13 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
 
         parts: list[dict] = []
         attached: list[dict] = []
+        this_request: dict[str, dict] = {}
         for index, attachment in enumerate(media):
             record = {"name": attachment.name, "kind": attachment.kind.value, "bytes": attachment.size_bytes}
             if index in to_upload:
-                uploaded = self._upload_media(attachment)
-                file_data = {"file_uri": uploaded.uri, "mime_type": uploaded.mime_type or attachment.mime_type}
-                parts.append({"file_data": file_data})
-                record.update(transport="uploaded", file_name=uploaded.name)
+                remote, transport = self._remote_media(attachment, this_request)
+                parts.append({"file_data": {"file_uri": remote["uri"], "mime_type": remote["mime_type"]}})
+                record.update(transport=transport, file_name=remote["name"])
             else:
                 data = base64.b64encode(Path(attachment.source_path).read_bytes()).decode()
                 parts.append({"inline_data": {"mime_type": attachment.mime_type, "data": data}})
