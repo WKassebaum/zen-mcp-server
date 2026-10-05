@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import tempfile
+from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,15 +23,17 @@ from tools.codereview import CodeReviewTool
 from tools.shared.exceptions import ToolExecutionError
 
 
+@contextmanager
 def _mock_registry_provider(content: str = "Mock response"):
-    """Serve every model from a mock provider.
+    """Serve every model from a mock provider, and yield it.
 
     The tools take their provider from the registry (ModelContext), so patching tool.get_model_provider alone leaves
     the real provider, and a network call, in place.
     """
     provider = create_mock_provider()
     provider.generate_content.return_value.content = content
-    return patch.object(ModelProviderRegistry, "get_provider_for_model", return_value=provider)
+    with patch.object(ModelProviderRegistry, "get_provider_for_model", return_value=provider):
+        yield provider
 
 
 # from tools.debug import DebugIssueTool  # Commented out - debug tool refactored
@@ -124,7 +127,7 @@ class TestLargePromptHandling:
 
         try:
             try:
-                with _mock_registry_provider():
+                with _mock_registry_provider() as provider:
                     result = await tool.execute(
                         {
                             "prompt": normal_prompt,
@@ -142,6 +145,8 @@ class TestLargePromptHandling:
 
         # Whether provider succeeds or fails, we should not hit the resend_prompt branch
         assert output["status"] != "resend_prompt"
+        assert output["status"] == "continuation_available"
+        provider.generate_content.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_chat_prompt_file_handling(self):
@@ -158,7 +163,7 @@ class TestLargePromptHandling:
 
         try:
             try:
-                with _mock_registry_provider():
+                with _mock_registry_provider() as provider:
                     result = await tool.execute(
                         {
                             "prompt": "",
@@ -175,6 +180,8 @@ class TestLargePromptHandling:
 
             # The tool processes prompt files without size errors
             assert output["status"] != "resend_prompt"
+            assert output["status"] == "continuation_available"
+            provider.generate_content.assert_called_once()
         finally:
             # Cleanup
             shutil.rmtree(temp_dir)
@@ -371,7 +378,7 @@ class TestLargePromptHandling:
         exact_prompt = "x" * MCP_PROMPT_SIZE_LIMIT
 
         # Mock the model provider to avoid real API calls
-        with _mock_registry_provider("Response to the large prompt"):
+        with _mock_registry_provider("Response to the large prompt") as provider:
             # With the fix, this should now pass because we check at MCP transport boundary before adding internal content
             temp_dir = tempfile.mkdtemp()
             try:
@@ -384,6 +391,8 @@ class TestLargePromptHandling:
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
             assert output["status"] != "resend_prompt"
+            assert output["status"] == "continuation_available"
+            provider.generate_content.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_boundary_case_just_over_limit(self):
@@ -408,7 +417,7 @@ class TestLargePromptHandling:
         """Test empty prompt without prompt.txt file."""
         tool = ChatTool()
 
-        with _mock_registry_provider("Success"):
+        with _mock_registry_provider("Success") as provider:
             temp_dir = tempfile.mkdtemp()
             try:
                 try:
@@ -420,6 +429,8 @@ class TestLargePromptHandling:
             finally:
                 shutil.rmtree(temp_dir, ignore_errors=True)
             assert output["status"] != "resend_prompt"
+            assert output["status"] == "continuation_available"
+            provider.generate_content.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_prompt_file_read_error(self):
@@ -620,7 +631,7 @@ class TestLargePromptHandling:
             small_user_input = "Hello"
 
             try:
-                with _mock_registry_provider():
+                with _mock_registry_provider() as provider:
                     result = await tool.execute(
                         {
                             "prompt": small_user_input,
@@ -635,6 +646,8 @@ class TestLargePromptHandling:
 
             # The tool processes small prompts without size errors
             assert output["status"] != "resend_prompt"
+            assert output["status"] == "continuation_available"
+            provider.generate_content.assert_called_once()
         finally:
             shutil.rmtree(temp_dir, ignore_errors=True)
 

@@ -1,7 +1,9 @@
 """The unit-test network guard refuses non-loopback hosts and records each attempt (tests/network_guard.py)."""
 
+import os
 import socket
 
+import httpx
 import pytest
 
 from tests.network_guard import block_network
@@ -37,6 +39,17 @@ def test_loopback_is_allowed():
         assert attempts == []
     finally:
         listener.close()
+
+
+def test_a_local_proxy_cannot_carry_a_call_past_the_guard(monkeypatch):
+    # Through a proxy on 127.0.0.1 the remote host is never looked up here, so the guard would see only a loopback
+    # connect. httpx (the Gemini client's transport) takes proxies from the environment, and on macOS from the system.
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:9")  # set before the guard, as a developer's shell would
+    with block_network() as attempts:
+        with pytest.raises(httpx.TransportError):
+            httpx.get("https://generativelanguage.googleapis.com/", timeout=5)
+    assert attempts == ["lookup generativelanguage.googleapis.com"]
+    assert os.environ["HTTPS_PROXY"] == "http://127.0.0.1:9"  # restored afterwards
 
 
 def test_the_real_functions_come_back_afterwards():

@@ -61,9 +61,9 @@ class TestDynamicContextRequests:
 
         # Parse the response - analyze tool now uses workflow architecture
         response_data = json.loads(result[0].text)
-        # Workflow tools may handle provider errors differently than simple tools
-        # They might return error, expert analysis, or clarification requests
-        assert response_data["status"] in ["calling_expert_analysis", "error", "files_required_to_continue"]
+        # The expert model asked for files, so the workflow promotes that status
+        assert response_data["status"] == "files_required_to_continue"
+        mock_provider.generate_content.assert_called_once()
 
         # Check that expert analysis was performed and contains the clarification
         if "expert_analysis" in response_data:
@@ -142,17 +142,11 @@ class TestDynamicContextRequests:
 
         # Should be treated as normal response due to JSON parse error
         response_data = json.loads(result[0].text)
-        # Workflow tools may handle provider errors differently than simple tools
-        # They might return error, expert analysis, or clarification requests
-        assert response_data["status"] in ["calling_expert_analysis", "error", "files_required_to_continue"]
+        assert response_data["status"] == "calling_expert_analysis"
+        mock_provider.generate_content.assert_called_once()
 
-        # The malformed JSON should appear in the expert analysis content
-        if "expert_analysis" in response_data:
-            expert_analysis = response_data["expert_analysis"]
-            if "raw_analysis" in expert_analysis:
-                analysis_content = expert_analysis["raw_analysis"]
-                # The malformed JSON should be included in the analysis
-                assert "files_required_to_continue" in analysis_content or malformed_json in str(response_data)
+        # The malformed JSON is kept as the expert's raw analysis
+        assert response_data["expert_analysis"]["raw_analysis"] == malformed_json
 
     @pytest.mark.asyncio
     @patch("tools.shared.base_tool.BaseTool.get_model_provider")
@@ -324,23 +318,11 @@ class TestDynamicContextRequests:
         assert len(result) == 1
 
         response_data = json.loads(result[0].text)
-        # Workflow tools may handle provider errors differently than simple tools
-        # They might return error, complete analysis, or even clarification requests
-        assert response_data["status"] in ["error", "calling_expert_analysis", "files_required_to_continue"]
-
-        # If expert analysis was attempted, it may succeed or fail
-        if response_data["status"] == "calling_expert_analysis" and "expert_analysis" in response_data:
-            expert_analysis = response_data["expert_analysis"]
-            # Could be an error or a successful analysis that requests clarification
-            analysis_status = expert_analysis.get("status", "")
-            assert (
-                analysis_status in ["analysis_error", "analysis_complete"]
-                or "error" in expert_analysis
-                or "files_required_to_continue" in str(expert_analysis)
-            )
-        elif response_data["status"] == "error":
-            assert "content" in response_data
-            assert response_data["content_type"] == "text"
+        # The failed model call surfaces as an error response
+        assert response_data["status"] == "error"
+        mock_provider.generate_content.assert_called_once()
+        assert "content" in response_data
+        assert response_data["content_type"] == "text"
 
 
 class TestCollaborationWorkflow:
