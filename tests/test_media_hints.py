@@ -9,6 +9,7 @@ import utils.model_restrictions
 from providers.anthropic import AnthropicProvider
 from providers.gemini import GeminiModelProvider
 from providers.openai import OpenAIModelProvider
+from providers.openrouter import OpenRouterProvider
 from providers.registry import ModelProviderRegistry
 from providers.shared import ModelCapabilities, ProviderType
 from utils.media import MEDIA_PROVIDERS, MediaKind, classify_media, format_media_error, providers_hint
@@ -17,7 +18,12 @@ MP4 = str(Path(__file__).parent / "fixtures" / "media" / "otter.mp4")
 VIDEO = frozenset({MediaKind.VIDEO})
 AUDIO = frozenset({MediaKind.AUDIO})
 PDF = frozenset({MediaKind.PDF})
-ENCODERS = {"google": GeminiModelProvider, "anthropic": AnthropicProvider, "openai": OpenAIModelProvider}
+ENCODERS = {
+    "google": GeminiModelProvider,
+    "anthropic": AnthropicProvider,
+    "openai": OpenAIModelProvider,
+    "openrouter": OpenRouterProvider,
+}
 
 
 @pytest.fixture
@@ -30,7 +36,7 @@ def test_hint_names_key_when_provider_is_not_configured(monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     ModelProviderRegistry.clear_cache()
     try:
-        assert providers_hint(VIDEO) == "configure GEMINI_API_KEY"
+        assert providers_hint(VIDEO) == "configure GEMINI_API_KEY or OPENROUTER_API_KEY"
     finally:
         ModelProviderRegistry.clear_cache()
 
@@ -38,7 +44,11 @@ def test_hint_names_key_when_provider_is_not_configured(monkeypatch):
 def test_hint_when_configured_provider_has_no_encoder():
     with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset()):
         hint = providers_hint(VIDEO)
-    assert hint.startswith("GEMINI_API_KEY is configured") and "cannot send video input yet" in hint
+    # OPENROUTER_API_KEY is unset in unit tests, so it is named first as a key to configure.
+    assert (
+        hint
+        == "configure OPENROUTER_API_KEY; GEMINI_API_KEY is configured, but that provider cannot send video input yet"
+    )
 
 
 def test_hint_blames_allow_list_when_restricted(monkeypatch, fresh_restrictions):
@@ -47,7 +57,7 @@ def test_hint_blames_allow_list_when_restricted(monkeypatch, fresh_restrictions)
     monkeypatch.setenv("GOOGLE_ALLOWED_MODELS", "gemini-2.5-flash")
     with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset(MediaKind)):
         hint = providers_hint(AUDIO)
-    assert not hint.startswith("configure")
+    assert hint.startswith("configure OPENROUTER_API_KEY; ")  # the only key left to configure
     assert "GEMINI_API_KEY is configured, but GOOGLE_ALLOWED_MODELS excludes" in hint
 
 
@@ -58,7 +68,10 @@ def test_hint_when_no_model_in_the_catalog_takes_the_mix(fresh_restrictions):
         patch.object(ModelCapabilities, "supported_media_kinds", return_value=frozenset({MediaKind.PDF})),
     ):
         hint = providers_hint(frozenset(MediaKind))
-    assert hint == "GEMINI_API_KEY is configured, but none of its models takes audio/pdf/video input in one request"
+    assert hint == (
+        "configure OPENROUTER_API_KEY; "
+        "GEMINI_API_KEY is configured, but none of its models takes audio/pdf/video input in one request"
+    )
 
 
 def test_allow_list_is_not_blamed_when_no_model_takes_the_mix(monkeypatch, fresh_restrictions):
@@ -85,13 +98,13 @@ def test_format_media_error_without_capable_models_gives_hint():
     media = classify_media([MP4])[1]
     with patch.object(GeminiModelProvider, "MEDIA_KINDS", frozenset()):
         message = format_media_error("o3", VIDEO, media, [])
-    assert "No available model supports it: GEMINI_API_KEY is configured" in message
+    assert "No available model supports it: configure OPENROUTER_API_KEY; GEMINI_API_KEY is configured" in message
 
 
 @pytest.fixture
 def no_media_keys(monkeypatch):
-    """No Gemini, Anthropic or OpenAI provider is available."""
-    for key in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY"):
+    """No Gemini, Anthropic, OpenAI or OpenRouter provider is available."""
+    for key in ("GEMINI_API_KEY", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
         monkeypatch.delenv(key, raising=False)
     ModelProviderRegistry.clear_cache()
     yield
@@ -99,12 +112,14 @@ def no_media_keys(monkeypatch):
 
 
 def test_pdf_hint_names_every_key_that_unlocks_pdf(no_media_keys):
-    assert providers_hint(PDF) == "configure GEMINI_API_KEY or ANTHROPIC_API_KEY or OPENAI_API_KEY"
+    assert providers_hint(PDF) == (
+        "configure GEMINI_API_KEY or ANTHROPIC_API_KEY or OPENAI_API_KEY or OPENROUTER_API_KEY"
+    )
 
 
-def test_audio_and_video_hints_still_name_only_gemini(no_media_keys):
-    assert providers_hint(AUDIO) == "configure GEMINI_API_KEY"
-    assert providers_hint(VIDEO) == "configure GEMINI_API_KEY"
+def test_audio_and_video_hints_name_gemini_and_openrouter(no_media_keys):
+    assert providers_hint(AUDIO) == "configure GEMINI_API_KEY or OPENROUTER_API_KEY"
+    assert providers_hint(VIDEO) == "configure GEMINI_API_KEY or OPENROUTER_API_KEY"
 
 
 def test_media_providers_promise_only_what_the_encoders_send():
@@ -144,13 +159,13 @@ def test_provider_without_an_allow_list_is_never_blamed_for_one(monkeypatch, fre
     ):
         hint = providers_hint(PDF)
     assert "None" not in hint
-    assert hint == "configure GEMINI_API_KEY or OPENAI_API_KEY"
+    assert hint == "configure GEMINI_API_KEY or OPENAI_API_KEY or OPENROUTER_API_KEY"
 
 
 def test_hint_blames_the_anthropic_allow_list(monkeypatch, fresh_restrictions):
     _only_anthropic_configured(monkeypatch)
     monkeypatch.setenv("ANTHROPIC_ALLOWED_MODELS", "none-such")
     assert providers_hint(PDF) == (
-        "configure GEMINI_API_KEY or OPENAI_API_KEY; "
+        "configure GEMINI_API_KEY or OPENAI_API_KEY or OPENROUTER_API_KEY; "
         "ANTHROPIC_API_KEY is configured, but ANTHROPIC_ALLOWED_MODELS excludes every model that can take pdf input"
     )

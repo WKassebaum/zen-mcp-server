@@ -54,8 +54,9 @@ def test_text_content_uses_the_given_text_type():
 
 
 def test_unknown_part_type_is_refused_not_dropped():
-    with pytest.raises(ValueError, match="input_audio"):
-        OpenAICompatibleProvider._responses_content([{"type": "input_audio", "input_audio": {}}], "input_text")
+    # input_audio and video_url became known part types with OpenRouter media (phase 4); audio_url is not one.
+    with pytest.raises(ValueError, match="audio_url"):
+        OpenAICompatibleProvider._responses_content([{"type": "audio_url", "audio_url": {}}], "input_text")
 
 
 def test_usage_reads_the_responses_field_names():

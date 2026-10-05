@@ -15,6 +15,7 @@ import pytest
 from providers.anthropic import AnthropicProvider
 from providers.gemini import GeminiModelProvider
 from providers.openai import OpenAIModelProvider
+from providers.openrouter import OpenRouterProvider
 from providers.registry import ModelProviderRegistry
 from providers.shared import ProviderType
 from providers.xai import XAIModelProvider
@@ -26,7 +27,12 @@ from utils.model_context import ModelContext
 
 PDF = str(Path(__file__).parent / "fixtures" / "media" / "zebra.pdf")
 PDF_ONLY = frozenset({MediaKind.PDF})
-ENCODERS = {"google": GeminiModelProvider, "anthropic": AnthropicProvider, "openai": OpenAIModelProvider}
+ENCODERS = {
+    "google": GeminiModelProvider,
+    "anthropic": AnthropicProvider,
+    "openai": OpenAIModelProvider,
+    "openrouter": OpenRouterProvider,
+}
 
 
 @pytest.fixture
@@ -115,5 +121,6 @@ def test_xai_alone_cannot_serve_a_pdf_in_auto_mode(every_grok_model_takes_pdf, m
     finally:
         ModelProviderRegistry.clear_cache()
     assert str(exc.value) == (
-        "No available model can take pdf input: configure GEMINI_API_KEY or ANTHROPIC_API_KEY or OPENAI_API_KEY."
+        "No available model can take pdf input: "
+        "configure GEMINI_API_KEY or ANTHROPIC_API_KEY or OPENAI_API_KEY or OPENROUTER_API_KEY."
     )

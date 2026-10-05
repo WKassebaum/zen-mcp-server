@@ -12,7 +12,7 @@ from openai import OpenAI
 
 from utils.env import get_env, suppress_env_vars
 from utils.image_utils import validate_image
-from utils.media import xai_search_notice
+from utils.media import MediaKind, MediaNotSupportedError, xai_search_notice
 
 from .base import ModelProvider
 from .shared import (
@@ -20,6 +20,20 @@ from .shared import (
     ModelResponse,
     ProviderType,
 )
+
+# Chat Completions `input_audio` format names by MIME type (OpenRouter's audio guide lists wav, mp3, flac, ogg, m4a,
+# aac and aiff). Covers every audio MIME type utils.media.MEDIA_TYPES detects.
+CHAT_AUDIO_FORMATS = {
+    "audio/mpeg": "mp3",
+    "audio/wav": "wav",
+    "audio/x-wav": "wav",
+    "audio/flac": "flac",
+    "audio/ogg": "ogg",
+    "audio/mp4": "m4a",
+    "audio/aac": "aac",
+}
+# The Responses API's `input_audio` part takes only these formats.
+RESPONSES_AUDIO_FORMATS = frozenset({"mp3", "wav"})
 
 
 class OpenAICompatibleProvider(ModelProvider):
@@ -342,18 +356,25 @@ class OpenAICompatibleProvider(ModelProvider):
         """
         sanitized = copy.deepcopy(params)
 
-        # Sanitize messages content: long prompt text and inline media (base64 data URLs in file_data
-        # and image_url) are shortened, so a log line never carries a whole file.
+        # Sanitize messages content: long prompt text and inline media (base64 in file_data, image_url,
+        # video_url and input_audio.data) are shortened, so a log line never carries a whole file.
         if "input" in sanitized:
             for msg in sanitized.get("input", []):
                 if isinstance(msg, dict) and "content" in msg:
                     for content_item in msg.get("content", []):
                         if not isinstance(content_item, dict):
                             continue
-                        for key in ("text", "file_data", "image_url"):
-                            value = content_item.get(key)
+                        audio = content_item.get("input_audio")
+                        for holder, key in (
+                            (content_item, "text"),
+                            (content_item, "file_data"),
+                            (content_item, "image_url"),
+                            (content_item, "video_url"),
+                            (audio if isinstance(audio, dict) else {}, "data"),
+                        ):
+                            value = holder.get(key)
                             if isinstance(value, str) and len(value) > 100:
-                                content_item[key] = value[:100] + "... [truncated]"
+                                holder[key] = value[:100] + "... [truncated]"
 
         # Remove any API keys that might be in headers/auth
         sanitized.pop("api_key", None)
@@ -394,9 +415,10 @@ class OpenAICompatibleProvider(ModelProvider):
 
     @staticmethod
     def _responses_content(content, text_type: str) -> list[dict]:
-        """Chat Completions message content as Responses API parts (text, images and files).
+        """Chat Completions message content as Responses API parts (text, images, files, audio and video).
 
-        An unknown part type raises ValueError: media must reach the model or fail, never be dropped.
+        An unknown part type raises ValueError, and audio in a format the Responses API does not take raises
+        MediaNotSupportedError: media must reach the model or fail, never be dropped.
         """
         if isinstance(content, str):
             return [{"type": text_type, "text": content}]
@@ -409,6 +431,15 @@ class OpenAICompatibleProvider(ModelProvider):
                 parts.append({"type": "input_image", "image_url": part["image_url"]["url"]})
             elif part_type == "file":
                 parts.append({"type": "input_file", **part["file"]})
+            elif part_type == "input_audio":
+                audio = part["input_audio"]
+                if audio["format"] not in RESPONSES_AUDIO_FORMATS:  # _build_media_parts refuses these first
+                    raise MediaNotSupportedError(
+                        f"The Responses API takes mp3 or wav audio only, not {audio['format']} audio."
+                    )
+                parts.append({"type": "input_audio", "input_audio": dict(audio)})
+            elif part_type == "video_url":
+                parts.append({"type": "input_video", "video_url": part["video_url"]["url"]})
             else:
                 raise ValueError(f"Responses API request: unsupported content part type {part_type!r}")
         return parts
@@ -420,6 +451,23 @@ class OpenAICompatibleProvider(ModelProvider):
         Chat Completions endpoint refuses media overrides this to send media requests to /v1/responses (xAI).
         """
         return bool(getattr(capabilities, "use_openai_response_api", False))
+
+    def _media_request_options(self, media: list) -> dict[str, dict]:
+        """Extra ``create()`` keyword arguments (``extra_body``, ``extra_headers``) for a request that carries ``media``.
+
+        Called only when media is present, so media-free requests never change. Each value is merged into any dict
+        the request already has under that key. None here; OpenRouter asks for its native PDF engine and metadata.
+        """
+        return {}
+
+    @staticmethod
+    def _merge_request_options(params: dict, options: dict[str, dict]) -> None:
+        for key, value in options.items():
+            params[key] = {**(params.get(key) or {}), **value}
+
+    def _check_media_response(self, response, model_name: str, media_attached: list[dict]) -> None:
+        """Raise when ``response`` shows the media did not reach the model as sent. Called with every response to a
+        request that carried media, before it is returned. Nothing to check here; OpenRouter checks for parsing."""
 
     def _responses_reasoning(self, capabilities: Optional[ModelCapabilities]) -> Optional[dict]:
         """The Responses API ``reasoning`` parameter for this model, or None to leave it out.
@@ -440,11 +488,14 @@ class OpenAICompatibleProvider(ModelProvider):
         max_output_tokens: Optional[int] = None,
         capabilities: Optional[ModelCapabilities] = None,
         media_attached: Optional[list[dict]] = None,
+        request_options: Optional[dict[str, dict]] = None,
         **kwargs,
     ) -> ModelResponse:
         """Generate content using the /v1/responses endpoint for reasoning models.
 
-        ``media_attached`` (records from _build_file_parts) is copied into the response metadata.
+        ``media_attached`` (records from _build_media_parts) is copied into the response metadata, and each response
+        to a request that carries media goes through _check_media_response. ``request_options`` (from
+        _media_request_options) is merged into the request.
         """
         # Convert messages to the correct format for responses endpoint
         input_messages = []
@@ -478,6 +529,8 @@ class OpenAICompatibleProvider(ModelProvider):
         if max_output_tokens:
             completion_params["max_output_tokens"] = max_output_tokens
 
+        self._merge_request_options(completion_params, request_options or {})
+
         # For responses endpoint, we only add parameters that are explicitly supported
         # Remove unsupported chat completion parameters that may cause API errors
 
@@ -496,6 +549,8 @@ class OpenAICompatibleProvider(ModelProvider):
             )
 
             response = self.client.responses.create(**completion_params)
+            if media_attached:
+                self._check_media_response(response, model_name, media_attached)
 
             content = self._safe_extract_output_text(response)
 
@@ -569,9 +624,9 @@ class OpenAICompatibleProvider(ModelProvider):
             temperature: Sampling temperature
             max_output_tokens: Maximum tokens to generate
             images: Optional list of image paths or data URLs to include with the prompt (for vision models)
-            media: Optional list of utils.media.MediaAttachment, sent inline as `file` parts before the
-                prompt text. Only providers whose MEDIA_KINDS cover every attachment accept it; the rest
-                raise MediaNotSupportedError before any request
+            media: Optional list of utils.media.MediaAttachment, sent inline before the prompt text as
+                `file`, `input_audio` and `video_url` parts (_build_media_parts). Only providers whose MEDIA_KINDS
+                cover every attachment accept it; the rest raise MediaNotSupportedError before any request
             **kwargs: Additional provider-specific parameters
 
         Returns:
@@ -611,16 +666,26 @@ class OpenAICompatibleProvider(ModelProvider):
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
 
-        # File parts (PDFs) first, then the prompt text, then any images. Media-free requests keep
-        # today's layout byte for byte (a plain string when there are no images either).
+        # Check if this request needs the Responses API endpoint (decided before the media parts are built, as the
+        # Responses API takes fewer audio formats). Prefer capability metadata; fall back to static map when
+        # capabilities unavailable.
         media = list(media) if media else []  # read more than once below; an iterator would be used up
+        endpoint_capabilities = capabilities
+        if endpoint_capabilities is None:
+            endpoint_capabilities = self.get_all_model_capabilities().get(resolved_model)
+        use_responses_endpoint = self._use_responses_endpoint(endpoint_capabilities, media)
+
+        # Media parts (PDF, audio, video) first, then the prompt text, then any images. Media-free requests keep
+        # today's layout byte for byte (a plain string when there are no images either).
         media_attached: list[dict] = []
-        file_parts: list[dict] = []
+        media_parts: list[dict] = []
+        media_options: dict[str, dict] = {}
         if media:
             self.ensure_media_encodable(media)  # every provider without an encoder refuses here
-            file_parts, media_attached = self._build_file_parts(media)
+            media_parts, media_attached = self._build_media_parts(media, responses_api=use_responses_endpoint)
+            media_options = self._media_request_options(media)
 
-        user_content = [*file_parts, {"type": "text", "text": prompt}]
+        user_content = [*media_parts, {"type": "text", "text": prompt}]
 
         # Add images if provided and model supports vision
         if images and capabilities and capabilities.supports_images:
@@ -673,13 +738,7 @@ class OpenAICompatibleProvider(ModelProvider):
                     continue  # Skip unsupported parameters for reasoning models
                 completion_params[key] = value
 
-        # Check if this request needs the Responses API endpoint
-        # Prefer capability metadata; fall back to static map when capabilities unavailable
-        endpoint_capabilities = capabilities
-        if endpoint_capabilities is None:
-            endpoint_capabilities = self.get_all_model_capabilities().get(resolved_model)
-
-        if self._use_responses_endpoint(endpoint_capabilities, media):
+        if use_responses_endpoint:
             # These requests are served only by the /v1/responses endpoint.
             # If it fails, we should not fall back to chat/completions
             return self._generate_with_responses_endpoint(
@@ -689,8 +748,11 @@ class OpenAICompatibleProvider(ModelProvider):
                 max_output_tokens=max_output_tokens,
                 capabilities=capabilities,
                 media_attached=media_attached,
+                request_options=media_options,
                 **kwargs,
             )
+
+        self._merge_request_options(completion_params, media_options)
 
         # Retry logic with progressive delays
         max_retries = 4  # Total of 4 attempts
@@ -700,6 +762,8 @@ class OpenAICompatibleProvider(ModelProvider):
         def _attempt() -> ModelResponse:
             attempt_counter["value"] += 1
             response = self.client.chat.completions.create(**completion_params)
+            if media_attached:
+                self._check_media_response(response, resolved_model, media_attached)
 
             content = response.choices[0].message.content
             usage = self._extract_usage(response)
@@ -753,14 +817,68 @@ class OpenAICompatibleProvider(ModelProvider):
                     "file": {"filename": attachment.name, "file_data": f"data:{attachment.mime_type};base64,{data}"},
                 }
             )
-            attached.append(
-                {
-                    "name": attachment.name,
-                    "kind": attachment.kind.value,
-                    "bytes": attachment.size_bytes,
-                    "transport": "inline",
-                }
+            attached.append(self._media_attached_record(attachment))
+        return parts, attached
+
+    @staticmethod
+    def _media_attached_record(attachment) -> dict:
+        return {
+            "name": attachment.name,
+            "kind": attachment.kind.value,
+            "bytes": attachment.size_bytes,
+            "transport": "inline",
+        }
+
+    def _build_media_parts(self, media, responses_api: bool = False) -> tuple[list[dict], list[dict]]:
+        """Chat Completions parts for PDF, audio and video in input order, and the media_attached records.
+
+        - PDF: a `file` part (_build_file_parts).
+        - Audio: an `input_audio` part with raw base64 (no data: prefix) and the format named from the MIME type
+          (CHAT_AUDIO_FORMATS).
+        - Video: a `video_url` part with a base64 data URL.
+
+        Audio whose MIME type has no format name, or (``responses_api``) a format the Responses API does not take,
+        raises MediaNotSupportedError before any file is read. OpenAI and xAI send PDFs only: ensure_media_encodable
+        refuses their audio and video first, so their parts are exactly _build_file_parts'.
+        """
+        media = list(media)
+        audio = [attachment for attachment in media if attachment.kind == MediaKind.AUDIO]
+        unnamed = [attachment for attachment in audio if attachment.mime_type not in CHAT_AUDIO_FORMATS]
+        if unnamed:
+            names = ", ".join(f"{attachment.name} ({attachment.mime_type})" for attachment in unnamed)
+            raise MediaNotSupportedError(
+                f"Cannot send {names}: no audio format matches that MIME type "
+                f"(sendable: {', '.join(sorted(set(CHAT_AUDIO_FORMATS.values())))})."
             )
+        if responses_api:
+            refused = [a for a in audio if CHAT_AUDIO_FORMATS[a.mime_type] not in RESPONSES_AUDIO_FORMATS]
+            if refused:
+                names = ", ".join(f"{attachment.name} ({attachment.mime_type})" for attachment in refused)
+                raise MediaNotSupportedError(
+                    f"Cannot send {names} to this model: it uses the Responses API, which takes mp3 or wav audio only."
+                )
+
+        parts: list[dict] = []
+        attached: list[dict] = []
+        for attachment in media:
+            if attachment.kind == MediaKind.PDF:
+                file_parts, records = self._build_file_parts([attachment])
+                parts.extend(file_parts)
+                attached.extend(records)
+                continue
+            if attachment.kind not in (MediaKind.AUDIO, MediaKind.VIDEO):  # never drop a part silently
+                raise MediaNotSupportedError(f"Cannot send {attachment.name}: unknown media kind {attachment.kind!r}.")
+            data = base64.b64encode(Path(attachment.source_path).read_bytes()).decode()
+            if attachment.kind == MediaKind.AUDIO:
+                parts.append(
+                    {
+                        "type": "input_audio",
+                        "input_audio": {"data": data, "format": CHAT_AUDIO_FORMATS[attachment.mime_type]},
+                    }
+                )
+            else:
+                parts.append({"type": "video_url", "video_url": {"url": f"data:{attachment.mime_type};base64,{data}"}})
+            attached.append(self._media_attached_record(attachment))
         return parts, attached
 
     def validate_parameters(self, model_name: str, temperature: float, **kwargs) -> None:

@@ -80,7 +80,10 @@ async def test_server_auto_mode_without_capable_model_is_a_tool_error(tmp_path):
             )
     payload = json.loads(str(exc.value))
     assert payload["metadata"]["requested_model"] == "auto"  # refused while resolving auto, not by a picked model
-    assert payload["content"].startswith("No available model can take video input: GEMINI_API_KEY")
+    # OPENROUTER_API_KEY is unset in unit tests, so it is named first as a key to configure.
+    assert payload["content"].startswith(
+        "No available model can take video input: configure OPENROUTER_API_KEY; GEMINI_API_KEY is configured"
+    )
 
 
 @pytest.mark.asyncio
@@ -233,7 +236,10 @@ async def test_continuation_reconstruction_never_sizes_history_with_an_incapable
     build_history.assert_not_called()
     payload = json.loads(str(exc.value))
     assert payload["metadata"]["requested_model"] == "auto"
-    assert payload["content"].startswith("No available model can take video input: GEMINI_API_KEY")
+    # OPENROUTER_API_KEY is unset in unit tests, so it is named first as a key to configure.
+    assert payload["content"].startswith(
+        "No available model can take video input: configure OPENROUTER_API_KEY; GEMINI_API_KEY is configured"
+    )
 
 
 @pytest.mark.asyncio

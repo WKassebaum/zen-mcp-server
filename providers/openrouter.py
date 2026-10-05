@@ -1,9 +1,10 @@
 """OpenRouter provider implementation."""
 
 import logging
-from typing import TYPE_CHECKING, ClassVar, Optional
+from typing import TYPE_CHECKING, Any, ClassVar, Optional
 
 from utils.env import get_env
+from utils.media import MediaKind
 
 from .openai_compatible import OpenAICompatibleProvider
 from .registries.openrouter import OpenRouterModelRegistry
@@ -15,6 +16,32 @@ from .shared import (
 
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
+
+
+class OpenRouterParsedMediaError(RuntimeError):
+    """OpenRouter turned an attached file into text instead of passing it to the model natively. Never retried."""
+
+
+def _field(obj: Any, name: str) -> Any:
+    """``obj[name]`` for a dict, else the attribute, else the openai SDK model's extra field; None when absent.
+
+    OpenRouter's own response fields (``openrouter_metadata``, file annotations) reach the SDK's models as extras.
+    """
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get(name)
+    value = getattr(obj, name, None)
+    if value is None:
+        extra = getattr(obj, "model_extra", None)
+        if isinstance(extra, dict):
+            value = extra.get(name)
+    return value
+
+
+def _items(value: Any) -> list:
+    """``value`` if it is a list or tuple, else no items (absent, None, or a test double)."""
+    return list(value) if isinstance(value, (list, tuple)) else []
 
 
 class OpenRouterProvider(OpenAICompatibleProvider):
@@ -36,6 +63,17 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     """
 
     FRIENDLY_NAME = "OpenRouter"
+
+    # PDF as `file` parts, audio as `input_audio`, video as `video_url` (Responses API: input_file, input_audio,
+    # input_video). Which model takes which kind is per model: its supports_pdf/audio/video flags, set only after a
+    # live probe through this provider. Requests ask for the native PDF engine and refuse a parsed response
+    # (_check_media_response). No x-ai/* model is flagged, so Grok never gets media through OpenRouter.
+    MEDIA_KINDS = frozenset(MediaKind)
+    # Counted base64-encoded. OpenRouter documents no inline limit; 32 MB is the smallest upstream request body limit
+    # (Anthropic's), so it holds whichever upstream serves the request.
+    MEDIA_REQUEST_MAX_BYTES = 32_000_000
+    # The highest native provider rate (OpenAI's gpt-6 models); per-model rates in conf/openrouter_models.json.
+    PDF_TOKENS_PER_PAGE = 4_000
 
     # Custom headers required by OpenRouter
     DEFAULT_HEADERS = {
@@ -135,6 +173,76 @@ class OpenRouterProvider(OpenAICompatibleProvider):
             canonical_name,
         )
         return None
+
+    # ------------------------------------------------------------------
+    # Media: native reading only
+    # ------------------------------------------------------------------
+
+    def _media_request_options(self, media: list) -> dict[str, dict]:
+        """The router-metadata header for any media; the native PDF engine when a PDF is attached.
+
+        - ``X-OpenRouter-Metadata: enabled`` adds ``openrouter_metadata`` to the response, whose pipeline shows a
+          file-parser stage when parsing ran.
+        - The file-parser plugin set to the native engine: without it, a model that cannot read PDFs itself gets
+          them parsed (mistral-ocr by default) and answers from extracted text.
+        - No provider pinning (``provider.order``): the parse check guards correctness, and pinning would cut
+          availability.
+
+        The client's attribution headers (DEFAULT_HEADERS) stay: the SDK merges extra_headers into them.
+        """
+        options: dict[str, dict] = {"extra_headers": {"X-OpenRouter-Metadata": "enabled"}}
+        if any(attachment.kind == MediaKind.PDF for attachment in media):
+            options["extra_body"] = {"plugins": [{"id": "file-parser", "pdf": {"engine": "native"}}]}
+        return options
+
+    def _check_media_response(self, response, model_name: str, media_attached: list[dict]) -> None:
+        """Raise OpenRouterParsedMediaError when OpenRouter parsed a file into text instead of passing it natively.
+
+        Parsed responses carry file annotations (``type: "file"``) on the message (Chat Completions) or on an output
+        text part (Responses API), and router metadata whose pipeline has a parser stage. Native responses carry
+        neither; absent fields mean native. The request is not retried, with or without the media.
+        """
+        parsed_names = self._parsed_file_names(response)
+        if parsed_names is None:
+            return
+        names = (
+            parsed_names
+            or [record["name"] for record in media_attached if record.get("kind") == MediaKind.PDF.value]
+            or [record["name"] for record in media_attached]
+        )
+        raise OpenRouterParsedMediaError(
+            f"OpenRouter parsed {', '.join(names)} into text instead of passing it to {model_name} natively; "
+            "zen only sends media to models that read it themselves."
+        )
+
+    @staticmethod
+    def _parsed_file_names(response) -> Optional[list[str]]:
+        """None when the response shows no parsing; else the parsed files' names (empty when none is named)."""
+        annotations = [
+            annotation
+            for choice in _items(_field(response, "choices"))
+            for annotation in _items(_field(_field(choice, "message"), "annotations"))
+        ] + [
+            annotation
+            for item in _items(_field(response, "output"))
+            for part in _items(_field(item, "content"))
+            for annotation in _items(_field(part, "annotations"))
+        ]
+        file_annotations = [annotation for annotation in annotations if _field(annotation, "type") == "file"]
+        pipeline = _items(_field(_field(response, "openrouter_metadata"), "pipeline"))
+        parser_ran = any(
+            isinstance(_field(stage, "name"), str) and "parser" in _field(stage, "name").lower() for stage in pipeline
+        )
+        if not file_annotations and not parser_ran:
+            return None
+        names = [_field(_field(annotation, "file"), "name") for annotation in file_annotations]
+        return list(dict.fromkeys(name for name in names if isinstance(name, str) and name))
+
+    def _is_error_retryable(self, error: Exception) -> bool:
+        """A parsed response is final: resending the file would only be parsed (and billed) again."""
+        if isinstance(error, OpenRouterParsedMediaError):
+            return False
+        return super()._is_error_retryable(error)
 
     # ------------------------------------------------------------------
     # Provider identity

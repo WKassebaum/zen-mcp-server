@@ -736,10 +736,12 @@ def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
 # MEDIA_KINDS (tests/test_media_hints.py checks it). Later phases add entries.
 # The entries answer "which key would let auto mode serve this", so explicit-only providers
 # (MEDIA_AUTO_ROUTING False) stay out: xAI takes PDFs only for a named Grok model, never in auto mode.
+# OpenRouter's encoder sends every kind; which of its models take which kind is set per model after a live probe.
 MEDIA_PROVIDERS: tuple[tuple[str, str, str | None, frozenset[MediaKind]], ...] = (
     ("google", "GEMINI_API_KEY", "GOOGLE_ALLOWED_MODELS", frozenset(MediaKind)),
     ("anthropic", "ANTHROPIC_API_KEY", "ANTHROPIC_ALLOWED_MODELS", frozenset({MediaKind.PDF})),
     ("openai", "OPENAI_API_KEY", "OPENAI_ALLOWED_MODELS", frozenset({MediaKind.PDF})),
+    ("openrouter", "OPENROUTER_API_KEY", "OPENROUTER_ALLOWED_MODELS", frozenset(MediaKind)),
 )
 
 
