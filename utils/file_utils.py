@@ -676,6 +676,20 @@ def read_files(
     return result
 
 
+def estimate_text_files_tokens(
+    file_paths: list[str], *, include_line_numbers: Optional[bool] = None, limit: Optional[int] = None
+) -> int:
+    """Tokens read_files counts for embedding these files: each file's formatted content, as read_file_content
+    estimates it (directories expanded, line numbers as given). Reads every file, so callers use it only when the
+    number changes a decision. Stops once the total exceeds ``limit``, if given."""
+    total = 0
+    for file_path in expand_paths(file_paths):
+        total += read_file_content(file_path, include_line_numbers=include_line_numbers)[1]
+        if limit is not None and total > limit:
+            break
+    return total
+
+
 def estimate_file_tokens(file_path: str) -> int:
     """
     Estimate tokens for a file using file-type aware ratios.

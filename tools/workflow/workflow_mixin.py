@@ -40,11 +40,14 @@ from ..shared.exceptions import ToolExecutionError
 logger = logging.getLogger(__name__)
 
 
+# Tokens read_files keeps back from the expert file budget (prompt framing around the files)
+EXPERT_FILE_RESERVE_TOKENS = 1_000
+
+
 def _expert_file_budget(model_context: Any, tool_name: str) -> int:
     """Tokens the expert call's files (text and media together) may take: the model's file allocation.
 
-    _force_embed_files_for_expert_analysis sizes the embedded files with it, and re-attach trims earlier media
-    against it (_call_expert_analysis).
+    _expert_text_budget takes read_files' reserve off it.
     """
     if model_context:
         try:
@@ -54,6 +57,12 @@ def _expert_file_budget(model_context: Any, tool_name: str) -> int:
         except Exception as e:
             logger.warning(f"[WORKFLOW_FILES] {tool_name}: Failed to get token allocation: {e}")
     return 100_000  # Fallback
+
+
+def _expert_text_budget(model_context: Any, tool_name: str) -> int:
+    """_expert_file_budget net of read_files' reserve: what _force_embed_files_for_expert_analysis gives text and media
+    together, and what re-attach trims earlier media against for it (BaseWorkflowMixin._expert_files_budget)."""
+    return _expert_file_budget(model_context, tool_name) - EXPERT_FILE_RESERVE_TOKENS
 
 
 class BaseWorkflowMixin(ABC):
@@ -343,6 +352,31 @@ class BaseWorkflowMixin(ABC):
 
         This ensures expert analysis has complete context without including irrelevant files.
         """
+        files_for_expert = self._files_for_expert_analysis()
+
+        if not files_for_expert:
+            logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: No relevant files found for expert analysis")
+            return ""
+
+        # Expert analysis needs actual file content, bypassing conversation optimization
+        try:
+            file_content, processed_files = self._force_embed_files_for_expert_analysis(files_for_expert)
+
+            logger.info(
+                f"[WORKFLOW_FILES] {self.get_name()}: Prepared {len(processed_files)} unique relevant files for expert analysis "
+                f"(from {len(self.consolidated_findings.relevant_files)} current relevant files)"
+            )
+
+            return file_content
+
+        except Exception as e:
+            logger.error(f"[WORKFLOW_FILES] {self.get_name()}: Failed to prepare files for expert analysis: {e}")
+            return ""
+
+    def _files_for_expert_analysis(self) -> list[str]:
+        """The files _prepare_files_for_expert_analysis embeds: this workflow's relevant_files (consolidated) plus the
+        thread's text files, sorted (media is announced in this order and attached in the same sorted order by
+        _call_expert_analysis)."""
         all_relevant_files = set()
 
         # 1. Get files from current consolidated relevant_files
@@ -369,28 +403,23 @@ class BaseWorkflowMixin(ABC):
         except Exception as e:
             logger.warning(f"[WORKFLOW_FILES] {self.get_name()}: Could not get conversation files: {e}")
 
-        # Convert to a sorted list (media is announced in this order and attached in the same sorted
-        # order by _call_expert_analysis) and remove any empty/None values
-        files_for_expert = sorted(f for f in all_relevant_files if f and f.strip())
+        # Sorted, without empty/None values
+        return sorted(f for f in all_relevant_files if f and f.strip())
 
-        if not files_for_expert:
-            logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: No relevant files found for expert analysis")
-            return ""
+    def _expert_embedded_files(self) -> list[str]:
+        """The files the expert prompt reads as text (media among them is only announced): _files_for_expert_analysis
+        when the tool includes files in its expert prompt, else none. A tool that embeds files its own way (debug's
+        expert context) overrides this together with _expert_files_budget, so re-attach plans against the files and
+        the budget its embedding actually uses."""
+        if not self.should_include_files_in_expert_prompt():
+            return []
+        return self._files_for_expert_analysis()
 
-        # Expert analysis needs actual file content, bypassing conversation optimization
-        try:
-            file_content, processed_files = self._force_embed_files_for_expert_analysis(files_for_expert)
-
-            logger.info(
-                f"[WORKFLOW_FILES] {self.get_name()}: Prepared {len(processed_files)} unique relevant files for expert analysis "
-                f"(from {len(self.consolidated_findings.relevant_files)} current relevant files)"
-            )
-
-            return file_content
-
-        except Exception as e:
-            logger.error(f"[WORKFLOW_FILES] {self.get_name()}: Failed to prepare files for expert analysis: {e}")
-            return ""
+    def _expert_files_budget(self) -> int:
+        """Tokens the expert prompt's files (text and media together) may take, as its file embedding sizes them:
+        re-attach trims earlier media against this number (_call_expert_analysis). By default the embedding is
+        _force_embed_files_for_expert_analysis, which uses _expert_text_budget."""
+        return _expert_text_budget(self.get_current_model_context(), self.get_name())
 
     def _force_embed_files_for_expert_analysis(self, files: list[str]) -> tuple[str, list[str]]:
         """
@@ -418,19 +447,19 @@ class BaseWorkflowMixin(ABC):
         if not isinstance(plan, MediaPlan):
             plan = MediaPlan.own_only(media)
 
-        # Get token budget for files
+        # Token budget for the text files: the expert file budget (the number the media plan used) less the media
         current_model_context = self.get_current_model_context()
-        max_tokens = _expert_file_budget(current_model_context, self.get_name())
+        text_tokens = _expert_text_budget(current_model_context, self.get_name())
         if plan.attachments:
             # keeps >= 1,000 tokens for text
-            max_tokens = max(2_000, max_tokens - estimate_media_tokens_for(plan.attachments, current_model_context))
+            text_tokens = max(1_000, text_tokens - estimate_media_tokens_for(plan.attachments, current_model_context))
 
         # Read files directly without conversation history filtering
         logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: Force embedding {len(files)} files for expert analysis")
         file_content = read_files(
             files,
-            max_tokens=max_tokens,
-            reserve_tokens=1000,
+            max_tokens=text_tokens + EXPERT_FILE_RESERVE_TOKENS,
+            reserve_tokens=EXPERT_FILE_RESERVE_TOKENS,
             include_line_numbers=self.wants_line_numbers_by_default(),
         )
         file_content += plan.prompt_section()
@@ -1528,13 +1557,15 @@ class BaseWorkflowMixin(ABC):
             # (_prepare_files_for_expert_analysis, debug's expert context) orders it.
             own_media = self._media_from_paths(sorted(self.consolidated_findings.relevant_files))
             self._validate_media_support(own_media, self._model_context)
-            # Plus the media earlier turns of the thread attached (re-attach), trimmed to what this model and the
-            # file budget take. The file embedding announces exactly this plan.
+            # Plus the media earlier turns of the thread attached (re-attach), trimmed to what this model takes and
+            # what the file budget leaves after the expert prompt's own text files. The file embedding announces
+            # exactly this plan.
             plan = self._plan_call_media(
                 own_media,
                 self.get_request_continuation_id(request),
                 self._model_context,
-                _expert_file_budget(self._model_context, self.get_name()),
+                self._expert_files_budget(),
+                own_text_files=self._expert_embedded_files(),
             )
             media = list(plan.attachments)
             provider.ensure_media_encodable(media)

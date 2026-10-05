@@ -314,7 +314,8 @@ class DebugIssueTool(WorkflowTool):
             )
 
         # Add file content if we have relevant files. Sorted: media is announced in this order and
-        # _call_expert_analysis attaches it in the same sorted order.
+        # _call_expert_analysis attaches it in the same sorted order. Sized by BaseTool._file_token_budget, which
+        # re-attach plans against too (_expert_files_budget).
         if consolidated_findings.relevant_files:
             file_content, _ = self._prepare_file_content_for_prompt(
                 sorted(consolidated_findings.relevant_files), None, "Essential debugging files"
@@ -325,6 +326,15 @@ class DebugIssueTool(WorkflowTool):
                 )
 
         return "\n".join(context_parts)
+
+    def _expert_embedded_files(self) -> list[str]:
+        """The files prepare_expert_analysis_context embeds (relevant files, sorted): re-attach plans around them."""
+        return sorted(self.consolidated_findings.relevant_files)
+
+    def _expert_files_budget(self) -> int:
+        """The budget prepare_expert_analysis_context's file embedding uses (BaseTool._file_token_budget), not the
+        workflow expert allocation: re-attach must trim earlier media against the same number."""
+        return self._file_token_budget(model_context=self.get_current_model_context())
 
     def _build_investigation_summary(self, consolidated_findings) -> str:
         """Prepare a comprehensive summary of the investigation."""

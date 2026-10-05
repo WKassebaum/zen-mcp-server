@@ -133,10 +133,11 @@ class TestWorkflowFileEmbedding:
         self.mock_tool._current_arguments = {"continuation_id": "test-thread-123"}
         self.mock_tool.get_current_arguments.return_value = {"continuation_id": "test-thread-123"}
 
-        # Bind the method we want to test
+        # Bind the method we want to test, and the file list it collects
         self.mock_tool._prepare_files_for_expert_analysis = (
             BaseWorkflowMixin._prepare_files_for_expert_analysis.__get__(self.mock_tool)
         )
+        self.mock_tool._files_for_expert_analysis = BaseWorkflowMixin._files_for_expert_analysis.__get__(self.mock_tool)
         self.mock_tool._force_embed_files_for_expert_analysis = (
             BaseWorkflowMixin._force_embed_files_for_expert_analysis.__get__(self.mock_tool)
         )

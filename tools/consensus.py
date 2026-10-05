@@ -728,13 +728,15 @@ of the evidence, even when it strongly points in one direction.""",
             own_media = self._media_from_paths(request.relevant_files or [])
             self._validate_media_support(own_media, model_context)
             self._sent_own_media = [attachment.path for attachment in own_media]
-            # Plus the media earlier turns of the thread attached (re-attach), trimmed for this model; the
-            # CONTEXT FILES section below announces exactly this plan
+            # Plus the media earlier turns of the thread attached (re-attach), trimmed for this model and to what
+            # the file budget leaves after this step's own text files (the CONTEXT FILES section below embeds them
+            # with that same budget and announces exactly this plan)
             plan = self._plan_call_media(
                 own_media,
                 request.continuation_id,
                 model_context,
                 self._file_token_budget(model_context=model_context),
+                own_text_files=request.relevant_files or [],
             )
             media = list(plan.attachments)
             self._media_plan = plan

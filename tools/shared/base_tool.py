@@ -1574,22 +1574,40 @@ When recommending searches, be specific about what information you need and why 
         raise ToolExecutionError(output.model_dump_json())
 
     def _plan_call_media(
-        self, own_media: list, continuation_id: Optional[str], model_context: Any, budget_tokens: Optional[int]
+        self,
+        own_media: list,
+        continuation_id: Optional[str],
+        model_context: Any,
+        budget_tokens: Optional[int],
+        own_text_files: Optional[list[str]] = None,
     ):
         """What one model call attaches (utils.media.MediaPlan): ``own_media`` (already validated), plus the media
         earlier turns of the thread attached (re-attach), in first-seen order.
 
         Earlier media is left out, with a note for the prompt, when its file is gone, the model or its provider's
-        encoder cannot take its kind, or it does not fit ``budget_tokens`` (the tool's file budget,
-        _file_token_budget) or the provider's inline request size, oldest first. Without earlier media the plan is
-        ``own_media`` as is, so first turns are unchanged.
+        encoder cannot take its kind, or it does not fit the provider's inline request size or the token budget,
+        oldest first. ``budget_tokens`` is the number the call's file embedding sizes text and media with (the
+        tool's file budget, net of read_files' reserve). ``own_text_files`` are the files that embedding reads as
+        text: the call's own files come first, so earlier media gets only what their estimated tokens leave
+        (floor 0). Simple tools pass none: over MCP their text is already in the history, which ``_remaining_tokens``
+        is net of. Without earlier media the plan is ``own_media`` as is, so first turns are unchanged and nothing is
+        read twice.
         """
-        from utils.media import MediaPlan, plan_media
+        from utils.media import MediaPlan, classify_media, plan_media
 
         thread = get_thread(continuation_id) if continuation_id else None
         earlier = get_conversation_media_list(thread) if thread is not None else []
         if not earlier:
             return MediaPlan.own_only(own_media)
+        if budget_tokens is not None and own_text_files:
+            from utils.file_utils import estimate_text_files_tokens
+
+            own_text = estimate_text_files_tokens(
+                classify_media(list(own_text_files))[0],
+                include_line_numbers=self.wants_line_numbers_by_default(),
+                limit=budget_tokens,
+            )
+            budget_tokens = max(0, budget_tokens - own_text)
         provider = model_context.provider
         supported = model_context.capabilities.supported_media_kinds() & frozenset(provider.MEDIA_KINDS)
         max_request_bytes = getattr(provider, "MEDIA_REQUEST_MAX_BYTES", None)

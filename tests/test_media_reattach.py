@@ -444,3 +444,151 @@ def test_cli_auto_mode_routes_on_recorded_media(tmp_path):
     with patch.object(ModelProviderRegistry, "resolve_model_intent", return_value=GEMINI) as resolve:
         tool._resolve_model_context({"model": "auto", "continuation_id": thread_id}, request)
     assert resolve.call_args.kwargs["required_media"] == frozenset({MediaKind.PDF})
+
+
+# --- a call's own text files come before earlier media --------------------------------------------------------------
+
+
+def _per_media_estimate(media, *rates):
+    return 1_000 * len(list(media))
+
+
+def _big_text_file(tmp_path):
+    """big.py, about 2,000 tokens as workflow tools and consensus embed it (line-numbered)."""
+    from utils.file_utils import read_file_content
+
+    path = tmp_path / "big.py"
+    path.write_text("".join(f"BIG_MARKER_{n:04d} = '{'x' * 24}'\n" for n in range(170)))
+    tokens = read_file_content(str(path), include_line_numbers=True)[1]
+    assert 1_600 < tokens < 2_400, tokens  # the budgets below assume about 2,000
+    return str(path)
+
+
+async def _analyze_final_step(files, continuation_id=None):
+    import server
+
+    arguments = {
+        "step": "Final step",
+        "step_number": 1,
+        "total_steps": 1,
+        "next_step_required": False,
+        "findings": "done",
+        "relevant_files": files,
+        "model": GEMINI,
+    }
+    if continuation_id:
+        arguments["continuation_id"] = continuation_id
+    expert = ModelResponse(
+        content='{"status": "analysis_complete"}', usage={}, model_name=GEMINI, provider=ProviderType.GOOGLE
+    )
+    with patch.object(GeminiModelProvider, "generate_content", return_value=expert) as generate:
+        await server.handle_call_tool("analyze", arguments)
+    return generate
+
+
+@pytest.mark.asyncio
+async def test_workflow_own_text_files_come_before_re_attached_media(tmp_path):
+    # The reviewer's case: a chat turn attaches a.pdf; analyze's final step on the thread names big.py, with a
+    # 3,500-token file budget. big.py (~2,000) fits alone; with the PDF (1,000) re-attached first, it did not.
+    big, pdf = _big_text_file(tmp_path), _pdf(tmp_path, "a.pdf")
+    thread_id, _ = await _chat(tmp_path, files=[pdf])
+    with (
+        patch("utils.media.estimate_media_tokens", side_effect=_per_media_estimate),
+        patch("tools.workflow.workflow_mixin._expert_file_budget", return_value=3_500),
+    ):
+        alone = await _analyze_final_step([big])
+        follow_up = await _analyze_final_step([big], continuation_id=thread_id)
+
+    assert "BIG_MARKER_0169" in alone.call_args.kwargs["prompt"]  # control: without earlier media it fits
+    prompt = follow_up.call_args.kwargs["prompt"]
+    assert "BIG_MARKER_0169" in prompt and "SKIPPED FILES" not in prompt
+    assert follow_up.call_args.kwargs.get("media") is None
+    assert "[omitted: older a.pdf — over budget]" in prompt
+
+
+@pytest.mark.asyncio
+async def test_workflow_re_attaches_earlier_media_into_what_its_text_leaves(tmp_path):
+    # Not over-cautious: with room for both, the PDF still goes out next to big.py
+    big, pdf = _big_text_file(tmp_path), _pdf(tmp_path, "a.pdf")
+    thread_id, _ = await _chat(tmp_path, files=[pdf])
+    with (
+        patch("utils.media.estimate_media_tokens", side_effect=_per_media_estimate),
+        patch("tools.workflow.workflow_mixin._expert_file_budget", return_value=5_000),
+    ):
+        follow_up = await _analyze_final_step([big], continuation_id=thread_id)
+    assert _names(follow_up.call_args) == ["a.pdf"]
+    assert "BIG_MARKER_0169" in follow_up.call_args.kwargs["prompt"]
+
+
+@pytest.mark.asyncio
+async def test_debug_plans_media_against_the_budget_it_embeds_with(tmp_path):
+    # Debug embeds its files through _prepare_file_content_for_prompt (BaseTool._file_token_budget), not the
+    # workflow expert allocation: re-attach must trim against that same number
+    import server
+    from tools.debug import DebugIssueTool
+
+    big, pdf = _big_text_file(tmp_path), _pdf(tmp_path, "a.pdf")
+    thread_id, _ = await _chat(tmp_path, files=[pdf])
+    expert = ModelResponse(
+        content='{"status": "analysis_complete"}', usage={}, model_name=GEMINI, provider=ProviderType.GOOGLE
+    )
+    with (
+        patch("utils.media.estimate_media_tokens", side_effect=_per_media_estimate),
+        patch("tools.workflow.workflow_mixin._expert_file_budget", return_value=100_000),
+        patch.object(DebugIssueTool, "_file_token_budget", return_value=2_500),
+        patch.object(GeminiModelProvider, "generate_content", return_value=expert) as generate,
+    ):
+        await server.handle_call_tool(
+            "debug",
+            {
+                "step": "Root cause found",
+                "step_number": 1,
+                "total_steps": 1,
+                "next_step_required": False,
+                "findings": "The loop never ends.",
+                "hypothesis": "Off-by-one in the loop bound",
+                "confidence": "high",
+                "relevant_files": [big],
+                "model": GEMINI,
+                "continuation_id": thread_id,
+            },
+        )
+    prompt = generate.call_args.kwargs["prompt"]
+    assert "BIG_MARKER_0169" in prompt and "SKIPPED FILES" not in prompt
+    assert generate.call_args.kwargs.get("media") is None
+    assert "[omitted: older a.pdf — over budget]" in prompt
+
+
+async def _consensus_step_one(files, continuation_id=None):
+    arguments = {
+        "step": "Should we ship this?",
+        "step_number": 1,
+        "total_steps": 2,
+        "next_step_required": True,
+        "findings": "Initial review.",
+        "models": [{"model": GEMINI, "stance": "neutral"}, {"model": "gemini-3.5-flash", "stance": "neutral"}],
+        "relevant_files": files,
+    }
+    if continuation_id:
+        arguments["continuation_id"] = continuation_id
+    with patch.object(GeminiModelProvider, "generate_content", return_value=_reply()) as generate:
+        await ConsensusTool().execute(arguments)
+    return generate
+
+
+@pytest.mark.asyncio
+async def test_consensus_own_text_files_come_before_re_attached_media(tmp_path):
+    big, pdf = _big_text_file(tmp_path), _pdf(tmp_path, "a.pdf")
+    thread_id, _ = await _chat(tmp_path, files=[pdf])
+    with (
+        patch("utils.media.estimate_media_tokens", side_effect=_per_media_estimate),
+        patch.object(ConsensusTool, "_file_token_budget", return_value=2_500),
+    ):
+        alone = await _consensus_step_one([big])
+        follow_up = await _consensus_step_one([big], continuation_id=thread_id)
+
+    assert "BIG_MARKER_0169" in alone.call_args.kwargs["prompt"]  # control
+    prompt = follow_up.call_args.kwargs["prompt"]
+    assert "BIG_MARKER_0169" in prompt and "SKIPPED FILES" not in prompt
+    assert follow_up.call_args.kwargs.get("media") is None
+    assert "[omitted: older a.pdf — over budget]" in prompt
