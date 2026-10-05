@@ -191,8 +191,9 @@ def test_xai_probes_pdf_only():
 
 
 def test_unknown_provider_is_rejected():
+    # openrouter became a probe provider in media phase 4; dial has no media encoder.
     with pytest.raises(SystemExit) as excinfo:
-        probe.main(["--provider", "openrouter", "m1"], provider_factory=_never_called)
+        probe.main(["--provider", "dial", "m1"], provider_factory=_never_called)
     assert excinfo.value.code == 2
 
 
@@ -242,3 +243,201 @@ def test_real_provider_classes_back_the_probe():
     assert probe.PROVIDERS["anthropic"] == probe.ProviderSpec("ANTHROPIC_API_KEY", AnthropicProvider)
     assert probe.PROVIDERS["openai"] == probe.ProviderSpec("OPENAI_API_KEY", OpenAIModelProvider)
     assert probe.PROVIDERS["xai"] == probe.ProviderSpec("XAI_API_KEY", XAIModelProvider)
+
+
+# --- OpenRouter: probing through OpenRouterProvider, limited to each model's candidate kinds ----------------------
+
+from providers.openrouter import OpenRouterParsedMediaError, OpenRouterProvider  # noqa: E402
+
+ANSWERS = {"pdf": "ZEBRA-42", "audio": "Pelican 7", "video": "OTTER-9"}
+LISTED = [
+    {"id": "google/g", "architecture": {"input_modalities": ["text", "image", "video", "file", "audio"]}},
+    {"id": "openai/o", "architecture": {"input_modalities": ["image", "text", "file"]}},
+    {"id": "deepseek/d", "architecture": {"input_modalities": ["text"]}},
+    {"id": "moonshotai/k", "architecture": {"input_modalities": ["text", "image", "video"]}},
+]
+
+
+class KindAwareProvider(FakeProvider):
+    """Answers each probe correctly for the kind of media it carries, unless an answer is queued for the model."""
+
+    def generate_content(self, prompt, model_name, media=None, **kwargs):
+        self.calls.append((model_name, prompt, media, kwargs))
+        queued = self.scripted.get(model_name)
+        if queued:
+            answer = queued.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            text, input_tokens = answer
+        else:
+            text, input_tokens = ANSWERS[media[0].kind.value], 1_600
+        usage = {"input_tokens": input_tokens, "output_tokens": 6, "total_tokens": input_tokens + 6}
+        return ModelResponse(content=text, usage=usage, model_name=model_name)
+
+
+def _listed(entries=LISTED):
+    fetched = []
+
+    def fetch():
+        fetched.append(True)
+        return entries
+
+    return fetch, fetched
+
+
+def _run_openrouter(capsys, argv, provider, fetch_models):
+    code = probe.main(["--provider", "openrouter", *argv], provider_factory=lambda: provider, fetch_models=fetch_models)
+    out, err = capsys.readouterr()
+    return code, json.loads(out), err
+
+
+def test_openrouter_probes_each_model_only_for_its_candidate_kinds(capsys):
+    provider = KindAwareProvider()
+    fetch, fetched = _listed()
+    code, matrix, err = _run_openrouter(
+        capsys, ["google/g", "openai/o", "deepseek/d", "moonshotai/k", "missing/m"], provider, fetch
+    )
+    assert code == 0
+    assert fetched == [True]
+    assert [(model, media[0].kind.value) for model, _prompt, media, _kwargs in provider.calls] == [
+        ("google/g", "pdf"),
+        ("google/g", "audio"),
+        ("google/g", "video"),
+        ("openai/o", "pdf"),
+        ("moonshotai/k", "video"),
+    ]
+    assert matrix == {
+        "google/g": ["pdf", "audio", "video"],
+        "openai/o": ["pdf"],
+        "deepseek/d": [],
+        "moonshotai/k": ["video"],
+        "missing/m": [],
+    }
+    assert "deepseek/d" in err and "lists none of pdf,audio,video: not probed" in err
+    assert "missing/m" in err and "not in OpenRouter's models list: not probed" in err
+
+
+def test_openrouter_kinds_filter_narrows_the_candidates(capsys):
+    provider = KindAwareProvider()
+    fetch, _ = _listed()
+    code, matrix, _ = _run_openrouter(capsys, ["--kinds", "audio", "google/g", "openai/o"], provider, fetch)
+    assert code == 0
+    assert [(model, media[0].kind.value) for model, _p, media, _k in provider.calls] == [("google/g", "audio")]
+    assert matrix == {"google/g": ["audio"], "openai/o": []}
+
+
+def test_openrouter_default_models_are_every_model_in_its_catalog(capsys):
+    expected = [entry["model_name"] for entry in json.loads((CATALOG / "openrouter_models.json").read_text())["models"]]
+    listed = [{"id": model, "architecture": {"input_modalities": ["text", "file"]}} for model in expected]
+    provider = KindAwareProvider()
+    code, matrix, _ = _run_openrouter(capsys, [], provider, _listed(listed)[0])
+    assert code == 0
+    assert [model for model, *_ in provider.calls] == expected
+    assert list(matrix) == expected
+
+
+def test_openrouter_parse_refusal_is_a_miss_not_an_error(capsys):
+    parsed = OpenRouterParsedMediaError("OpenRouter parsed zebra.pdf into text instead of passing it to openai/o")
+    wrapped = RuntimeError(f"OpenRouter API error for model openai/o after 1 attempt: {parsed}")
+    wrapped.__cause__ = parsed  # as OpenAICompatibleProvider.generate_content raises it
+    provider = KindAwareProvider({"openai/o": [wrapped]})
+    code, matrix, err = _run_openrouter(capsys, ["openai/o"], provider, _listed()[0])
+    assert code == 0  # the run finished: OpenRouter answered, just not natively
+    assert matrix == {"openai/o": []}
+    assert "pdf    1/1 MISS  parsed by OpenRouter: OpenRouter API error" in err
+    assert "hits 0/1  misses 1  errors 0" in err
+
+
+def test_openrouter_api_errors_still_fail_the_run(capsys):
+    provider = KindAwareProvider({"openai/o": [RuntimeError("404 No endpoints found")]})
+    code, matrix, err = _run_openrouter(capsys, ["openai/o"], provider, _listed()[0])
+    assert code == 1
+    assert "ERROR 404 No endpoints found" in err and "-> INCOMPLETE" in err
+
+
+def test_candidates_lists_kinds_without_a_key_or_a_probe(capsys, monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(live_keys, "ZEN_ENV_FILE", tmp_path / "absent.env")
+    fetch, fetched = _listed()
+    code = probe.main(
+        ["--provider", "openrouter", "--candidates", "google/g", "openai/o", "deepseek/d", "missing/m"],
+        provider_factory=_never_called,
+        fetch_models=fetch,
+    )
+    out, err = capsys.readouterr()
+    assert code == 0 and fetched == [True]
+    assert json.loads(out) == {
+        "google/g": ["pdf", "audio", "video"],
+        "openai/o": ["pdf"],
+        "deepseek/d": [],
+        "missing/m": [],
+    }
+    assert "missing/m" in err and "not in OpenRouter's models list" in err
+    assert "Candidates among 4 models: pdf 2, audio 1, video 1; 1 not in OpenRouter's models list" in err
+
+
+def test_candidates_default_to_the_catalog_and_honour_kinds(capsys):
+    expected = [entry["model_name"] for entry in json.loads((CATALOG / "openrouter_models.json").read_text())["models"]]
+    listed = [{"id": model, "architecture": {"input_modalities": ["file", "audio"]}} for model in expected]
+    code = probe.main(
+        ["--provider", "openrouter", "--candidates", "--kinds", "audio"],
+        provider_factory=_never_called,
+        fetch_models=_listed(listed)[0],
+    )
+    out, _ = capsys.readouterr()
+    assert code == 0
+    assert json.loads(out) == {model: ["audio"] for model in expected}
+
+
+@pytest.mark.parametrize("name", ["google", "anthropic", "openai", "xai"])
+def test_candidates_need_the_openrouter_provider(name):
+    with pytest.raises(SystemExit) as excinfo:
+        probe.main(["--provider", name, "--candidates"], provider_factory=_never_called, fetch_models=_never_called)
+    assert excinfo.value.code == 2
+
+
+def test_openrouter_missing_key_stops_before_fetching_the_models_list(capsys, monkeypatch, tmp_path):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+    monkeypatch.setattr(live_keys, "ZEN_ENV_FILE", tmp_path / "absent.env")
+    code = probe.main(["--provider", "openrouter", "m1"], fetch_models=_never_called)
+    out, err = capsys.readouterr()
+    assert code == 2
+    assert out == ""
+    assert err.strip() == "OPENROUTER_API_KEY is not set and not in ~/.zen/.env"
+
+
+def test_candidate_kinds_map_openrouter_modalities():
+    assert probe.candidate_kinds(
+        {"architecture": {"input_modalities": ["audio", "file", "image", "text", "video"]}}
+    ) == [
+        "pdf",
+        "audio",
+        "video",
+    ]
+    assert probe.candidate_kinds({"architecture": {"input_modalities": ["text", "image"]}}) == []
+    assert probe.candidate_kinds({"architecture": {"input_modalities": None}}) == []
+    assert probe.candidate_kinds({}) == []
+
+
+def test_models_list_is_fetched_from_the_public_endpoint():
+    seen = []
+
+    class Reply:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"data": LISTED}
+
+    def get(url, timeout):
+        seen.append((url, timeout))
+        return Reply()
+
+    assert probe.fetch_openrouter_models(get=get) == LISTED
+    assert seen == [("https://openrouter.ai/api/v1/models", 30)]
+
+
+def test_real_openrouter_class_backs_the_probe():
+    assert probe.PROVIDERS["openrouter"] == probe.ProviderSpec("OPENROUTER_API_KEY", OpenRouterProvider)
+    assert probe.CATALOGS["openrouter"] == "openrouter_models.json"
+    assert probe.sendable_kinds("openrouter") == ["pdf", "audio", "video"]
