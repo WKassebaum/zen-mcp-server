@@ -20,6 +20,7 @@ from tools.shared.base_models import ToolRequest
 from tools.shared.base_tool import BaseTool
 from tools.shared.exceptions import ToolExecutionError
 from tools.shared.schema_builders import SchemaBuilder
+from utils.media import response_media_metadata
 
 
 class SimpleTool(BaseTool):
@@ -630,6 +631,7 @@ class SimpleTool(BaseTool):
                         except AttributeError:
                             # Fallback if provider doesn't have get_provider_type method
                             metadata["provider_used"] = str(provider)
+                metadata.update(response_media_metadata(model_info.get("model_response")))
 
             return ToolOutput(
                 status="success",
@@ -726,6 +728,8 @@ class SimpleTool(BaseTool):
                         except AttributeError:
                             # Fallback if provider doesn't have get_provider_type method
                             metadata["provider_used"] = str(provider)
+                # What was attached and how (uploads named so a user can delete them), and xAI's paid search calls
+                metadata.update(response_media_metadata(model_info.get("model_response")))
 
             return ToolOutput(
                 status="continuation_available",

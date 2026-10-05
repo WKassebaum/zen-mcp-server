@@ -32,6 +32,7 @@ from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import MEDIA_FILES_NOTE, ConsolidatedFindings, WorkflowRequest
 from tools.shared.exceptions import ToolExecutionError
 from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
+from utils.media import response_media_metadata
 
 from .workflow.base import WorkflowTool
 
@@ -768,6 +769,8 @@ of the evidence, even when it strongly points in one direction.""",
                 "metadata": {
                     "provider": provider.get_provider_type().value,
                     "model_name": model_name,
+                    # What was attached and how (uploads named so a user can delete them), and xAI's paid search
+                    **response_media_metadata(response),
                 },
             }
 

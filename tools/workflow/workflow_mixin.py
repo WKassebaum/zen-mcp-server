@@ -32,7 +32,7 @@ from mcp.types import TextContent
 
 from config import MCP_PROMPT_SIZE_LIMIT
 from utils.conversation_memory import add_turn, create_thread
-from utils.media import MediaNotSupportedError
+from utils.media import MediaNotSupportedError, response_media_metadata
 
 from ..shared.base_models import ConsolidatedFindings
 from ..shared.exceptions import ToolExecutionError
@@ -1588,7 +1588,7 @@ class BaseWorkflowMixin(ABC):
                 try:
                     # Try to parse as JSON
                     analysis_result = json.loads(content)
-                    return analysis_result
+                    return self._with_response_metadata(analysis_result, model_response)
                 except json.JSONDecodeError as e:
                     # Log the parse error with more details but don't fail
                     logger.info(
@@ -1598,20 +1598,34 @@ class BaseWorkflowMixin(ABC):
                     logger.debug(f"First 500 chars of response: {model_response.content[:500]!r}")
 
                     # Still return the analysis as plain text - this is valid
-                    return {
+                    plain_text_analysis = {
                         "status": "analysis_complete",
                         "raw_analysis": model_response.content,
                         "format": "text",  # Indicate it's plain text, not an error
                         "note": "Analysis provided in plain text format",
                     }
+                    return self._with_response_metadata(plain_text_analysis, model_response)
             else:
-                return {"error": "No response from model", "status": "empty_response"}
+                empty = {"error": "No response from model", "status": "empty_response"}
+                return self._with_response_metadata(empty, model_response)
 
         except ToolExecutionError:
             raise  # media validation: the user must see why, not a vague "expert analysis failed"
         except Exception as e:
             logger.error(f"Error calling expert analysis: {e}", exc_info=True)
             return {"error": str(e), "status": "analysis_error"}
+
+    @staticmethod
+    def _with_response_metadata(analysis: Any, model_response) -> Any:
+        """Copy the response's media fields (utils.media.response_media_metadata) into the block's ``metadata``.
+
+        The block is the expert model's parsed JSON or zen's plain-text wrapper; a non-dict JSON answer is left as is.
+        """
+        fields = response_media_metadata(model_response)
+        if fields and isinstance(analysis, dict):
+            existing = analysis.get("metadata")
+            analysis["metadata"] = {**existing, **fields} if isinstance(existing, dict) else fields
+        return analysis
 
     def _process_work_step(self, step_data: dict):
         """

@@ -22,6 +22,7 @@ import click
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.table import Table
+from rich.text import Text
 
 # Load environment variables from ~/.zen/.env
 zen_config_dir = Path.home() / ".zen"
@@ -125,6 +126,25 @@ def print_result_json(result):
     console.print_json(data=_parse_tool_result(result))
 
 
+def _media_notices(parsed) -> list[str]:
+    """``media_notice`` lines in a tool result: its metadata, a workflow's expert analysis, a consensus model's reply."""
+    if not isinstance(parsed, dict):
+        return []
+    notices: list[str] = []
+    for block in (parsed, parsed.get("expert_analysis"), parsed.get("model_response")):
+        metadata = block.get("metadata") if isinstance(block, dict) else None
+        notice = metadata.get("media_notice") if isinstance(metadata, dict) else None
+        if isinstance(notice, str) and notice and notice not in notices:
+            notices.append(notice)
+    return notices
+
+
+def print_media_notices(parsed) -> None:
+    """Print a result's media notices (uploads, xAI search calls) dimmed, as plain text: names may hold markup."""
+    for notice in _media_notices(parsed):
+        console.print(Text(notice, style="dim"))
+
+
 def print_result_human(result):
     """Pretty-print a tool result for human terminal output.
 
@@ -140,6 +160,7 @@ def print_result_human(result):
             console.print(Markdown(body))
         else:
             console.print_json(data=body if body is not parsed else parsed)
+        print_media_notices(parsed)
         return
     if isinstance(parsed, str):
         console.print(Markdown(parsed))
@@ -238,6 +259,7 @@ def _present_workflow_step(result: dict, session_id: str, tool_name: str):
         console.print(Markdown(result["content"]))
     elif "step" in result:
         console.print(Markdown(result["step"]))
+    print_media_notices(result)
 
     # Workflow status and continuation
     if result.get("workflow_status") == "in_progress":
@@ -536,6 +558,7 @@ def consensus(ctx, question, models, output_json):
                         console.print(f"[red]Error:[/red] {model_resp.get('error', 'unknown error')}")
                     else:
                         console.print(Markdown(model_resp.get("verdict", "")))
+                print_media_notices(result_data)
 
                 # Display synthesis if complete
                 if result_data.get("consensus_complete"):

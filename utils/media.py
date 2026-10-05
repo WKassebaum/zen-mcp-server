@@ -787,3 +787,54 @@ def format_media_error(
     else:
         message += f" No available model supports it: {providers_hint(missing)}."
     return message
+
+
+# --- what reaches the user ----------------------------------------------------------------------------------------
+
+UPLOAD_TRANSPORTS = frozenset({"uploaded", "cached"})
+
+
+def xai_search_notice(calls: int, model_name: str) -> str:
+    """The warning for xAI's server-side search calls (attachment_search on PDFs), billed apart from tokens."""
+    return f"xAI ran {calls} server-side search call(s) for {model_name}; billed separately ($5 per 1,000)"
+
+
+def upload_notice(media_attached: Any) -> str | None:
+    """One sentence naming the Files API uploads among ``media_attached`` records, or None when there are none."""
+    named = [
+        f"{record['file_name']} ({record.get('name', '?')})"
+        for record in media_attached or []
+        if isinstance(record, dict) and record.get("transport") in UPLOAD_TRANSPORTS and record.get("file_name")
+    ]
+    if not named:
+        return None
+    return f"Uploaded to the Gemini Files API: {', '.join(dict.fromkeys(named))}; Google deletes uploads after 48 h."
+
+
+def response_media_metadata(model_response: Any) -> dict[str, Any]:
+    """The media fields of a provider's ModelResponse that a tool copies into its output metadata.
+
+    ``media_attached`` (what was attached and how: inline, uploaded or cached, with the Files API name) and xAI's
+    ``server_side_tool_calls``, when the response carries them, plus a one-line ``media_notice`` for uploads (so a
+    user can delete one before Google's 48 h expiry) and for xAI's separately billed search calls.
+    """
+    metadata = getattr(model_response, "metadata", None)
+    if not isinstance(metadata, dict):
+        return {}
+    fields: dict[str, Any] = {}
+    notices: list[str] = []
+    attached = metadata.get("media_attached")
+    if isinstance(attached, list) and attached:
+        fields["media_attached"] = [dict(record) if isinstance(record, dict) else record for record in attached]
+        notice = upload_notice(attached)
+        if notice:
+            notices.append(notice)
+    calls = metadata.get("server_side_tool_calls")
+    if isinstance(calls, int) and not isinstance(calls, bool):
+        fields["server_side_tool_calls"] = calls
+        provider = getattr(model_response, "provider", None)
+        if calls > 0 and getattr(provider, "value", provider) == "xai":
+            notices.append(xai_search_notice(calls, getattr(model_response, "model_name", "unknown")))
+    if notices:
+        fields["media_notice"] = "\n".join(notices)
+    return fields

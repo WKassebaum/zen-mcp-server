@@ -12,6 +12,7 @@ from openai import OpenAI
 
 from utils.env import get_env, suppress_env_vars
 from utils.image_utils import validate_image
+from utils.media import xai_search_notice
 
 from .base import ModelProvider
 from .shared import (
@@ -523,6 +524,8 @@ class OpenAICompatibleProvider(ModelProvider):
             server_side_tool_calls = getattr(getattr(response, "usage", None), "num_server_side_tools_used", None)
             if isinstance(server_side_tool_calls, int) and not isinstance(server_side_tool_calls, bool):
                 metadata["server_side_tool_calls"] = server_side_tool_calls
+                if server_side_tool_calls > 0 and self.get_provider_type() == ProviderType.XAI:
+                    logging.warning(xai_search_notice(server_side_tool_calls, model_name))
 
             return ModelResponse(
                 content=content,
