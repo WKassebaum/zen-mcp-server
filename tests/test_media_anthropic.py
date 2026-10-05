@@ -42,6 +42,11 @@ def _document_block(path):
     return {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": data}}
 
 
+def _cached(block):
+    """``block`` with the prompt-cache breakpoint the last document block of a request carries."""
+    return {**block, "cache_control": {"type": "ephemeral"}}
+
+
 def test_anthropic_declares_pdf_only():
     assert AnthropicProvider.MEDIA_KINDS == frozenset({MediaKind.PDF})
 
@@ -51,7 +56,7 @@ def test_pdf_is_sent_as_a_document_block_before_the_prompt():
     provider.generate_content("What code?", MODEL, system_prompt="Be terse.", media=classify_media([PDF])[1])
     sent = _sent(provider)
     assert sent["messages"] == [
-        {"role": "user", "content": [_document_block(PDF), {"type": "text", "text": "What code?"}]}
+        {"role": "user", "content": [_cached(_document_block(PDF)), {"type": "text", "text": "What code?"}]}
     ]
     assert sent["system"] == "Be terse."
 
@@ -63,7 +68,7 @@ def test_two_pdfs_keep_their_input_order(tmp_path):
     provider = _provider()
     response = provider.generate_content("Compare", MODEL, media=classify_media([str(first), str(second)])[1])
     content = _sent(provider)["messages"][0]["content"]
-    assert content == [_document_block(first), _document_block(second), {"type": "text", "text": "Compare"}]
+    assert content == [_document_block(first), _cached(_document_block(second)), {"type": "text", "text": "Compare"}]
     assert [m["name"] for m in response.metadata["media_attached"]] == ["b-first.pdf", "a-second.pdf"]
 
 
@@ -139,7 +144,7 @@ def test_bytes_are_read_from_the_validated_source_path(tmp_path):
     )
     provider = _provider()
     provider.generate_content("q", MODEL, media=[moved])
-    assert _sent(provider)["messages"][0]["content"][0] == _document_block(real)
+    assert _sent(provider)["messages"][0]["content"][0] == _cached(_document_block(real))
 
 
 def _image(raw_bytes: int) -> str:

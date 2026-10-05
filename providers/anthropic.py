@@ -105,6 +105,10 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
         if media:
             self.ensure_media_encodable(media)
             document_blocks, media_attached = self._build_document_blocks(media)
+            if document_blocks:
+                # Prompt-cache breakpoint on the last document block: the system prompt and the PDFs, the same bytes
+                # on every turn of a conversation, are cached; the changing text after them is not.
+                document_blocks[-1]["cache_control"] = {"type": "ephemeral"}
 
         # Add images if provided and model supports vision
         image_blocks: list[dict] = []

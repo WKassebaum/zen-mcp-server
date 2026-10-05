@@ -453,6 +453,13 @@ class OpenAICompatibleProvider(ModelProvider):
         """
         return bool(getattr(capabilities, "use_openai_response_api", False))
 
+    def _media_prefix_parts(self, model_name: str, media_parts: list[dict], responses_api: bool) -> list[dict]:
+        """The user-message parts that precede the prompt text of a media request: ``media_parts`` here.
+
+        Called only when media is present. OpenRouter adds a prompt-cache breakpoint for Claude models.
+        """
+        return media_parts
+
     def _media_request_options(self, media: list) -> dict[str, dict]:
         """Extra ``create()`` keyword arguments (``extra_body``, ``extra_headers``) for a request that carries ``media``.
 
@@ -684,6 +691,7 @@ class OpenAICompatibleProvider(ModelProvider):
         if media:
             self.ensure_media_encodable(media)  # every provider without an encoder refuses here
             media_parts, media_attached = self._build_media_parts(media, responses_api=use_responses_endpoint)
+            media_parts = self._media_prefix_parts(resolved_model, media_parts, use_responses_endpoint)
             media_options = self._media_request_options(media)
 
         user_content = [*media_parts, {"type": "text", "text": prompt}]

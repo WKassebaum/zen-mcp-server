@@ -18,6 +18,12 @@ if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
 
+# The text part that carries Claude's prompt-cache breakpoint right after the last file part of an anthropic/* media
+# request. OpenRouter's chat schema takes cache_control on text parts only, so the breakpoint needs a text part of its
+# own before the changing prompt text. Fixed, so it caches with the files on every turn.
+CLAUDE_CACHE_BREAKPOINT_TEXT = "The attached files end here."
+
+
 class OpenRouterParsedMediaError(RuntimeError):
     """OpenRouter turned an attached file into text instead of passing it to the model natively. Never retried."""
 
@@ -177,6 +183,17 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     # ------------------------------------------------------------------
     # Media: native reading only
     # ------------------------------------------------------------------
+
+    def _media_prefix_parts(self, model_name: str, media_parts: list[dict], responses_api: bool) -> list[dict]:
+        """For an anthropic/* model on Chat Completions, a fixed text part carrying Claude's cache breakpoint follows
+        the last media part, so the system prompt and the files are cached and the prompt text after them is not.
+
+        OpenRouter's chat schema takes ``cache_control`` on text parts only. Other models cache prefixes on their own.
+        """
+        if responses_api or not model_name.lower().startswith("anthropic/"):
+            return media_parts
+        breakpoint_part = {"type": "text", "text": CLAUDE_CACHE_BREAKPOINT_TEXT, "cache_control": {"type": "ephemeral"}}
+        return [*media_parts, breakpoint_part]
 
     def _media_request_options(self, media: list) -> dict[str, dict]:
         """The router-metadata header for any media; the native PDF engine when a PDF is attached.
