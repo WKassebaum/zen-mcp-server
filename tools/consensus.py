@@ -31,7 +31,7 @@ from config import TEMPERATURE_ANALYTICAL
 from systemprompts import CONSENSUS_PROMPT
 from tools.shared.base_models import MEDIA_FILES_NOTE, ConsolidatedFindings, WorkflowRequest
 from tools.shared.exceptions import ToolExecutionError
-from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_thread
+from utils.conversation_memory import MAX_CONVERSATION_TURNS, create_thread, get_conversation_media_kinds, get_thread
 from utils.media import response_media_metadata
 
 from .workflow.base import WorkflowTool
@@ -566,7 +566,8 @@ of the evidence, even when it strongly points in one direction.""",
         - Any other name is kept exactly as named.
 
         A member the request already names with the same stance is not added twice. Picks respect the attached
-        media. Fewer than two models after expansion is an error naming the configured keys.
+        media and the media the thread (continuation_id) re-attaches. Fewer than two models after expansion is an
+        error naming the configured keys.
         """
         from providers.registry import ModelProviderRegistry
         from tools.models import ToolOutput
@@ -575,7 +576,13 @@ of the evidence, even when it strongly points in one direction.""",
         entries = arguments.get("models") or [{"model": "frontier", "stance": "neutral"}]
         if not isinstance(entries, list) or not all(isinstance(entry, dict) for entry in entries):
             return entries  # malformed: ConsensusRequest reports it
+        # The proposal's media, plus the media the thread's earlier turns attached: every consultation re-attaches it
+        # (_consult_model), so a pick must take it, and explicit-only providers (Grok) must not be picked for it
         required_media = media_kinds_from_arguments(arguments)
+        continuation_id = arguments.get("continuation_id")
+        thread = get_thread(continuation_id) if continuation_id else None
+        if thread is not None:
+            required_media |= get_conversation_media_kinds(thread)
 
         def canonical(name: str) -> str:
             # An alias and its model's canonical name are one model ('pro' is gemini-3.1-pro-preview)

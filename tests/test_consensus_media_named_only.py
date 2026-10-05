@@ -166,3 +166,39 @@ async def test_a_grok_member_picked_by_frontier_never_gets_re_attached_media():
     assert later_grok and all(response["status"] == "error" for response in later_grok)
     # Not vacuous: members after step 2 that name no files got the PDF re-attached
     assert len([call for call in calls if call[0] != ProviderType.XAI and call[2] == ["zebra.pdf"]]) >= 2
+
+
+@pytest.mark.asyncio
+async def test_frontier_picks_no_grok_member_when_the_thread_carries_media():
+    # Consensus continuing a chat thread that attached a PDF re-attaches it to every member, so the panel must be
+    # picked for that PDF: Grok takes media only when named
+    from utils.conversation_memory import add_turn, create_thread
+
+    thread_id = create_thread("chat", {"prompt": "What does the spec say?"})
+    add_turn(thread_id, "assistant", "It says ZEBRA.", media=[PDF], tool_name="chat")
+    calls = []
+    tool = ConsensusTool()
+    with (
+        patch.object(XAIModelProvider, "generate_content", _recorder(calls, ProviderType.XAI)),
+        patch.object(GeminiModelProvider, "generate_content", _recorder(calls, ProviderType.GOOGLE)),
+        patch.object(OpenAIModelProvider, "generate_content", _recorder(calls, ProviderType.OPENAI)),
+    ):
+        result = json.loads(
+            (
+                await tool.execute(
+                    {
+                        "step": "Ship it?",
+                        "step_number": 1,
+                        "total_steps": 1,
+                        "next_step_required": True,
+                        "findings": "x",
+                        "models": [{"model": "frontier", "stance": "for"}, {"model": "frontier", "stance": "against"}],
+                        "continuation_id": thread_id,
+                    }
+                )
+            )[0].text
+        )
+    roster = [m["model"] for m in tool.models_to_consult]
+    assert len(roster) >= 2 and "grok-4.7" not in roster, roster
+    assert result["model_response"]["status"] == "success"
+    assert calls and calls[0][2] == ["zebra.pdf"]  # the first member got the thread's PDF
