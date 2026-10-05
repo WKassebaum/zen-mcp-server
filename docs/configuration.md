@@ -67,7 +67,7 @@ CUSTOM_MODEL_NAME=llama3.2                          # Default model
 DEFAULT_MODEL=auto  # Claude picks best model for each task (recommended)
 ```
 
-- **Intent words:** a tool call's `model` (or the CLI's `--model`) can be `frontier`, `balanced` or `fast` instead of a model name. Like `auto`, each resolves per call within your keys, allow-lists and attached media: `frontier` is the highest-ranked model across every configured provider, `balanced` and `fast` are the BALANCED and FAST_RESPONSE picks. Any other name is used exactly as named.
+- **Per call:** a tool call's `model` (or the CLI's `--model`) can also be an intent word, `frontier`, `balanced` or `fast`; see [Choosing a model](#choosing-a-model).
 
 - **Available Models:** The canonical capability data for native providers lives in JSON manifests under `conf/`:
   - `conf/openai_models.json` – OpenAI catalogue (can be overridden with `OPENAI_MODELS_CONFIG_PATH`)
@@ -92,6 +92,18 @@ DEFAULT_MODEL=auto  # Claude picks best model for each task (recommended)
   The GPT-6 entries (`gpt-6-astra`, `gpt-6-sol`, `gpt-6-luna`) expose 1.05M-token contexts and are called through the Responses API (`use_openai_response_api`). The older GPT-5.2 entries (`gpt-5.2`, `gpt-5.2-pro`) expose 400K-token contexts; `gpt-5.2-pro` is Responses-only with streaming disabled, while the base `gpt-5.2` supports streaming along with full code-generation flags. OpenAI shut down the native `gpt-5-codex`, `gpt-5.1-codex` and `gpt-5.1-codex-mini` models on 2026-07-23, so they are no longer in `conf/openai_models.json`; the `codex` alias now resolves to `gpt-5.6-sol`, and `openai/gpt-5.1-codex(-mini)` remain available through OpenRouter. Update your manifests if you run custom deployments so these capability bits stay accurate.
 
   > **Tip:** Copy the JSON file you need, customise it, and point the corresponding `*_MODELS_CONFIG_PATH` environment variable to your version. This lets you enable or disable capabilities (JSON mode, function calling, temperature support, code generation) without editing Python.
+
+### Choosing a model
+
+- **A named model is always used exactly as named.** Any value other than the words below, a canonical name or an alias such as `flash` or `sol`, goes to the provider that serves it. zen never swaps it for another model. If the model is not available with your keys and allow-lists, or cannot read the attached media, the call fails with that error.
+- **`auto`** picks per tool. Each tool has a category (extended reasoning, balanced or fast response), and the first configured provider in priority order (xAI, Gemini, Anthropic, OpenAI, Azure, DIAL, Custom, OpenRouter) picks for that category.
+- **Intent words** pick by purpose, whatever the tool. They are case-insensitive, and no model name or alias uses them.
+  - `frontier`: the highest-ranked model across every configured provider, premium models included. A tie goes to the higher-priority provider.
+  - `balanced`: the pick `auto` makes for a balanced tool.
+  - `fast`: the pick `auto` makes for a fast-response tool, such as `chat`.
+
+  Like `auto`, they respect `*_ALLOWED_MODELS` and the attached media (they never send media to Grok). A follow-up that names one resolves it again instead of reusing the previous turn's model.
+- **Consensus panel:** `consensus` with no models, or with an entry `frontier`, consults the top model of each configured provider, up to 4, one per vendor. OpenRouter adds one model for each vendor not already on the panel. The entries `fast`, `balanced` and `auto` resolve to one model each. At least two models must remain. `zen consensus` uses the panel when `--models` is not given, and consults every model.
 
 ### Code Generation Capability
 

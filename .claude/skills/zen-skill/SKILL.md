@@ -228,6 +228,8 @@ zen analyze "perf bottlenecks" --model gemini-3.1-pro-preview -f src/
 
 Default `auto` is fine for most cases.
 
+**Intent words:** instead of a model name, `--model` takes `frontier` (the highest-ranked model across all configured providers, premium included), `balanced` or `fast` (the BALANCED / FAST_RESPONSE pick, whatever the command); `auto` picks per command. They respect allow-lists and attached files. Any other value is a model and is always used exactly as named, never swapped. `zen consensus` with no `-m` (or `-m frontier`) consults the top model of each configured provider, up to 4, one per vendor, and runs every model to completion; `--json` returns one result per model.
+
 ---
 
 ## Common flags
