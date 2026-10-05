@@ -141,4 +141,13 @@ def test_an_x_ai_openrouter_model_never_gets_auto_routed_media_even_if_flagged()
         kept = ModelProviderRegistry._filter_models_for_media(provider, ["x-ai/grok-4.7"], frozenset({MediaKind.PDF}))
     assert kept == []
     assert ModelProviderRegistry.takes_media_only_when_named(provider, "x-ai/grok-4.7")
+    # OpenRouter aliases of Grok resolve to x-ai/* models: the guard must see through them
+    for alias in ("grok", "grok-4.7", "grok4"):
+        assert provider.get_capabilities(alias).model_name.startswith("x-ai/"), alias
+        assert ModelProviderRegistry.takes_media_only_when_named(provider, alias), alias
+    with patch.object(provider, "get_capabilities", return_value=flagged):
+        assert (
+            ModelProviderRegistry._filter_models_for_media(provider, ["grok", "grok-4.7"], frozenset({MediaKind.PDF}))
+            == []
+        )
     assert not ModelProviderRegistry.takes_media_only_when_named(provider, "google/gemini-3.5-flash")

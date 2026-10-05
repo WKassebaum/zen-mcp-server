@@ -284,3 +284,15 @@ def test_reuse_ends_an_hour_before_googles_own_expiration_time(cache_file, uploa
     _send(provider)
     entry = _entries(cache_file)[_wav_key()]
     assert abs(entry["expires_at"] - (expiration.timestamp() - 3600)) <= 1
+
+
+def test_a_non_datetime_expiration_time_is_ignored(cache_file, upload_everything):
+    from unittest.mock import MagicMock
+
+    provider = _provider()
+    uploaded = _file()
+    uploaded.expiration_time = MagicMock()  # has .timestamp, but is no datetime
+    provider._client.files.upload.return_value = uploaded
+    before = time.time()
+    _send(provider)
+    assert _entries(cache_file)[_wav_key()]["expires_at"] >= before + 47 * 3600 - 1

@@ -3,6 +3,7 @@
 import base64
 import logging
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, Optional
 
@@ -518,7 +519,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
         uploaded = self._upload_media(attachment)
         remote = {"name": uploaded.name, "uri": uploaded.uri, "mime_type": uploaded.mime_type or attachment.mime_type}
         if key is not None:
-            expiration = getattr(uploaded, "expiration_time", None)  # a datetime when the API reports it
+            expiration = getattr(uploaded, "expiration_time", None)  # Optional[datetime] in the SDK's File type
             media_upload_cache.store(
                 key,
                 fingerprint,
@@ -526,7 +527,7 @@ class GeminiModelProvider(RegistryBackedProviderMixin, ModelProvider):
                 file_uri=remote["uri"],
                 mime_type=remote["mime_type"],
                 size_bytes=attachment.size_bytes,
-                remote_expiration=expiration.timestamp() if hasattr(expiration, "timestamp") else None,
+                remote_expiration=expiration.timestamp() if isinstance(expiration, datetime) else None,
             )
             this_request[key] = remote
         return remote, "uploaded"

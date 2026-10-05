@@ -421,7 +421,13 @@ class ModelProviderRegistry:
             provider_type = provider.get_provider_type()
         except Exception:
             return False
-        return provider_type == ProviderType.OPENROUTER and cls._model_vendor(provider_type, model_name) == "xai"
+        if provider_type != ProviderType.OPENROUTER:
+            return False
+        try:  # aliases such as 'grok' or 'grok4' resolve to x-ai/* models
+            model_name = provider.get_capabilities(model_name).model_name
+        except Exception:
+            pass
+        return cls._model_vendor(provider_type, model_name) == "xai"
 
     @classmethod
     def find_media_capable_models(cls, required_media: frozenset, limit: int = 5) -> list[str]:
