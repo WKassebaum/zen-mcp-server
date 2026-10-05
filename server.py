@@ -24,6 +24,7 @@ import logging
 import os
 import sys
 import time
+import weakref
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Optional
@@ -743,8 +744,36 @@ async def handle_list_tools() -> list[Tool]:
     return tools
 
 
+# Per-tool locks that serialize calls of one tool (see handle_call_tool), created on first use. Kept per event loop:
+# an asyncio.Lock binds to the loop it first waits on, and tests run each case in a new loop.
+_TOOL_LOCKS: "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, dict[str, asyncio.Lock]]" = (
+    weakref.WeakKeyDictionary()
+)
+
+
+def _tool_lock(name: str) -> asyncio.Lock:
+    """The lock that serializes calls of tool ``name`` on the running event loop."""
+    locks = _TOOL_LOCKS.setdefault(asyncio.get_running_loop(), {})
+    lock = locks.get(name)
+    if lock is None:
+        lock = locks[name] = asyncio.Lock()
+    return lock
+
+
 @server.call_tool()
 async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
+    """Run one tool call (_handle_call_tool) while holding that tool's lock.
+
+    The instance in TOOLS is shared by every call and keeps per-run state on itself (_current_arguments,
+    _model_context, a workflow's work_history, ...). Model calls run in worker threads, so the event loop serves
+    other calls while one waits; two calls of one tool must still not interleave, or one would read the other's
+    state. Other tools run meanwhile.
+    """
+    async with _tool_lock(name):
+        return await _handle_call_tool(name, arguments)
+
+
+async def _handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
     """
     Handle incoming tool execution requests from MCP clients.
 

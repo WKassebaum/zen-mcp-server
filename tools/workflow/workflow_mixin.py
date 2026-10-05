@@ -20,6 +20,7 @@ Features:
 - Comprehensive type annotations for IDE support
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -1562,8 +1563,10 @@ class BaseWorkflowMixin(ABC):
             for warning in temp_warnings:
                 logger.warning(warning)
 
-            # Generate AI response - use request parameters if available
-            model_response = provider.generate_content(
+            # Generate AI response - use request parameters if available. In a worker thread: the call
+            # blocks, and the MCP server must keep serving other calls meanwhile.
+            model_response = await asyncio.to_thread(
+                provider.generate_content,
                 prompt=prompt,
                 model_name=model_name,
                 system_prompt=system_prompt,
