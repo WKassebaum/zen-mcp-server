@@ -142,7 +142,7 @@ Clink configurations live in `conf/cli_clients/`. We ship presets for the suppor
 - `gemini.json` – runs `gemini --telemetry false --yolo -o json`
 - `claude.json` – runs `claude --print --output-format json --permission-mode acceptEdits --model sonnet`
 - `codex.json` – runs `codex exec --json --dangerously-bypass-approvals-and-sandbox`
-- `grok.json` – runs `grok --output-format json --permission-mode auto --single` (xAI's Grok Build CLI)
+- `grok.json` – runs `grok --output-format json --permission-mode auto --no-auto-update --single` (xAI's Grok Build CLI; `--no-auto-update` is xAI's recommendation for scripts, so a headless call never stops to update the CLI)
 
 > **CAUTION**: These flags intentionally bypass each CLI's safety prompts so they can edit files or launch tools autonomously via MCP. Only enable them in trusted sandboxes and tailor role prompts or CLI configs if you need more guardrails.
 
@@ -170,6 +170,16 @@ Clink is the **only sanctioned way** to run Zen tasks on a consumer AI subscript
 
 **xAI / SpaceXAI (SuperGrok, X Premium) — not available for the general API, but available through Grok Build.** xAI's developer API supports API keys only (`XAI_API_KEY` from console.x.ai); consumer subscriptions are explicitly separate from API access, and third-party tools that reverse-engineer the accounts.x.ai OAuth flow are not sanctioned. The one official subscription-login surface is xAI's own **Grok Build CLI** (`grok`), and Zen ships a clink client for it: run `grok login` once with your Grok subscription (or set `XAI_API_KEY`/`GROK_CODE_XAI_API_KEY` for headless key auth), then `clink with grok ...` runs on that CLI's credentials — the exact analog of the Claude Code path above. Subscription entitlements for Grok Build are set by xAI and still evolving; if your tier isn't entitled, the CLI falls back to API-key auth.
 
+### Grok Build via clink
+
+`zen clink --cli-name grok` runs xAI's Grok Build CLI on its own credentials:
+
+- **Login:** run `grok login` once with a SuperGrok or X Premium+ subscription, or set `XAI_API_KEY` for key auth.
+- **Cost:** each call carries about 45k tokens of agent overhead (the CLI's own system prompt and tools), drawn from the subscription's weekly allowance, on top of your prompt and files.
+- **Keys win over the login:** a per-model `api_key` in `~/.grok/config.toml` overrides the login for that model.
+- **The xAI API itself takes API keys only; there is no OAuth.** zen's native xAI provider (`XAI_API_KEY`) cannot use a Grok subscription; Grok Build is the only subscription path.
+- **Media:** the CLI reads files itself (PDFs with its Read tool; audio and video only with local tools such as `whisper-cli` and `ffmpeg` frames), so it is the agentic fallback for audio and video, which zen's native Grok path does not send.
+
 ## When to Use Clink vs Other Tools
 
 - **Use `clink`** for: Leveraging external CLI capabilities (Gemini's web search, 1M context), specialized CLI features, cross-CLI collaboration
@@ -184,6 +194,7 @@ Ensure the relevant CLI is installed and configured:
 - [Claude Code](https://www.anthropic.com/claude-code)
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Codex CLI](https://docs.sourcegraph.com/codex)
+- Grok Build CLI (`grok`, from xAI): see [Grok Build via clink](#grok-build-via-clink)
 
 ## Related Guides
 

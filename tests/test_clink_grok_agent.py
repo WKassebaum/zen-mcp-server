@@ -90,3 +90,20 @@ async def test_grok_agent_propagates_unparseable_output(monkeypatch, grok_agent)
 
     with pytest.raises(CLIAgentError):
         await _run_agent_with_process(monkeypatch, agent, role, process)
+
+
+def test_builtin_grok_config_runs_headless_without_auto_update(monkeypatch, tmp_path):
+    # xAI recommends --no-auto-update for scripted runs: the CLI must not stop to update itself mid-call
+    import clink.registry as registry_module
+    from clink.constants import CONFIG_DIR
+    from clink.models import CLIClientConfig
+
+    raw = CLIClientConfig.model_validate(json.loads((CONFIG_DIR / "grok.json").read_text()))
+    assert raw.additional_args == ["--permission-mode", "auto", "--no-auto-update"]
+
+    # Resolve the built-in file only (no ~/.zen/cli_clients override), and build the headless command from it
+    monkeypatch.setattr(registry_module, "USER_CONFIG_DIR", tmp_path / "no-user-configs")
+    monkeypatch.delenv(registry_module.CONFIG_ENV_VAR, raising=False)
+    client = registry_module.ClinkRegistry().get_client("grok")
+    command = GrokAgent(client)._build_command(role=client.get_role("default"), system_prompt=None)
+    assert "--no-auto-update" in command and command[-1] == "--single"

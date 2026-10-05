@@ -242,6 +242,17 @@ Default `auto` is fine for most cases.
 
 ---
 
+## Media (PDF, audio, video)
+
+- **Attach:** pass the file like any other: `-f report.pdf` on the CLI, `absolute_file_paths` (simple tools) or `relevant_files` (workflow tools, consensus) over MCP, with absolute paths. It reaches the model as native input, not text.
+- **Who takes what:** Gemini: PDF, audio, video. Claude and OpenAI: PDF. OpenRouter: per model (live-probed flags). Grok: PDF only. A model that cannot take an attached kind is refused before any call, and the error lists models that can.
+- **Grok is named-only:** auto mode and intent words never send media to Grok; name it (`--model grok-4.7`). For audio or video through Grok, or a Grok subscription login, use `zen clink --cli-name grok`.
+- **Follow-ups re-attach:** an MCP follow-up (`continuation_id`, any tool) resends the media earlier turns attached; don't name the files again. Files that are gone, of a kind the model can't take, or over budget are left out with an `[omitted: ...]` note in the prompt, and the call proceeds. CLI workflow steps (`--session/--continue`) resend their own files.
+- **Upload cache:** Gemini uploads media above 60 MB per request to its Files API and reuses each upload for 47 h (`~/.zen/media_uploads.json`). Google keeps uploads for 48 h, so such files sit on Google's servers that long.
+- **`cached_input_tokens`:** in the `--json` / MCP metadata next to `media_attached`; input the provider served from its prompt cache (follow-ups that resend the same media cache it).
+
+---
+
 ## Configuration & paths
 
 - **API keys & storage:** `~/.zen/.env` (created/updated by `zen setup`)

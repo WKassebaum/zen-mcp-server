@@ -234,7 +234,7 @@ PDF, audio and video files passed to a tool (`-f` on the CLI, `absolute_file_pat
 
 - **Gemini** (`GEMINI_API_KEY`): PDF, audio and video.
 - **Claude** (`ANTHROPIC_API_KEY`) and **OpenAI** (`OPENAI_API_KEY`): PDF.
-- **Grok** (`XAI_API_KEY`): PDF, only when you name a Grok model, for example `zen chat "Summarize this" --model grok-4.7 -f report.pdf`.
+- **Grok** (`XAI_API_KEY`): PDF, only when you name a Grok model, for example `zen chat "Summarize this" --model grok-4.7 -f report.pdf`. For audio, video or a subscription login instead of an API key, run xAI's Grok Build CLI through clink (`zen clink --cli-name grok`), which reads the files itself: see [Grok Build via clink](tools/clink.md#grok-build-via-clink).
 - **OpenRouter** (`OPENROUTER_API_KEY`): PDF, audio and video, each only on the models whose live probe passed (their flags in `conf/openrouter_models.json`). No Grok (`x-ai/*`) model takes media through OpenRouter; use `XAI_API_KEY` and name a Grok model instead.
 
 OpenRouter only passes files to models that read them natively:
@@ -250,11 +250,24 @@ What counts as naming a Grok model:
 - `--model` or the `model` argument on the call that carries the PDF.
 - `DEFAULT_MODEL` set to a Grok model.
 
-Conversation follow-ups:
-- **Without `model`:** a follow-up that carries a PDF (attached now, or carried over from the first turn) goes through auto routing, even if an earlier turn ran on Grok. Grok is not reused for it.
-- **Naming Grok:** the first turn's PDF is sent again, and xAI's search may run, and be billed, again.
+Conversation follow-ups with Grok:
+- **Without `model`:** a follow-up whose conversation carries a PDF (attached now, or on any earlier turn) goes through auto routing, even if an earlier turn ran on Grok. Grok is not reused for it.
+- **Naming Grok:** the earlier turns' PDFs are sent again, and xAI's search may run, and be billed, again.
 
-A named model that cannot take the attached media is refused before any API call, with a list of models available with your current keys that can.
+A named model that cannot take the media a call attaches itself is refused before any API call, with a list of models available with your current keys that can.
+
+**Follow-ups re-attach earlier media.** A follow-up (`continuation_id` over MCP, any tool) sends the media that earlier turns of the conversation attached along with its own, each file once, without naming the files again. First-turn text files still come back as before.
+- **What travels:** each turn records the media its own model call attached (the request's files for simple tools, the expert call's for workflow tools, the proposal's for consensus). Workflow tools also keep sending their earlier steps' files.
+- **What is left out:** an earlier file is skipped, and the prompt says so, when it no longer exists (`[omitted: earlier report.pdf — file no longer exists]`), when the model cannot take its kind (`[omitted: earlier clip.mp4 — o3 does not take video]`), or when the token budget or the provider's request size runs out, oldest first (`[omitted: older recording.mp4 — over budget]`). The call proceeds. Media the call names itself is never left out: a model that cannot take it is refused, as above.
+- **Routing:** auto mode counts the earlier media too, so it picks a model that takes it, and it never hands earlier PDFs to Grok.
+- **Uploads:** a large Gemini file is re-sent through the upload cache below, not uploaded again.
+- The CLI's workflow commands resend their own files on every `--session/--continue` step. `zen chat` has no follow-ups.
+
+**Prompt caching.** Media requests keep a stable prefix: the system prompt, then the media in the order the conversation first attached it, then the changing text (history and the new request). Each follow-up's request therefore starts with the same bytes as the previous one, so providers' prompt caches can serve that part.
+- OpenAI, xAI, Gemini and OpenRouter cache matching prefixes on their own.
+- Claude caches only up to a marker: zen puts `cache_control` on the last PDF block of a media request, and, for `anthropic/*` models on OpenRouter, on a short fixed text part right after the last file. Media-free requests carry no marker.
+- Providers cache only prefixes above a model-dependent minimum length (512 to 4,096 tokens on Claude models), so a short request may show no cache use.
+- **`cached_input_tokens`:** the input tokens a provider served from its cache, in each response's usage and in the output metadata next to `media_attached`. It is read from `prompt_tokens_details.cached_tokens` (Chat Completions), `input_tokens_details.cached_tokens` (Responses API), `cached_content_token_count` (Gemini) and `cache_read_input_tokens` (Claude, which also reports cache writes as `cache_write_input_tokens` in the usage). It is absent when the provider reports nothing, and Claude's `input_tokens` excludes both.
 
 When xAI runs server-side search calls, zen logs a warning ("xAI ran N server-side search call(s) for <model>; billed separately ($5 per 1,000)") and adds the same line to the output as `media_notice`, next to the count in `server_side_tool_calls`.
 
@@ -262,7 +275,7 @@ When xAI runs server-side search calls, zen logs a warning ("xAI ran N server-si
 
 **Large files on Gemini (upload cache).** Media that does not fit inline (60 MB of raw files per request; the largest files are uploaded first) goes through the Gemini Files API.
 - **Privacy:** media above Gemini's inline cap is stored on Google's servers, in your API key's project, for up to 48 hours.
-- **Reuse:** zen records each upload in `~/.zen/media_uploads.json` (set `ZEN_MEDIA_UPLOAD_CACHE` to move it), keyed by the file's content hash and type, and reuses it for 47 hours, an hour before Google deletes it. Follow-ups, each consensus model and retries then send the same file without uploading it again (`transport: cached`). Before reusing an upload, zen checks with Google that it is still there.
+- **Reuse:** zen records each upload in `~/.zen/media_uploads.json` (set `ZEN_MEDIA_UPLOAD_CACHE` to move it), keyed by the file's content hash and type, and reuses it for 47 hours, an hour before Google deletes it. Follow-ups (including re-attached earlier media), each consensus model and retries then send the same file without uploading it again (`transport: cached`). Before reusing an upload, zen checks with Google that it is still there.
 - **The cache file** is created with mode 0600 and stores a 12-character fingerprint of the API key, never the key; another key's uploads are not reused. Several zen processes can share it.
 - **Deleting:** zen never deletes uploads; Google deletes them after 48 hours. The output names each upload ("Uploaded to the Gemini Files API: files/abc (clip.mp4); Google deletes uploads after 48 h."), so you can delete one sooner through the Gemini API.
 

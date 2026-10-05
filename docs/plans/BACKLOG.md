@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phase 5a (upload cache, non-blocking model calls, media metadata in the output) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase5a-status.md`. Phase 4 (OpenRouter, PDF/audio/video, native reading only) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase4-status.md`. Phase 5b pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
+- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phase 5a (upload cache, non-blocking model calls, media metadata in the output) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase5a-status.md`. Phase 4 (OpenRouter, PDF/audio/video, native reading only) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase4-status.md`. Phase 5b (follow-up re-attach, stable prefix, cached-token metrics, Claude `cache_control`) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase5b-status.md`; its live cache probes are pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -33,7 +33,6 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 - **o3-mini is unflagged for PDF:** it has no vision, so it gets only the PDF's text layer and misread a scanned page. Text PDFs work (2/2); flag it only if zen ever distinguishes text-layer PDF support.
 - **The three `-pro` models were probed once** (cost); every other flagged model passed twice (probe plus live test). The live tests skip them unless `ZEN_LIVE_PRO=1`.
 - **Responses API `detail` is left to the default:** OpenAI's guide says `auto` means `high` page images on GPT-5.6 and later, `low` before. Set `detail` on `input_file` explicitly if PDF token cost on gpt-6 matters.
-- **Claude `cache_control` deferred to phase 5:** the design puts a cache marker on the last media block. A cache write costs 1.25x and only pays off when the same PDF is re-sent, which needs phase 5's continuation re-attach, so phase 2 sends none.
 
 ### Media input phase 3 follow-ups
 Found while building phase 3 (2026-10-03); none blocks it.
@@ -50,7 +49,7 @@ Found while building phase 4 (2026-10-04); none blocks it.
   - No reply carried an `openrouter_metadata.pipeline`, so the stage-name match is untested and kept only as a fallback.
   - A parsed reply also used far fewer prompt tokens (90 against 553 natively for zebra.pdf).
 - **mistralai/mistral-large-2512 is unverified:** upstream 429s on most tries (2026-10-04). Re-probe it later; it read the scanned page once.
-- **OpenRouter usage extras are not surfaced:** `usage.cost` and the cached-token counts (`prompt_tokens_details.cached_tokens` on Chat, `input_tokens_details.cached_tokens` on Responses) are not copied into the response metadata.
+- **OpenRouter's `usage.cost` is not surfaced:** it is not copied into the response metadata. (The cached-token counts are, as `cached_input_tokens`, since phase 5b.)
 - **The x-ai/* models are PDF candidates:** their `input_modalities` list `file`, so a default `--provider openrouter` probe run sends them PDFs although policy never flags them. Name the models to probe, or skip `x-ai/` in the default list.
 - **The 32 MB inline cap is inferred:** OpenRouter documents no limit for inline data; 32 MB is the smallest upstream body limit (Anthropic's). Raise it per model if larger requests prove to work.
 
@@ -59,10 +58,21 @@ Found while building phase 5a (2026-10-04); none blocks it.
 - **Two consensus runs at once share one roster between steps (older than 5a):** the per-tool lock covers one call, but `ConsensusTool` keeps `models_to_consult`, `accumulated_responses` and `work_history` on the shared instance across calls. A second consensus started between another's steps resets them. It is easier to hit now that model calls no longer block the server. Fix: rebuild the roster from the thread (`continuation_id`) on every step.
 - **Proxy variables during client creation:** `suppress_env_vars` now serializes overlapping suppressions (a lock), but a Gemini or Anthropic client built in another thread at that moment still sees the proxy variables missing. This matters only with proxies set. Passing `trust_env=False` to the httpx clients, instead of editing `os.environ`, would remove the window.
 - **Calls of one tool queue behind each other:** `server.handle_call_tool` holds a per-tool lock, because the shared instances in `server.TOOLS` keep per-run state. A chat call waiting on a 600 s Gemini upload makes the next chat call wait too; other tools are unaffected. A fresh tool instance per call (or per-run state moved off the instance) would remove the lock.
-- **Workflow and consensus turns do not persist `media_attached`:** the output now shows it, but only simple-tool turns store it in conversation memory; workflow and consensus turns keep no record of their uploads.
+- **Workflow and consensus turns do not persist `media_attached`:** the output now shows it, but only simple-tool turns store it in conversation memory; workflow and consensus turns keep no record of their uploads. (Since phase 5b every turn records the media paths it attached, `ConversationTurn.media`, but not how they travelled.)
 - **The cache hashes the whole file on every upload-sized call:** up to 2 GB read per attachment above the inline cap (off the event loop since 5a). A memo keyed on `(path, size, mtime_ns, inode)` would skip it.
 - **One cache entry per content, not per API key:** a user alternating two Gemini keys overwrites the other key's entry (last writer wins), so each switch uploads again. Keying entries by fingerprint too would keep both.
 - **Lazy provider clients can be built twice:** model calls now run in worker threads, so two concurrent first calls on one provider may each create its SDK client; one is discarded. Harmless, but a lock in each `client` property would avoid it.
+
+### Media input phase 5b follow-ups
+Found while building phase 5b (2026-10-04); none blocks it.
+- **Threads stored before 5b lose their first-turn media:** `initial_context` no longer carries media and old turns recorded none, so a follow-up to a thread from before the upgrade (file storage keeps threads 3 hours) re-attaches nothing.
+- **Gemini can switch an earlier file to an upload:** above the 60 MB inline cap the largest files upload first, so a follow-up that adds media can move an earlier inline file to the Files API. That turn's prefix changes and misses the cache; later turns are stable again. Uploading the newest files first would keep the prefix.
+- **Media a refused call named is not re-attached, and not mentioned:** turns record only what a model call actually attached, and the old "media not attached" note is gone. A follow-up to a refused PDF call does not resend that PDF.
+- **In-process (CLI) auto routing skips a workflow's earlier steps' media:** `BaseTool._resolve_model_context` counts the call's files and the thread's recorded media, but not the files earlier workflow steps named, which `server._call_media_kinds` counts. CLI workflow sessions resend their files, so this matters only for in-process callers with `continuation_id`.
+- **History sizing on a model fallback ignores earlier media:** `server.reconstruct_thread_context` picks a fallback model for sizing the history from the call's own media kinds; routing then counts the earlier media too and may pick another model.
+- **debug trims re-attached media against the file allocation:** re-attach in workflow expert calls uses the model's file allocation; debug's own file embedding uses the remaining budget after history, so the two can differ.
+- **Claude's 32 MB body check counts the prompt too:** re-attach drops older media to fit `MEDIA_REQUEST_MAX_BYTES` (media only); a large prompt plus media can still fail Anthropic's whole-body check.
+- **Claude's `total_tokens` leaves out cache reads and writes:** `input_tokens` excludes them (Anthropic's usage), so a cached Claude request reports a small total. The counts are in `cached_input_tokens` and `cache_write_input_tokens`.
 
 ## Future features
 
@@ -77,7 +87,7 @@ Found while building phase 5a (2026-10-04); none blocks it.
 ### Gemini explicit context caches
 - **Recorded:** 2026-09-26
 - **What:** `caches.create` with a TTL for large Gemini media reused across many turns.
-- **Unblock:** the `cached_input_tokens` metrics from media-input v1. Build only if implicit prefix caching leaves meaningful savings on the table.
+- **Unblock:** the `cached_input_tokens` metrics, reported since phase 5b (2026-10-04). Build only if the live second-turn probes show implicit prefix caching leaving meaningful savings on the table.
 
 ### TypeSafe Jev (structured-output decision maker)
 - **Recorded:** 2026-09-26
@@ -102,7 +112,7 @@ Found while building phase 5a (2026-10-04); none blocks it.
 
 ### Unify images into the media pipeline
 - **Recorded:** 2026-09-26
-- **What:** Fold the separate `images` field into the media attachment path. Related finding: images are stored per turn but never re-sent on continuation (`utils/conversation_memory.get_conversation_image_list` has no callers), unlike the planned media behaviour.
+- **What:** Fold the separate `images` field into the media attachment path. Related finding: images are stored per turn but never re-sent on continuation (`utils/conversation_memory.get_conversation_image_list` has no callers), unlike media, which follow-ups re-attach since phase 5b.
 
 ## Maintenance and known issues
 

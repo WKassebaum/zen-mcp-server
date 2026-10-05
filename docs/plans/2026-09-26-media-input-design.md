@@ -1,7 +1,7 @@
 # Media Input (PDF, Audio, Video) — Design
 
 **Date:** 2026-09-26
-**Status:** Phase 1 (core + Gemini) merged 2026-10-01; phase 2 (Claude and OpenAI, PDF) done 2026-10-03; phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03; phase 4 (OpenRouter, PDF/audio/video, native reading only) done 2026-10-04, 35 models flagged; phase 5a (upload cache, non-blocking calls, media metadata) done 2026-10-04; phase 5b (follow-up re-attach, stable prefix, cache metrics) pending
+**Status:** Phases 1–5 done. Phase 1 (core + Gemini) merged 2026-10-01; phase 2 (Claude and OpenAI, PDF) done 2026-10-03; phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03; phase 4 (OpenRouter, PDF/audio/video, native reading only) done 2026-10-04, 35 models flagged; phase 5a (upload cache, non-blocking calls, media metadata) done 2026-10-04; phase 5b (follow-up re-attach, stable prefix, cache metrics, Claude `cache_control`) done 2026-10-04, live cache probes pending
 **Branch for implementation:** `feat/media-input` (merged to `zen-cli-v2` via PR)
 
 ## Goal

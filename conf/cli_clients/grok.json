@@ -3,7 +3,8 @@
   "command": "grok",
   "additional_args": [
     "--permission-mode",
-    "auto"
+    "auto",
+    "--no-auto-update"
   ],
   "env": {},
   "roles": {
