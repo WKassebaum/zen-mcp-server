@@ -574,8 +574,18 @@ of the evidence, even when it strongly points in one direction.""",
             return entries  # malformed: ConsensusRequest reports it
         required_media = media_kinds_from_arguments(arguments)
 
+        def canonical(name: str) -> str:
+            # An alias and its model's canonical name are one model ('pro' is gemini-3.1-pro-preview)
+            provider = ModelProviderRegistry.get_provider_for_model(name) if name else None
+            if provider is None:
+                return name
+            try:
+                return provider.get_capabilities(name).model_name
+            except (ValueError, AttributeError):
+                return name
+
         def combination(entry: dict) -> tuple[str, str]:
-            return entry.get("model", ""), entry.get("stance", "neutral")
+            return canonical(entry.get("model", "")), entry.get("stance", "neutral")
 
         named = {
             combination(entry) for entry in entries if not ModelProviderRegistry.is_model_intent(entry.get("model"))
@@ -603,7 +613,8 @@ of the evidence, even when it strongly points in one direction.""",
                 raise ToolExecutionError(output.model_dump_json()) from exc
             logger.info(f"{word.strip().lower()} resolved to {', '.join(names) or 'no model'} for consensus")
             for name in names:
-                member = {**entry, "model": name}
+                # picked_by marks a member nobody named: it must not get media its provider takes only when named
+                member = {**entry, "model": name, "picked_by": word.strip().lower()}
                 if combination(member) in named or combination(member) in added:
                     continue
                 added.add(combination(member))
@@ -742,6 +753,16 @@ of the evidence, even when it strongly points in one direction.""",
             # becomes this model's "error" entry below; step 1 already refused incapable models up front.
             # Classified from the same list, in the same order, as the CONTEXT FILES announcement above.
             media = self._media_from_paths(request.relevant_files or [])
+            if media and model_config.get("picked_by"):
+                from providers.registry import ModelProviderRegistry
+
+                if ModelProviderRegistry.takes_media_only_when_named(provider, model_name):
+                    # Step 1 screens media, but every later step attaches its own files: an intent word's pick
+                    # (xAI's search reads files only in part) gets them only when the request names the model
+                    raise ValueError(
+                        f"{model_name} joined this consensus through '{model_config['picked_by']}'. It takes attached "
+                        f"files only when the request names it; name {model_name} in models to send it these files."
+                    )
             self._validate_media_support(
                 media,
                 model_context,

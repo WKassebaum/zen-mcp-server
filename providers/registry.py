@@ -391,8 +391,9 @@ class ModelProviderRegistry:
     def _filter_models_for_media(cls, provider, model_names: list[str], required_media: frozenset) -> list[str]:
         """Keep models whose flags cover required_media on a provider that can encode it.
 
-        A provider with MEDIA_AUTO_ROUTING False keeps none: auto mode and find_media_capable_models never pick
-        it for media. A model the user names is checked against its own flags instead (_validate_media_support).
+        A model that takes media only when named (takes_media_only_when_named) is never kept: auto mode, intent
+        words and find_media_capable_models never pick it for media. A model the user names is checked against its
+        own flags instead (_validate_media_support).
         """
         if not required_media:
             return model_names
@@ -400,12 +401,27 @@ class ModelProviderRegistry:
             return []
         capable = []
         for name in model_names:
+            if cls.takes_media_only_when_named(provider, name):
+                continue
             try:
                 if required_media <= provider.get_capabilities(name).supported_media_kinds():
                     capable.append(name)
             except (AttributeError, ValueError):
                 continue
         return capable
+
+    @classmethod
+    def takes_media_only_when_named(cls, provider, model_name: str) -> bool:
+        """Whether ``model_name`` may get media only when a call names it: its provider has MEDIA_AUTO_ROUTING False
+        (xAI), or it is a Grok model on OpenRouter. xAI reads attached files through a paid search tool, so this holds
+        for x-ai/* models whatever the OpenRouter catalog flags say."""
+        if not getattr(provider, "MEDIA_AUTO_ROUTING", True):
+            return True
+        try:
+            provider_type = provider.get_provider_type()
+        except Exception:
+            return False
+        return provider_type == ProviderType.OPENROUTER and cls._model_vendor(provider_type, model_name) == "xai"
 
     @classmethod
     def find_media_capable_models(cls, required_media: frozenset, limit: int = 5) -> list[str]:

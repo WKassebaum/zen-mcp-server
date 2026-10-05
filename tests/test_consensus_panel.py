@@ -170,7 +170,8 @@ async def test_frontier_expands_in_place_and_every_member_keeps_its_stance():
     models = [{"model": "frontier", "stance": "for", "stance_prompt": "Argue for it"}]
     data = await _step_one(tool, models=models)
     assert tool.models_to_consult == [
-        {"model": name, "stance": "for", "stance_prompt": "Argue for it"} for name in CONFTEST_PANEL
+        {"model": name, "stance": "for", "stance_prompt": "Argue for it", "picked_by": "frontier"}
+        for name in CONFTEST_PANEL
     ]
     assert data["total_steps"] == len(CONFTEST_PANEL)
     assert data["model_consulted"] == CONFTEST_PANEL[0]
@@ -182,7 +183,9 @@ async def test_no_models_becomes_the_neutral_panel(models):
     tool = ConsensusTool()
     extra = {} if models is None else {"models": models}
     await _step_one(tool, **extra)
-    assert tool.models_to_consult == [{"model": name, "stance": "neutral"} for name in CONFTEST_PANEL]
+    assert tool.models_to_consult == [
+        {"model": name, "stance": "neutral", "picked_by": "frontier"} for name in CONFTEST_PANEL
+    ]
 
 
 @pytest.mark.asyncio
@@ -220,9 +223,9 @@ async def test_fast_balanced_and_auto_resolve_with_the_consensus_category():
         ("auto", ToolModelCategory.EXTENDED_REASONING),
     ]
     assert tool.models_to_consult == [
-        {"model": "gpt-6-luna"},
-        {"model": "gpt-6-sol", "stance": "against"},
-        {"model": "gpt-6-astra"},
+        {"model": "gpt-6-luna", "picked_by": "fast"},
+        {"model": "gpt-6-sol", "stance": "against", "picked_by": "balanced"},
+        {"model": "gpt-6-astra", "picked_by": "auto"},
     ]
 
 

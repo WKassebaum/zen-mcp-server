@@ -1038,7 +1038,7 @@ def _carries_media_to_explicit_only_provider(
     from providers.registry import ModelProviderRegistry
 
     provider = ModelProviderRegistry.get_provider_for_model(model_name)
-    if provider is None or provider.MEDIA_AUTO_ROUTING:
+    if provider is None or not ModelProviderRegistry.takes_media_only_when_named(provider, model_name):
         return False
     effective = {**(context.initial_context or {}), **arguments}
     return bool(_call_media_kinds(tool_name, TOOLS.get(tool_name) if tool_name else None, effective, context))
