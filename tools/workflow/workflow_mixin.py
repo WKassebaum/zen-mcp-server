@@ -40,6 +40,22 @@ from ..shared.exceptions import ToolExecutionError
 logger = logging.getLogger(__name__)
 
 
+def _expert_file_budget(model_context: Any, tool_name: str) -> int:
+    """Tokens the expert call's files (text and media together) may take: the model's file allocation.
+
+    _force_embed_files_for_expert_analysis sizes the embedded files with it, and re-attach trims earlier media
+    against it (_call_expert_analysis).
+    """
+    if model_context:
+        try:
+            max_tokens = model_context.calculate_token_allocation().file_tokens
+            logger.debug(f"[WORKFLOW_FILES] {tool_name}: Using {max_tokens:,} tokens for expert analysis files")
+            return max_tokens
+        except Exception as e:
+            logger.warning(f"[WORKFLOW_FILES] {tool_name}: Failed to get token allocation: {e}")
+    return 100_000  # Fallback
+
+
 class BaseWorkflowMixin(ABC):
     """
     Abstract base class providing guided workflow functionality for tools.
@@ -392,29 +408,22 @@ class BaseWorkflowMixin(ABC):
         """
         # Use read_files directly with token budgeting, bypassing filter_new_files
         from utils.file_utils import expand_paths, read_files
-        from utils.media import classify_media, estimate_media_tokens_for, media_prompt_section
+        from utils.media import MediaPlan, classify_media, estimate_media_tokens_for
 
-        # Native media is attached to the expert call (_call_expert_analysis), never read as text. Announce
-        # it from the same classification and reserve its estimated tokens from the text-file budget.
+        # Native media is attached to the expert call (_call_expert_analysis), never read as text. Announce what
+        # that call attaches (its plan: these files' media plus earlier turns' media) and reserve its estimated
+        # tokens from the text-file budget.
         files, media = classify_media(files)
+        plan = getattr(self, "_media_plan", None)
+        if not isinstance(plan, MediaPlan):
+            plan = MediaPlan.own_only(media)
 
         # Get token budget for files
         current_model_context = self.get_current_model_context()
-        if current_model_context:
-            try:
-                token_allocation = current_model_context.calculate_token_allocation()
-                max_tokens = token_allocation.file_tokens
-                logger.debug(
-                    f"[WORKFLOW_FILES] {self.get_name()}: Using {max_tokens:,} tokens for expert analysis files"
-                )
-            except Exception as e:
-                logger.warning(f"[WORKFLOW_FILES] {self.get_name()}: Failed to get token allocation: {e}")
-                max_tokens = 100_000  # Fallback
-        else:
-            max_tokens = 100_000  # Fallback
-        if media:
+        max_tokens = _expert_file_budget(current_model_context, self.get_name())
+        if plan.attachments:
             # keeps >= 1,000 tokens for text
-            max_tokens = max(2_000, max_tokens - estimate_media_tokens_for(media, current_model_context))
+            max_tokens = max(2_000, max_tokens - estimate_media_tokens_for(plan.attachments, current_model_context))
 
         # Read files directly without conversation history filtering
         logger.debug(f"[WORKFLOW_FILES] {self.get_name()}: Force embedding {len(files)} files for expert analysis")
@@ -424,7 +433,7 @@ class BaseWorkflowMixin(ABC):
             reserve_tokens=1000,
             include_line_numbers=self.wants_line_numbers_by_default(),
         )
-        file_content += media_prompt_section(media)
+        file_content += plan.prompt_section()
 
         # Expand paths to get individual files for tracking
         processed_files = expand_paths(files) + [attachment.path for attachment in media]
@@ -629,6 +638,9 @@ class BaseWorkflowMixin(ABC):
         try:
             # Store arguments for access by helper methods
             self._current_arguments = arguments
+            # This call's media: the expert call's plan, and the media it attached itself (recorded on the turn)
+            self._media_plan = None
+            self._sent_own_media = []
 
             # Validate request using tool-specific model
             request = self.get_workflow_request_model()(**arguments)
@@ -695,9 +707,7 @@ class BaseWorkflowMixin(ABC):
                 and self.get_request_use_assistant_model(request)
             ):
                 self._validate_media_support(
-                    self._media_from_paths(self.get_request_relevant_files(request)),
-                    self._model_context,
-                    self._paths_from_initial_context(arguments, "relevant_files"),
+                    self._media_from_paths(self.get_request_relevant_files(request)), self._model_context
                 )
 
             # Handle continuation
@@ -1183,6 +1193,8 @@ class BaseWorkflowMixin(ABC):
             files=self.get_request_relevant_files(request),
             images=self.get_request_images(request),
             model_metadata=workflow_state,  # Persist the state
+            # The media this call's model request attached itself (the expert call's), re-attached on follow-ups
+            media=list(getattr(self, "_sent_own_media", None) or []) or None,
         )
 
     def _add_workflow_metadata(self, response_data: dict, arguments: dict[str, Any]) -> None:
@@ -1514,11 +1526,19 @@ class BaseWorkflowMixin(ABC):
             # Native media from every step (consolidated relevant_files). Validate again here: the
             # model can differ from the one that checked earlier steps. Sorted, as the file embedding
             # (_prepare_files_for_expert_analysis, debug's expert context) orders it.
-            media = self._media_from_paths(sorted(self.consolidated_findings.relevant_files))
-            self._validate_media_support(
-                media, self._model_context, self._paths_from_initial_context(arguments, "relevant_files")
+            own_media = self._media_from_paths(sorted(self.consolidated_findings.relevant_files))
+            self._validate_media_support(own_media, self._model_context)
+            # Plus the media earlier turns of the thread attached (re-attach), trimmed to what this model and the
+            # file budget take. The file embedding announces exactly this plan.
+            plan = self._plan_call_media(
+                own_media,
+                self.get_request_continuation_id(request),
+                self._model_context,
+                _expert_file_budget(self._model_context, self.get_name()),
             )
+            media = list(plan.attachments)
             provider.ensure_media_encodable(media)
+            self._media_plan = plan
 
             # Prepare expert analysis context
             expert_context = self.prepare_expert_analysis_context(self.consolidated_findings)
@@ -1529,17 +1549,11 @@ class BaseWorkflowMixin(ABC):
                 if file_content:
                     expert_context = self._add_files_to_expert_context(expert_context, file_content)
 
-            if media:
-                from utils.media import media_prompt_section
-
-                # Every attachment is announced, in attachment order. Tools that embed files announce
-                # media with them; tools that embed none (e.g. thinkdeep) get the announcement here.
-                announcement = media_prompt_section(media)
-                if announcement not in expert_context:
-                    expert_context += announcement
-
-            # The media list is final: name earlier-turn media (e.g. from another tool) not attached here
-            expert_context += self._unattached_thread_media_note(self.get_request_continuation_id(request), media)
+            # Every attachment is announced, in attachment order, with notes for earlier media left out. Tools
+            # that embed files announce media with them; tools that embed none (e.g. thinkdeep) get it here.
+            announcement = plan.prompt_section()
+            if announcement and announcement not in expert_context:
+                expert_context += announcement
 
             # Get system prompt for this tool with localization support
             base_system_prompt = self.get_system_prompt()
@@ -1575,6 +1589,7 @@ class BaseWorkflowMixin(ABC):
                 images=list(set(self.consolidated_findings.images)) if self.consolidated_findings.images else None,
                 media=media or None,
             )
+            self._sent_own_media = [attachment.path for attachment in plan.own]
 
             if model_response.content:
                 content = model_response.content.strip()
@@ -1614,6 +1629,8 @@ class BaseWorkflowMixin(ABC):
         except Exception as e:
             logger.error(f"Error calling expert analysis: {e}", exc_info=True)
             return {"error": str(e), "status": "analysis_error"}
+        finally:
+            self._media_plan = None  # only this call's prompt reads it
 
     @staticmethod
     def _with_response_metadata(analysis: Any, model_response) -> Any:

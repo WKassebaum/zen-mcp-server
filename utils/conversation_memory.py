@@ -113,7 +113,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from utils.env import get_env
-from utils.media import media_type_for
+from utils.media import media_file_identity, media_type_for
 
 logger = logging.getLogger(__name__)
 
@@ -162,6 +162,9 @@ class ConversationTurn(BaseModel):
         timestamp: ISO timestamp when this turn was created
         files: List of file paths referenced in this specific turn
         images: List of image paths referenced in this specific turn
+        media: Media paths (PDF, audio, video) this turn's model call attached itself, in attachment order.
+            Media re-attached from earlier turns is not repeated here, so each file keeps the age of the turn that
+            attached it. None on user turns, on turns that attached no media, and on turns stored before this field
         tool_name: Which tool generated this turn (for cross-tool tracking)
         model_provider: Provider used (e.g., "google", "openai")
         model_name: Specific model used (e.g., "gemini-2.5-flash", "o3-mini")
@@ -173,6 +176,7 @@ class ConversationTurn(BaseModel):
     timestamp: str
     files: Optional[list[str]] = None  # Files referenced in this turn
     images: Optional[list[str]] = None  # Images referenced in this turn
+    media: Optional[list[str]] = None  # Media this turn's call attached itself (re-attached on follow-ups)
     tool_name: Optional[str] = None  # Tool used for this turn
     model_provider: Optional[str] = None  # Model provider (google, openai, etc)
     model_name: Optional[str] = None  # Specific model used
@@ -318,6 +322,7 @@ def add_turn(
     model_provider: Optional[str] = None,
     model_name: Optional[str] = None,
     model_metadata: Optional[dict[str, Any]] = None,
+    media: Optional[list[str]] = None,
 ) -> bool:
     """
     Add turn to existing thread with atomic file ordering.
@@ -336,6 +341,7 @@ def add_turn(
         model_provider: Provider used (e.g., "google", "openai")
         model_name: Specific model used (e.g., "gemini-2.5-flash", "o3-mini")
         model_metadata: Additional model info (e.g., thinking mode, token usage)
+        media: Optional media paths this turn's model call attached itself (see ConversationTurn.media)
 
     Returns:
         bool: True if turn was successfully added, False otherwise
@@ -371,6 +377,7 @@ def add_turn(
         timestamp=datetime.now(timezone.utc).isoformat(),
         files=files,  # Preserved for cross-tool file context
         images=images,  # Preserved for cross-tool visual context
+        media=media or None,  # Re-attached to follow-ups (get_conversation_media_list)
         tool_name=tool_name,  # Track which tool generated this turn
         model_provider=model_provider,  # Track model provider
         model_name=model_name,  # Track specific model
@@ -495,8 +502,7 @@ def get_conversation_file_list(context: ThreadContext) -> list[str]:
             logger.debug(f"[FILES] Turn {i + 1} has {len(turn.files)} files: {turn.files}")
             for file_path in turn.files:
                 # Media is never embedded as text in history; it reaches a model only as an attachment.
-                # Phase 1: first-turn media is re-sent via initial_context when a follow-up omits its file
-                # list (server.py reconstruct_thread_context); later-turn media is re-attached in phase 5.
+                # Follow-ups re-attach media earlier turns sent (get_conversation_media_list).
                 if media_type_for(file_path) is not None:
                     continue
                 if file_path not in seen_files:
@@ -510,6 +516,51 @@ def get_conversation_file_list(context: ThreadContext) -> list[str]:
 
     logger.debug(f"[FILES] Final file list ({len(file_list)}): {file_list}")
     return file_list
+
+
+def get_conversation_media_list(context: ThreadContext) -> list[str]:
+    """Media paths earlier turns attached (ConversationTurn.media), newest first, deduped by resolved file.
+
+    The same newest-first walk as get_conversation_file_list: a file attached on several turns appears once, under
+    the spelling and at the position of its newest turn. Follow-ups re-attach these; budget trimming drops the end of
+    this list (the media attached longest ago) first.
+    """
+    seen: set[str] = set()
+    media: list[str] = []
+    for turn in reversed(context.turns):
+        for path in turn.media or ():
+            identity = media_file_identity(path)
+            if identity not in seen:
+                seen.add(identity)
+                media.append(path)
+    return media
+
+
+def get_conversation_media_first_seen(context: ThreadContext) -> list[str]:
+    """Media paths earlier turns attached, oldest first by the turn that first attached each file.
+
+    The order media is attached in (a stable request prefix for providers' prompt caches): a file attached again
+    later keeps its first position, and media new to the thread goes after everything seen before.
+    """
+    seen: set[str] = set()
+    media: list[str] = []
+    for turn in context.turns:
+        for path in turn.media or ():
+            identity = media_file_identity(path)
+            if identity not in seen:
+                seen.add(identity)
+                media.append(path)
+    return media
+
+
+def get_conversation_media_kinds(context: ThreadContext) -> frozenset:
+    """Media kinds (utils.media.MediaKind) among the media earlier turns attached that still exists on disk.
+
+    Follow-ups re-attach this media, so model routing counts it like the call's own media.
+    """
+    from utils.media import media_kinds_from_paths
+
+    return media_kinds_from_paths(get_conversation_media_list(context))
 
 
 def get_conversation_image_list(context: ThreadContext) -> list[str]:

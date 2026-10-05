@@ -442,6 +442,9 @@ of the evidence, even when it strongly points in one direction.""",
 
         # Store arguments
         self._current_arguments = arguments
+        # The media this step's consultation attaches itself, recorded on its turn (_consult_model)
+        self._media_plan = None
+        self._sent_own_media = []
 
         # Step 1: replace intent words with concrete models before validation, so the thread and every later
         # step see the names actually consulted
@@ -719,15 +722,43 @@ of the evidence, even when it strongly points in one direction.""",
             # Create model context once and reuse for both file processing and temperature validation
             model_context = ModelContext(model_name=model_name)
 
+            # Native media this step names (the proposal's on step 1): this model's flags and provider encoder must
+            # cover it. A failure becomes this model's "error" entry below; step 1 already refused incapable models
+            # up front. The proposal's media is what the turn records, so later steps re-attach it.
+            own_media = self._media_from_paths(request.relevant_files or [])
+            self._validate_media_support(own_media, model_context)
+            self._sent_own_media = [attachment.path for attachment in own_media]
+            # Plus the media earlier turns of the thread attached (re-attach), trimmed for this model; the
+            # CONTEXT FILES section below announces exactly this plan
+            plan = self._plan_call_media(
+                own_media,
+                request.continuation_id,
+                model_context,
+                self._file_token_budget(model_context=model_context),
+            )
+            media = list(plan.attachments)
+            self._media_plan = plan
+            if media and model_config.get("picked_by"):
+                from providers.registry import ModelProviderRegistry
+
+                if ModelProviderRegistry.takes_media_only_when_named(provider, model_name):
+                    # Step 1 screens media, but later steps attach their own files and re-attach earlier ones: an
+                    # intent word's pick (xAI's search reads files only in part) gets them only when named
+                    self._sent_own_media = []
+                    raise ValueError(
+                        f"{model_name} joined this consensus through '{model_config['picked_by']}'. It takes attached "
+                        f"files only when the request names it; name {model_name} in models to send it these files."
+                    )
+
             # Prepare the prompt with any relevant files
             # Use continuation_id=None for blinded consensus - each model should only see
             # original prompt + files, not conversation history or other model responses
             # CRITICAL: Use the original proposal from step 1, NOT what's in request.step for steps 2+!
             # Steps 2+ contain summaries/notes that must NEVER be sent to other models
             prompt = self.original_proposal if self.original_proposal else self.initial_prompt
-            if request.relevant_files:
+            if request.relevant_files or plan.attachments or plan.omitted:
                 file_content, _ = self._prepare_file_content_for_prompt(
-                    request.relevant_files,
+                    request.relevant_files or [],
                     None,  # Use None instead of request.continuation_id for blinded consensus
                     "Context files",
                     model_context=model_context,
@@ -749,25 +780,6 @@ of the evidence, even when it strongly points in one direction.""",
             for warning in temp_warnings:
                 logger.warning(warning)
 
-            # Native media for this step: this model's flags and provider encoder must cover it. A failure
-            # becomes this model's "error" entry below; step 1 already refused incapable models up front.
-            # Classified from the same list, in the same order, as the CONTEXT FILES announcement above.
-            media = self._media_from_paths(request.relevant_files or [])
-            if media and model_config.get("picked_by"):
-                from providers.registry import ModelProviderRegistry
-
-                if ModelProviderRegistry.takes_media_only_when_named(provider, model_name):
-                    # Step 1 screens media, but every later step attaches its own files: an intent word's pick
-                    # (xAI's search reads files only in part) gets them only when the request names the model
-                    raise ValueError(
-                        f"{model_name} joined this consensus through '{model_config['picked_by']}'. It takes attached "
-                        f"files only when the request names it; name {model_name} in models to send it these files."
-                    )
-            self._validate_media_support(
-                media,
-                model_context,
-                self._paths_from_initial_context(getattr(self, "_current_arguments", None) or {}, "relevant_files"),
-            )
             provider.ensure_media_encodable(media)
 
             # Call the model with validated temperature, in a worker thread so the server keeps serving
@@ -803,6 +815,8 @@ of the evidence, even when it strongly points in one direction.""",
                 "status": "error",
                 "error": str(e),
             }
+        finally:
+            self._media_plan = None  # only this consultation's prompt reads it
 
     def _get_stance_enhanced_prompt(self, stance: str, custom_stance_prompt: str | None = None) -> str:
         """Get the system prompt with stance injection."""

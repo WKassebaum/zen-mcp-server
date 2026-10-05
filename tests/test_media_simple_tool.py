@@ -96,25 +96,29 @@ async def _first_turn(server, tmp_path) -> str:
 
 
 @pytest.mark.asyncio
-async def test_follow_up_on_incapable_model_names_first_turn_media(tmp_path, gemini_encodes_media):
+async def test_follow_up_on_incapable_model_omits_first_turn_media(tmp_path, gemini_encodes_media):
+    # The first turn's video is re-attached on follow-ups; a model that cannot take video gets a note instead, and
+    # the call proceeds (only media this call names itself is refused).
     import server
 
     thread_id = await _first_turn(server, tmp_path)
-    with patch.object(OpenAIModelProvider, "generate_content") as generate:
-        with pytest.raises(ToolExecutionError) as exc:
-            await server.handle_call_tool(
-                "chat",
-                {
-                    "prompt": "Now summarise it",
-                    "model": "o3",
-                    "continuation_id": thread_id,
-                    "working_directory_absolute_path": str(tmp_path),
-                },
-            )
-    generate.assert_not_called()
-    content = json.loads(str(exc.value))["content"]
-    assert "cannot take video input (otter.mp4)" in content
-    assert "otter.mp4 came from the first turn of this conversation" in content
+    reply = ModelResponse(content="Summary.", usage={}, model_name="o3", provider=ProviderType.OPENAI)
+    with patch.object(OpenAIModelProvider, "generate_content", return_value=reply) as generate:
+        await server.handle_call_tool(
+            "chat",
+            {
+                "prompt": "Now summarise it",
+                "model": "o3",
+                "continuation_id": thread_id,
+                "working_directory_absolute_path": str(tmp_path),
+            },
+        )
+    generate.assert_called_once()
+    assert generate.call_args.kwargs.get("media") is None
+    prompt = generate.call_args.kwargs["prompt"]
+    assert "[omitted: earlier otter.mp4 — o3 does not take video]" in prompt
+    assert "do not describe their contents from memory" in prompt
+    assert "--- MEDIA FILE:" not in prompt
 
 
 @pytest.mark.asyncio
@@ -137,7 +141,8 @@ async def test_follow_up_on_same_model_re_attaches_first_turn_media(tmp_path, ge
 
 
 @pytest.mark.asyncio
-async def test_follow_up_with_other_files_says_media_is_not_attached(tmp_path, gemini_encodes_media):
+async def test_follow_up_with_other_files_re_attaches_earlier_media(tmp_path, gemini_encodes_media):
+    # Naming other files no longer drops the first turn's video: earlier media travels with every follow-up.
     import server
 
     code = tmp_path / "app.py"
@@ -154,9 +159,11 @@ async def test_follow_up_with_other_files_says_media_is_not_attached(tmp_path, g
                 "working_directory_absolute_path": str(tmp_path),
             },
         )
-    assert generate.call_args.kwargs.get("media") is None
+    assert [m.name for m in generate.call_args.kwargs["media"]] == ["otter.mp4"]
     prompt = generate.call_args.kwargs["prompt"]
-    assert "=== MEDIA NOT ATTACHED ===" in prompt and "video otter.mp4" in prompt
+    assert "print('hi')" in prompt
+    assert f"--- MEDIA FILE: {MP4} (video, video/mp4" in prompt and "(attachment 1 of 1;" in prompt
+    assert "NOT ATTACHED" not in prompt
 
 
 @pytest.mark.asyncio

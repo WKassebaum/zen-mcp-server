@@ -710,20 +710,148 @@ def estimate_media_tokens_for(media: Iterable[MediaAttachment], model_context: A
     return estimate_media_tokens(media, pdf_tokens_per_page(model_context), video_tokens_per_second(model_context))
 
 
-def media_prompt_section(media: Iterable[MediaAttachment]) -> str:
+def media_prompt_section(media: Iterable[MediaAttachment], omitted: Iterable[str] = ()) -> str:
     """Prompt text announcing attachments, built from the attachment list so the two cannot disagree.
 
     Media parts carry no file name, so each entry says its position; providers attach the media
-    parts in this same order.
+    parts in this same order. ``omitted``: one note per earlier-turn file left out of this request
+    (MediaPlan.omitted), listed after the attachments.
     """
     attachments = list(media)
-    return "".join(
+    section = "".join(
         f"\n--- MEDIA FILE: {a.path} ({a.kind.value}, {a.mime_type}, {format_size(a.size_bytes)}) ---\n"
         f"Not embedded as text: attached to this request as native {a.kind.value} input "
         f"(attachment {number} of {len(attachments)}; the media parts follow in this order).\n"
         "--- END FILE ---\n"
         for number, a in enumerate(attachments, 1)
     )
+    notes = list(omitted)
+    if notes:
+        section += (
+            "\n--- EARLIER MEDIA NOT ATTACHED ---\n"
+            + "".join(f"{note}\n" for note in notes)
+            + "Earlier turns of this conversation attached these files; they are not attached to this request, so "
+            "do not describe their contents from memory.\n"
+            "--- END EARLIER MEDIA NOT ATTACHED ---\n"
+        )
+    return section
+
+
+# --- follow-ups: re-attaching earlier turns' media ----------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class MediaPlan:
+    """The media one model call attaches, and what it leaves out of the media earlier turns attached.
+
+    ``attachments`` is in attachment order (first-seen across the thread, see plan_media): pass it as the provider's
+    ``media`` and announce it with media_prompt_section(attachments, omitted). ``own`` is the media the call named
+    itself: what its turn records (ConversationTurn.media).
+    """
+
+    attachments: tuple[MediaAttachment, ...] = ()
+    own: tuple[MediaAttachment, ...] = ()
+    omitted: tuple[str, ...] = ()
+
+    @classmethod
+    def own_only(cls, media: Iterable[MediaAttachment]) -> MediaPlan:
+        media = tuple(media)
+        return cls(attachments=media, own=media)
+
+    def prompt_section(self) -> str:
+        return media_prompt_section(self.attachments, self.omitted)
+
+
+def media_file_identity(path: str) -> str:
+    """The file a media path names: ``~`` expanded and symlinks resolved, so two spellings of one file compare equal.
+
+    Resolution is not strict, so a file that no longer exists has an identity too. Equals MediaAttachment.source_path
+    for an existing file.
+    """
+    expanded = os.path.expanduser(str(path))
+    try:
+        return str(Path(expanded).resolve())
+    except (OSError, RuntimeError, ValueError):  # RuntimeError: symlink loop
+        return expanded
+
+
+def plan_media(
+    own: Iterable[MediaAttachment],
+    earlier: Iterable[str],
+    first_seen: Iterable[str],
+    *,
+    supported: frozenset[MediaKind],
+    model_name: str,
+    budget_tokens: int | None,
+    model_context: Any,
+    max_request_bytes: int | None = None,
+) -> MediaPlan:
+    """The media a follow-up sends: its own media, then the earlier turns' media it can still take.
+
+    - ``own``: the call's own attachments, already validated (refused, never dropped, when the model cannot take them).
+    - ``earlier``: media paths earlier turns attached, newest first (get_conversation_media_list). A file the call
+      names itself is not attached twice.
+    - An earlier file is left out, with a note, when it no longer exists, is no longer readable media, is over
+      MEDIA_MAX_BYTES, or its kind is not in ``supported`` (the model's flags and its provider's encoder).
+    - Budget: while the estimated tokens (estimate_media_tokens_for at ``model_context``'s rates) of everything to
+      send exceed ``budget_tokens``, or its base64 size exceeds ``max_request_bytes`` (a provider that only takes
+      media inline), the oldest earlier file is dropped. Own media is never dropped.
+    - Attachment order is first-seen across the thread (``first_seen``, oldest first), with media new to the thread
+      last in the call's own order, so a follow-up's media parts start with the previous turn's, byte for byte.
+    """
+    own = tuple(own)
+    taken = {media_file_identity(attachment.source_path) for attachment in own}
+    candidates: list[MediaAttachment] = []  # newest first
+    omitted: list[str] = []
+    for path in earlier:
+        expanded = os.path.expanduser(str(path))
+        identity = media_file_identity(expanded)
+        if identity in taken:
+            continue
+        taken.add(identity)
+        name = Path(expanded).name
+        if not os.path.exists(expanded):
+            omitted.append(f"[omitted: earlier {name} — file no longer exists]")
+            continue
+        found = classify_media([expanded])[1]
+        if not found:
+            omitted.append(f"[omitted: earlier {name} — no longer a readable media file]")
+            continue
+        attachment = found[0]
+        if attachment.kind not in supported:
+            omitted.append(f"[omitted: earlier {name} — {model_name} does not take {attachment.kind.value}]")
+        elif attachment.size_bytes > MEDIA_MAX_BYTES:
+            omitted.append(f"[omitted: earlier {name} — over the {format_size(MEDIA_MAX_BYTES)} per-file limit]")
+        else:
+            candidates.append(attachment)
+
+    if candidates and budget_tokens is not None:
+        cost = {id(a): estimate_media_tokens_for([a], model_context) for a in candidates}
+        total = estimate_media_tokens_for(own, model_context) + sum(cost.values())
+        while candidates and total > budget_tokens:
+            dropped = candidates.pop()
+            total -= cost[id(dropped)]
+            omitted.append(f"[omitted: older {dropped.name} — over budget]")
+    if candidates and max_request_bytes is not None:
+        encoded = sum(base64_size(a.size_bytes) for a in (*own, *candidates))
+        while candidates and encoded > max_request_bytes:
+            dropped = candidates.pop()
+            encoded -= base64_size(dropped.size_bytes)
+            omitted.append(
+                f"[omitted: older {dropped.name} — over the {format_size(max_request_bytes)} request size limit]"
+            )
+
+    rank: dict[str, int] = {}
+    for path in first_seen:
+        rank.setdefault(media_file_identity(path), len(rank))
+    sending = [*candidates, *own]
+    order = {
+        id(attachment): rank.get(media_file_identity(attachment.source_path), len(rank) + index)
+        for index, attachment in enumerate(sending)
+    }
+    # New own media keeps its own order after everything seen before; sorted() is stable
+    ordered = sorted(sending, key=lambda attachment: order[id(attachment)])
+    return MediaPlan(attachments=tuple(ordered), own=own, omitted=tuple(omitted))
 
 
 # ---------------------------------------------------------------------------

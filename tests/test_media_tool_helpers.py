@@ -1,4 +1,4 @@
-"""BaseTool media helpers: validation, prompt announcement, token reserve, unattached-media note."""
+"""BaseTool media helpers: validation, prompt announcement, token reserve, re-attach plan and its notes."""
 
 import json
 from pathlib import Path
@@ -71,22 +71,30 @@ def test_validate_media_support_rejects_oversized_file(tmp_path):
     assert "huge.mp4" in content and f"{MEDIA_MAX_BYTES + 1:,} bytes" in content
 
 
-def test_validate_media_support_explains_first_turn_carry_over():
-    tool = ChatTool()
-    media = tool._media_from_paths([MP4])
-    with patch("providers.registry.ModelProviderRegistry.find_media_capable_models", return_value=["gemini-3.8-flash"]):
-        with pytest.raises(ToolExecutionError) as exc:
-            tool._validate_media_support(media, _context("o3", {}, set()), carried_over=[MP4])
-    content = _error(exc)["content"]
-    assert "otter.mp4 came from the first turn of this conversation" in content
-    assert "start a new conversation (no continuation_id)" in content
+def _thread_with_media(*paths):
+    thread_id = create_thread("chat", {"prompt": "look"})
+    add_turn(thread_id, "assistant", "seen", media=list(paths), tool_name="chat")
+    return thread_id
 
 
-def test_paths_from_initial_context():
+def test_plan_omits_earlier_media_the_model_cannot_take():
+    # Earlier media is never refused: the model gets a note instead (only media the call names is refused)
     tool = ChatTool()
-    arguments = {"absolute_file_paths": [MP4], "_initial_context_keys": ["absolute_file_paths"]}
-    assert tool._paths_from_initial_context(arguments, "absolute_file_paths") == [MP4]
-    assert tool._paths_from_initial_context({"absolute_file_paths": [MP4]}, "absolute_file_paths") == []
+    plan = tool._plan_call_media([], _thread_with_media(MP4), _context("o3", {}, set()), 100_000)
+    assert plan.attachments == () and plan.own == ()
+    assert plan.omitted == ("[omitted: earlier otter.mp4 — o3 does not take video]",)
+    section = plan.prompt_section()
+    assert "[omitted: earlier otter.mp4 — o3 does not take video]" in section
+    assert "do not describe their contents from memory" in section
+
+
+def test_plan_without_earlier_media_is_the_calls_own_media():
+    tool = ChatTool()
+    own = tool._media_from_paths([MP4])
+    context = _context("m", {"supports_video": True}, {MediaKind.VIDEO})
+    for continuation_id in (None, create_thread("chat", {"prompt": "look"})):
+        plan = tool._plan_call_media(own, continuation_id, context, 100_000)
+        assert plan.attachments == tuple(own) and plan.own == tuple(own) and plan.omitted == ()
 
 
 def test_prompt_announces_media_and_embeds_text(tmp_path):
@@ -120,28 +128,32 @@ def test_media_tokens_are_reserved_from_text_budget(tmp_path):
     assert "SKIPPED FILES" in content and "--- MEDIA FILE:" in content
 
 
-def test_unattached_thread_media_note():
-    thread_id = create_thread("chat", {"prompt": "look"})
-    add_turn(thread_id, "user", "look at this", files=[MP4])
+def test_plan_re_attaches_earlier_media_and_announces_it():
     tool = ChatTool()
-    note = tool._unattached_thread_media_note(thread_id, [])
-    assert "=== MEDIA NOT ATTACHED ===" in note and "otter.mp4" in note
-    assert tool._unattached_thread_media_note(thread_id, tool._media_from_paths([MP4])) == ""
-    assert tool._unattached_thread_media_note(None, []) == ""
+    context = _context("m", {"supports_video": True}, {MediaKind.VIDEO})
+    plan = tool._plan_call_media([], _thread_with_media(MP4), context, 100_000)
+    assert [a.path for a in plan.attachments] == [MP4] and plan.own == () and plan.omitted == ()
+    section = plan.prompt_section()
+    assert f"--- MEDIA FILE: {MP4} (video" in section and "NOT ATTACHED" not in section
+    # A media-free, thread-free plan announces nothing
+    assert tool._plan_call_media([], None, context, 100_000).prompt_section() == ""
 
 
-def test_paths_from_initial_context_expands_home():
-    # The chat tool expands "~" in request paths before classifying media; carried-over paths must match.
-    arguments = {"absolute_file_paths": ["~/clip.mp4"], "_initial_context_keys": ["absolute_file_paths"]}
-    expected = [str(Path.home() / "clip.mp4")]
-    assert ChatTool()._paths_from_initial_context(arguments, "absolute_file_paths") == expected
+def test_plan_expands_home_in_recorded_paths(tmp_path, monkeypatch):
+    # The chat tool expands "~" in request paths; a recorded "~" path must name the same file when re-attached.
+    monkeypatch.setenv("HOME", str(tmp_path))
+    (tmp_path / "clip.mp4").write_bytes(Path(MP4).read_bytes())
+    context = _context("m", {"supports_video": True}, {MediaKind.VIDEO})
+    plan = ChatTool()._plan_call_media([], _thread_with_media("~/clip.mp4"), context, 100_000)
+    assert [a.source_path for a in plan.attachments] == [str((tmp_path / "clip.mp4").resolve())]
 
 
-def test_unattached_thread_media_note_matches_resolved_file(tmp_path):
+def test_plan_matches_earlier_media_by_resolved_file(tmp_path):
     link = tmp_path / "same-otter.mp4"
     link.symlink_to(MP4)
-    thread_id = create_thread("chat", {"prompt": "look"})
-    add_turn(thread_id, "user", "look at this", files=[MP4])
     tool = ChatTool()
-    # The same file under another name is attached, so nothing is missing.
-    assert tool._unattached_thread_media_note(thread_id, tool._media_from_paths([str(link)])) == ""
+    own = tool._media_from_paths([str(link)])
+    context = _context("m", {"supports_video": True}, {MediaKind.VIDEO})
+    # The same file under another name is this call's own: attached once, under the call's name, nothing omitted.
+    plan = tool._plan_call_media(own, _thread_with_media(MP4), context, 100_000)
+    assert [a.path for a in plan.attachments] == [str(link)] and plan.omitted == ()

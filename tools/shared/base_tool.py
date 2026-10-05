@@ -26,6 +26,9 @@ from utils import estimate_tokens
 from utils.conversation_memory import (
     ConversationTurn,
     get_conversation_file_list,
+    get_conversation_media_first_seen,
+    get_conversation_media_kinds,
+    get_conversation_media_list,
     get_thread,
 )
 from utils.env import get_env
@@ -1049,58 +1052,32 @@ class BaseTool(ABC):
                 - actually_processed_files: List of individual file paths that were actually read and embedded
                   (directories are expanded to individual files)
         """
-        if not request_files:
+        # The media this model call attaches (own plus re-attached earlier media), when the caller planned it
+        from utils.media import MediaPlan, classify_media, estimate_media_tokens_for
+
+        plan = getattr(self, "_media_plan", None)
+        if not isinstance(plan, MediaPlan):
+            plan = None
+        if not request_files and not (plan and (plan.attachments or plan.omitted)):
             return "", []
 
-        # Extract remaining budget from arguments if available
-        if remaining_budget is None:
-            # Use provided arguments or fall back to stored arguments from execute()
-            args_to_use = arguments or getattr(self, "_current_arguments", {})
-            remaining_budget = args_to_use.get("_remaining_tokens")
-
-        # Use remaining budget if provided, otherwise fall back to max_tokens or model-specific default
-        if remaining_budget is not None:
-            effective_max_tokens = remaining_budget - reserve_tokens
-        elif max_tokens is not None:
-            effective_max_tokens = max_tokens - reserve_tokens
-        else:
-            # Use model_context for token allocation
-            if not model_context:
-                # Try to get from stored attributes as fallback
-                model_context = getattr(self, "_model_context", None)
-                if not model_context:
-                    logger.error(
-                        f"[FILES] {self.name}: _prepare_file_content_for_prompt called without model_context. "
-                        "This indicates an incorrect call sequence in the tool's implementation."
-                    )
-                    raise RuntimeError("Model context not provided for file preparation.")
-
-            # This is now the single source of truth for token allocation.
-            try:
-                token_allocation = model_context.calculate_token_allocation()
-                # Standardize on `file_tokens` for consistency and correctness.
-                effective_max_tokens = token_allocation.file_tokens - reserve_tokens
-                logger.debug(
-                    f"[FILES] {self.name}: Using model context for {model_context.model_name}: "
-                    f"{token_allocation.file_tokens:,} file tokens from {token_allocation.total_tokens:,} total"
-                )
-            except Exception as e:
-                logger.error(
-                    f"[FILES] {self.name}: Failed to calculate token allocation from model context: {e}", exc_info=True
-                )
-                # If the context exists but calculation fails, we still need to prevent a crash.
-                # A loud error is logged, and we fall back to a safe default.
-                effective_max_tokens = 100_000 - reserve_tokens
+        effective_max_tokens = self._file_token_budget(
+            max_tokens=max_tokens,
+            reserve_tokens=reserve_tokens,
+            remaining_budget=remaining_budget,
+            arguments=arguments,
+            model_context=model_context,
+        )
 
         # Native media (utils/media.py) is attached to the request by the caller, never read as text.
         # Split it out with the same classification the caller uses, so the prompt announces exactly
         # what is attached, and reserve its estimated tokens before sizing the text-file budget.
-        from utils.media import classify_media, estimate_media_tokens_for, media_prompt_section
-
         request_files, media = classify_media(request_files)
-        if media:
+        if plan is None:
+            plan = MediaPlan.own_only(media)
+        if plan.attachments:
             media_context = model_context or getattr(self, "_model_context", None)
-            effective_max_tokens -= estimate_media_tokens_for(media, media_context)
+            effective_max_tokens -= estimate_media_tokens_for(plan.attachments, media_context)
 
         # Ensure we have a reasonable minimum budget
         effective_max_tokens = max(1000, effective_max_tokens)
@@ -1188,8 +1165,9 @@ class BaseTool(ABC):
             else:
                 logger.debug(f"[FILES] {self.name}: No skipped files to note")
 
-        if media:
-            content_parts.append(media_prompt_section(media))
+        media_section = plan.prompt_section()
+        if media_section:
+            content_parts.append(media_section)
             actually_processed_files.extend(attachment.path for attachment in media)
 
         result = "".join(content_parts) if content_parts else ""
@@ -1197,6 +1175,58 @@ class BaseTool(ABC):
             f"[FILES] {self.name}: _prepare_file_content_for_prompt returning {len(result)} chars, {len(actually_processed_files)} processed files"
         )
         return result, actually_processed_files
+
+    def _file_token_budget(
+        self,
+        max_tokens: Optional[int] = None,
+        reserve_tokens: int = 1_000,
+        remaining_budget: Optional[int] = None,
+        arguments: Optional[dict] = None,
+        model_context: Optional[Any] = None,
+    ) -> int:
+        """Tokens this request's files (text and media together) may take, as _prepare_file_content_for_prompt sizes
+        them before reserving media: the remaining budget after history (``_remaining_tokens``), else
+        ``max_tokens``, else the model's file allocation, each less ``reserve_tokens``. Re-attach trims earlier media
+        against this same number (_plan_call_media)."""
+        # Extract remaining budget from arguments if available
+        if remaining_budget is None:
+            # Use provided arguments or fall back to stored arguments from execute()
+            args_to_use = arguments or getattr(self, "_current_arguments", {})
+            remaining_budget = args_to_use.get("_remaining_tokens")
+
+        # Use remaining budget if provided, otherwise fall back to max_tokens or model-specific default
+        if remaining_budget is not None:
+            return remaining_budget - reserve_tokens
+        if max_tokens is not None:
+            return max_tokens - reserve_tokens
+
+        # Use model_context for token allocation
+        if not model_context:
+            # Try to get from stored attributes as fallback
+            model_context = getattr(self, "_model_context", None)
+            if not model_context:
+                logger.error(
+                    f"[FILES] {self.name}: _prepare_file_content_for_prompt called without model_context. "
+                    "This indicates an incorrect call sequence in the tool's implementation."
+                )
+                raise RuntimeError("Model context not provided for file preparation.")
+
+        # This is now the single source of truth for token allocation.
+        try:
+            token_allocation = model_context.calculate_token_allocation()
+            # Standardize on `file_tokens` for consistency and correctness.
+            logger.debug(
+                f"[FILES] {self.name}: Using model context for {model_context.model_name}: "
+                f"{token_allocation.file_tokens:,} file tokens from {token_allocation.total_tokens:,} total"
+            )
+            return token_allocation.file_tokens - reserve_tokens
+        except Exception as e:
+            logger.error(
+                f"[FILES] {self.name}: Failed to calculate token allocation from model context: {e}", exc_info=True
+            )
+            # If the context exists but calculation fails, we still need to prevent a crash.
+            # A loud error is logged, and we fall back to a safe default.
+            return 100_000 - reserve_tokens
 
     def get_websearch_instruction(self, tool_specific: Optional[str] = None) -> str:
         """
@@ -1442,9 +1472,16 @@ When recommending searches, be specific about what information you need and why 
 
                 intent = model_name.strip().lower()
                 tool_category = self.get_model_category()
-                # Route on attached media; raises MediaNotSupportedError (a ValueError) if no model takes it
+                # Route on attached media, the thread's earlier media included: a follow-up re-attaches it
+                # (_plan_call_media), and explicit-only providers must never get it unnamed. Raises
+                # MediaNotSupportedError (a ValueError) if no model takes it.
+                required_media = media_kinds_from_arguments(arguments)
+                continuation_id = arguments.get("continuation_id")
+                thread = get_thread(continuation_id) if continuation_id else None
+                if thread is not None:
+                    required_media |= get_conversation_media_kinds(thread)
                 model_name = ModelProviderRegistry.resolve_model_intent(
-                    intent, tool_category, required_media=media_kinds_from_arguments(arguments)
+                    intent, tool_category, required_media=required_media
                 )
                 logger.info(
                     f"{intent} resolved to '{model_name}' for {self.get_name()} tool (category: {tool_category.value})"
@@ -1507,19 +1544,10 @@ When recommending searches, be specific about what information you need and why 
 
         return classify_media(paths)[1]
 
-    def _paths_from_initial_context(self, arguments: dict, key: str) -> list[str]:
-        """Paths the server copied into this call from the thread's first turn (reconstruct_thread_context).
-
-        ``~`` is expanded, as the chat tool does to request paths before media is classified, so the
-        result compares equal to ``MediaAttachment.path``.
-        """
-        if key not in (arguments.get("_initial_context_keys") or ()):
-            return []
-        return [os.path.expanduser(str(path)) for path in arguments.get(key) or []]
-
-    def _validate_media_support(self, media: list, model_context: Any, carried_over=()) -> None:
+    def _validate_media_support(self, media: list, model_context: Any) -> None:
         """Fail fast unless every attachment is within size limits and the model's flags AND its
-        provider's encoder cover it. ``carried_over``: paths re-sent from the thread's first turn."""
+        provider's encoder cover it. For the media a call names itself: earlier turns' media the model
+        cannot take is left out with a note instead (_plan_call_media)."""
         if not media:
             return
         from providers.registry import ModelProviderRegistry
@@ -1541,41 +1569,41 @@ When recommending searches, be specific about what information you need and why 
             return
         capable = ModelProviderRegistry.find_media_capable_models(required)
         content = format_media_error(model_context.model_name, missing, media, capable)
-        carried_paths = set(carried_over)
-        carried = [a.name for a in media if a.kind in missing and a.path in carried_paths]
-        if carried:
-            content += (
-                f" {', '.join(carried)} came from the first turn of this conversation: its files are re-sent on "
-                "every follow-up that omits the file list. Pass the file list explicitly without the media, or "
-                "start a new conversation (no continuation_id)."
-            )
         metadata.update({"missing_media": sorted(kind.value for kind in missing), "capable_models": capable})
         output = ToolOutput(status="error", content=content, content_type="text", metadata=metadata)
         raise ToolExecutionError(output.model_dump_json())
 
-    def _unattached_thread_media_note(self, continuation_id: Optional[str], media: list) -> str:
-        """Prompt note naming media that earlier turns of this thread attached but this request does not."""
-        if not continuation_id:
-            return ""
-        thread = get_thread(continuation_id)
-        if not thread:
-            return ""
-        from utils.media import classify_media
+    def _plan_call_media(
+        self, own_media: list, continuation_id: Optional[str], model_context: Any, budget_tokens: Optional[int]
+    ):
+        """What one model call attaches (utils.media.MediaPlan): ``own_media`` (already validated), plus the media
+        earlier turns of the thread attached (re-attach), in first-seen order.
 
-        # Compare resolved files, not spellings: a symlink or "~/clip.mp4" names the same attachment.
-        attached = {attachment.source_path for attachment in media}
-        earlier_paths = [os.path.expanduser(str(path)) for turn in thread.turns for path in (turn.files or [])]
-        missing = [
-            attachment for attachment in classify_media(earlier_paths)[1] if attachment.source_path not in attached
-        ]
-        if not missing:
-            return ""
-        listed = "; ".join(attachment.describe() for attachment in missing)
-        return (
-            "\n\n=== MEDIA NOT ATTACHED ===\n"
-            f"Earlier turns of this conversation attached: {listed}. They are NOT attached to this request, "
-            "so do not describe their contents from memory; ask for the file to be sent again if you need it.\n"
-            "=== END MEDIA NOT ATTACHED ==="
+        Earlier media is left out, with a note for the prompt, when its file is gone, the model or its provider's
+        encoder cannot take its kind, or it does not fit ``budget_tokens`` (the tool's file budget,
+        _file_token_budget) or the provider's inline request size, oldest first. Without earlier media the plan is
+        ``own_media`` as is, so first turns are unchanged.
+        """
+        from utils.media import MediaPlan, plan_media
+
+        thread = get_thread(continuation_id) if continuation_id else None
+        earlier = get_conversation_media_list(thread) if thread is not None else []
+        if not earlier:
+            return MediaPlan.own_only(own_media)
+        provider = model_context.provider
+        supported = model_context.capabilities.supported_media_kinds() & frozenset(provider.MEDIA_KINDS)
+        max_request_bytes = getattr(provider, "MEDIA_REQUEST_MAX_BYTES", None)
+        if not isinstance(max_request_bytes, int) or isinstance(max_request_bytes, bool):
+            max_request_bytes = None
+        return plan_media(
+            own_media,
+            earlier,
+            get_conversation_media_first_seen(thread),
+            supported=supported,
+            model_name=model_context.model_name,
+            budget_tokens=budget_tokens,
+            model_context=model_context,
+            max_request_bytes=max_request_bytes,
         )
 
     def _validate_image_limits(

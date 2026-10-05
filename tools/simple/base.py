@@ -285,6 +285,8 @@ class SimpleTool(BaseTool):
         try:
             # Store arguments for access by helper methods
             self._current_arguments = arguments
+            # This call's media plan (_plan_call_media): set below once the model is known, cleared on exit
+            self._media_plan = None
 
             logger.info(f"🔧 {self.get_name()} tool called with arguments: {list(arguments.keys())}")
 
@@ -318,12 +320,20 @@ class SimpleTool(BaseTool):
             images = self.get_request_images(request)
 
             # Native media (PDF/audio/video) among the request files: validated before any prompt work
-            media = self._media_from_paths(self.get_request_files(request))
-            self._validate_media_support(
-                media, self._model_context, self._paths_from_initial_context(arguments, "absolute_file_paths")
-            )
+            own_media = self._media_from_paths(self.get_request_files(request))
+            self._validate_media_support(own_media, self._model_context)
 
             continuation_id = self.get_request_continuation_id(request)
+
+            # Plus the media earlier turns attached (re-attach), trimmed to what this model and budget take. The
+            # prompt's file section announces exactly this list (_prepare_file_content_for_prompt reads the plan).
+            self._media_plan = self._plan_call_media(
+                own_media,
+                continuation_id,
+                self._model_context,
+                self._file_token_budget(arguments=arguments, model_context=self._model_context),
+            )
+            media = list(self._media_plan.attachments)
 
             # Handle conversation history and prompt preparation
             if continuation_id:
@@ -383,8 +393,11 @@ class SimpleTool(BaseTool):
                     f"Added follow-up instructions for new {self.get_name()} conversation"
                 )  # Validate images if any were provided
 
-            # The media list is final: tell the model about earlier-turn media that is not attached this time
-            prompt += self._unattached_thread_media_note(continuation_id, media)
+            # Every attachment is announced, in attachment order, with notes for earlier media left out. Prompts
+            # built without the file section (no build_standard_prompt) get the announcement here.
+            media_section = self._media_plan.prompt_section()
+            if media_section and media_section not in prompt:
+                prompt += media_section
 
             if images:
                 image_validation_error = self._validate_image_limits(
@@ -591,6 +604,9 @@ class SimpleTool(BaseTool):
                 content_type="text",
             )
             raise ToolExecutionError(error_output.model_dump_json()) from e
+        finally:
+            # Tool instances are shared across calls: never let this call's plan reach the next one
+            self._media_plan = None
 
     def _parse_response(self, raw_text: str, request, model_info: Optional[dict] = None):
         """
@@ -771,6 +787,12 @@ class SimpleTool(BaseTool):
             if model_response:
                 model_metadata = {"usage": model_response.usage, "metadata": model_response.metadata}
 
+        # The media this call attached itself; re-attached earlier media stays recorded on the turn that attached it
+        from utils.media import MediaPlan
+
+        plan = getattr(self, "_media_plan", None)
+        if not isinstance(plan, MediaPlan):
+            plan = None
         add_turn(
             continuation_id,
             "assistant",
@@ -781,6 +803,7 @@ class SimpleTool(BaseTool):
             model_provider=model_provider,
             model_name=model_name,
             model_metadata=model_metadata,
+            media=[attachment.path for attachment in plan.own] if plan else None,
         )
 
     # Convenience methods for common tool patterns
@@ -810,9 +833,13 @@ class SimpleTool(BaseTool):
         content_to_validate = self.get_prompt_content_for_size_validation(user_content)
         self._validate_token_limit(content_to_validate, "Content")
 
-        # Add context files if provided (does not affect MCP boundary enforcement)
+        # Add context files if provided (does not affect MCP boundary enforcement), and the media this call attaches
+        # (earlier turns' media included, see _plan_call_media) even when it names no files itself
+        from utils.media import MediaPlan
+
         files = self.get_request_files(request)
-        if files:
+        plan = getattr(self, "_media_plan", None)
+        if files or (isinstance(plan, MediaPlan) and (plan.attachments or plan.omitted)):
             file_content, processed_files = self._prepare_file_content_for_prompt(
                 files,
                 self.get_request_continuation_id(request),

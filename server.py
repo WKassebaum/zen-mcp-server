@@ -895,18 +895,16 @@ async def _handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCo
         # Resolve 'auto' or an intent word ('frontier', 'balanced', 'fast') at the MCP boundary. Any other name is
         # a model and is used exactly as named: it never reaches the resolver.
         if ModelProviderRegistry.is_model_intent(model_name):
-            from tools.workflow.base import WorkflowTool
             from utils.media import MediaNotSupportedError
 
             intent = model_name.strip().lower()
             # Get tool category to determine appropriate model
             tool_category = tool.get_model_category()
-            # Route on the media this call attaches. A workflow's final expert call also attaches media
-            # from this tool's earlier steps (consolidated relevant_files), and workflow turns store no
-            # model to reuse, so include those steps' media too.
+            # Route on the media this call attaches: its own, the media earlier turns of the thread attached (a
+            # follow-up re-attaches it), and for a workflow's final expert call its earlier steps' media.
             continuation_id = arguments.get("continuation_id")
             thread = None
-            if continuation_id and isinstance(tool, WorkflowTool):
+            if continuation_id:
                 from utils.conversation_memory import get_thread
 
                 thread = get_thread(continuation_id)
@@ -1014,16 +1012,25 @@ def _media_unavailable_error(tool_name: str, requested_model: str, exc: Exceptio
 
 
 def _call_media_kinds(tool_name: Optional[str], tool: Any, arguments: dict[str, Any], thread: Any) -> frozenset:
-    """Media kinds a call sends: what its own file arguments name, plus, for a workflow tool, the files its earlier
-    steps recorded in ``thread``. A workflow's final expert call attaches those too (consolidated relevant_files),
-    and workflow turns store no model, so routing must count them."""
+    """Media kinds a call sends: what its own file arguments name, plus what ``thread`` adds.
+
+    - Any tool: the media earlier turns attached (ConversationTurn.media). A follow-up re-attaches it
+      (BaseTool._plan_call_media), so routing must count it like the call's own.
+    - A workflow tool: also the files its earlier steps recorded. Its final expert call attaches those too
+      (consolidated relevant_files), and workflow turns store no model, so routing must count them.
+    """
     from tools.workflow.base import WorkflowTool
+    from utils.conversation_memory import get_conversation_media_kinds
     from utils.media import media_kinds_from_arguments, media_kinds_from_paths
 
     kinds = media_kinds_from_arguments(arguments)
-    if thread is not None and isinstance(tool, WorkflowTool):
-        earlier_files = [path for turn in thread.turns if turn.tool_name == tool_name for path in (turn.files or [])]
-        kinds |= media_kinds_from_paths(earlier_files)
+    if thread is not None:
+        kinds |= get_conversation_media_kinds(thread)
+        if isinstance(tool, WorkflowTool):
+            earlier_files = [
+                path for turn in thread.turns if turn.tool_name == tool_name for path in (turn.files or [])
+            ]
+            kinds |= media_kinds_from_paths(earlier_files)
     return kinds
 
 
@@ -1033,7 +1040,8 @@ def _carries_media_to_explicit_only_provider(
     """Whether reusing ``model_name`` would hand this call's media to a provider with MEDIA_AUTO_ROUTING False.
 
     The call's media (_call_media_kinds) is read from its arguments with the first turn's merged in where the call
-    names none, as reconstruct_thread_context merges initial_context, plus a workflow's earlier steps' files.
+    names none, plus the media earlier turns attached (re-attached on every follow-up) and a workflow's earlier
+    steps' files.
     """
     from providers.registry import ModelProviderRegistry
 
@@ -1042,6 +1050,23 @@ def _carries_media_to_explicit_only_provider(
         return False
     effective = {**(context.initial_context or {}), **arguments}
     return bool(_call_media_kinds(tool_name, TOOLS.get(tool_name) if tool_name else None, effective, context))
+
+
+def _without_media(paths: Any, context: Any) -> Any:
+    """``paths`` (a file argument from initial_context) without its media: what is media now, and what the thread
+    recorded as attached media (a deleted media file is no longer detectable as media, and must not be read as
+    text). Anything that is not a list of paths is returned unchanged."""
+    from utils.conversation_memory import get_conversation_media_list
+    from utils.media import classify_media, media_file_identity
+
+    if isinstance(paths, str):
+        paths = [paths]
+    if not isinstance(paths, (list, tuple)):
+        return paths
+    recorded = {media_file_identity(path) for path in get_conversation_media_list(context)}
+    expanded = [os.path.expanduser(str(path)) for path in paths]
+    text = set(classify_media(expanded)[0])
+    return [path for path, full in zip(paths, expanded) if full in text and media_file_identity(full) not in recorded]
 
 
 def parse_model_option(model_string: str) -> tuple[str, Optional[str]]:
@@ -1261,7 +1286,7 @@ async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optio
             context = get_thread(continuation_id) or context
 
     # Create model context early to use for history building
-    from utils.media import MediaNotSupportedError, media_kinds_from_arguments
+    from utils.media import FILE_ARGUMENT_KEYS, MediaNotSupportedError, media_kinds_from_arguments
     from utils.model_context import ModelContext
 
     tool = TOOLS.get(context.tool_name)
@@ -1460,14 +1485,16 @@ async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optio
     # Merge original context parameters (files, etc.) with new request
     if context.initial_context:
         logger.debug(f"[CONVERSATION_DEBUG] Merging initial context with {len(context.initial_context)} parameters")
-        merged_keys = []
         for key, value in context.initial_context.items():
             if key not in enhanced_arguments and key not in ["temperature", "thinking_mode", "model"]:
+                if key in FILE_ARGUMENT_KEYS:
+                    # First-turn text files only: earlier turns' media comes back through re-attach
+                    # (BaseTool._plan_call_media), which also covers media attached after the first turn
+                    value = _without_media(value, context)
+                    if not value:
+                        continue
                 enhanced_arguments[key] = value
-                merged_keys.append(key)
                 logger.debug(f"[CONVERSATION_DEBUG] Merged initial context param: {key}")
-        # Lets tools say so when media the user did not attach this turn was carried over from the first turn
-        enhanced_arguments["_initial_context_keys"] = merged_keys
 
     logger.info(f"Reconstructed context for thread {continuation_id} (turn {len(context.turns)})")
     logger.debug(f"[CONVERSATION_DEBUG] Final enhanced arguments keys: {list(enhanced_arguments.keys())}")
