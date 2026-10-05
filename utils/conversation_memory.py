@@ -113,7 +113,7 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 from utils.env import get_env
-from utils.media import media_file_identity, media_type_for
+from utils.media import FILE_ARGUMENT_KEYS, MEDIA_TYPES, media_file_identity, media_type_for
 
 logger = logging.getLogger(__name__)
 
@@ -518,11 +518,44 @@ def get_conversation_file_list(context: ThreadContext) -> list[str]:
     return file_list
 
 
+def _names_media(path: str) -> bool:
+    """Whether a first-turn file argument names media: an existing, correctly signed media file, or an absolute path
+    with a media extension that no longer exists (it was media then, and must not be read as text now)."""
+    if media_type_for(path) is not None:
+        return True
+    return os.path.isabs(path) and os.path.splitext(path)[1].lower() in MEDIA_TYPES and not os.path.exists(path)
+
+
+def _unrecorded_first_turn_media(context: ThreadContext, recorded: set[str]) -> list[str]:
+    """Media the first turn named (initial_context file arguments) that no turn recorded as attached, in argument
+    order, deduped by resolved file. ``recorded``: the resolved files the turns recorded.
+
+    Threads stored before turns recorded media, threads clink started (it records none) and workflow steps that never
+    reached the expert call name media only here.
+    """
+    media: list[str] = []
+    seen = set(recorded)
+    for key in FILE_ARGUMENT_KEYS:
+        value = (context.initial_context or {}).get(key)
+        if isinstance(value, str):  # request models wrap a bare string
+            value = [value]
+        if not isinstance(value, (list, tuple)):
+            continue
+        for path in value:
+            expanded = os.path.expanduser(str(path))
+            identity = media_file_identity(expanded)
+            if identity not in seen and _names_media(expanded):
+                seen.add(identity)
+                media.append(str(path))
+    return media
+
+
 def get_conversation_media_list(context: ThreadContext) -> list[str]:
     """Media paths earlier turns attached (ConversationTurn.media), newest first, deduped by resolved file.
 
     The same newest-first walk as get_conversation_file_list: a file attached on several turns appears once, under
-    the spelling and at the position of its newest turn. Follow-ups re-attach these; budget trimming drops the end of
+    the spelling and at the position of its newest turn. Media the first turn named that no turn recorded
+    (_unrecorded_first_turn_media) counts as the oldest. Follow-ups re-attach these; budget trimming drops the end of
     this list (the media attached longest ago) first.
     """
     seen: set[str] = set()
@@ -533,14 +566,15 @@ def get_conversation_media_list(context: ThreadContext) -> list[str]:
             if identity not in seen:
                 seen.add(identity)
                 media.append(path)
-    return media
+    return media + _unrecorded_first_turn_media(context, seen)
 
 
 def get_conversation_media_first_seen(context: ThreadContext) -> list[str]:
     """Media paths earlier turns attached, oldest first by the turn that first attached each file.
 
     The order media is attached in (a stable request prefix for providers' prompt caches): a file attached again
-    later keeps its first position, and media new to the thread goes after everything seen before.
+    later keeps its first position, and media new to the thread goes after everything seen before. Media the first
+    turn named that no turn recorded (_unrecorded_first_turn_media) comes first.
     """
     seen: set[str] = set()
     media: list[str] = []
@@ -550,7 +584,7 @@ def get_conversation_media_first_seen(context: ThreadContext) -> list[str]:
             if identity not in seen:
                 seen.add(identity)
                 media.append(path)
-    return media
+    return _unrecorded_first_turn_media(context, seen) + media
 
 
 def get_conversation_media_kinds(context: ThreadContext) -> frozenset:

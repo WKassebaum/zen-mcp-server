@@ -1053,9 +1053,10 @@ def _carries_media_to_explicit_only_provider(
 
 
 def _without_media(paths: Any, context: Any) -> Any:
-    """``paths`` (a file argument from initial_context) without its media: what is media now, and what the thread
-    recorded as attached media (a deleted media file is no longer detectable as media, and must not be read as
-    text). Anything that is not a list of paths is returned unchanged."""
+    """``paths`` (a file argument from initial_context) without its media: what is media now, and the thread's
+    earlier media (get_conversation_media_list: what turns recorded, plus first-turn media no turn recorded, a
+    deleted file included by its media extension). A deleted media file is no longer detectable as media, and must
+    not be read as text; re-attach reports it instead. Anything that is not a list of paths is returned unchanged."""
     from utils.conversation_memory import get_conversation_media_list
     from utils.media import classify_media, media_file_identity
 

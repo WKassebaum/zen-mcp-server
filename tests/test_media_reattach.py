@@ -592,3 +592,81 @@ async def test_consensus_own_text_files_come_before_re_attached_media(tmp_path):
     assert "BIG_MARKER_0169" in prompt and "SKIPPED FILES" not in prompt
     assert follow_up.call_args.kwargs.get("media") is None
     assert "[omitted: older a.pdf — over budget]" in prompt
+
+
+# --- first-turn media no turn recorded (older threads, clink, a workflow without an expert call) -------------------
+
+
+def _legacy_thread(tmp_path, *paths):
+    """A thread whose first turn named ``paths`` but whose turns recorded no media, as stored before 5b."""
+    thread_id = create_thread("chat", {"prompt": "look", "absolute_file_paths": list(paths)})
+    add_turn(thread_id, "user", "look", files=list(paths))
+    add_turn(thread_id, "assistant", "seen", files=list(paths), tool_name="chat")
+    return thread_id
+
+
+@pytest.mark.asyncio
+async def test_legacy_first_turn_media_is_re_attached_once(tmp_path):
+    pdf = _pdf(tmp_path, "a.pdf")
+    thread_id = _legacy_thread(tmp_path, pdf)
+    _, generate = await _chat(tmp_path, continuation_id=thread_id)
+    assert _names(generate.call_args) == ["a.pdf"]
+    assert generate.call_args.kwargs["prompt"].count("--- MEDIA FILE:") == 1
+
+
+@pytest.mark.asyncio
+async def test_legacy_first_turn_media_is_the_oldest_earlier_media(tmp_path):
+    first, second = _pdf(tmp_path, "a.pdf"), _pdf(tmp_path, "b.pdf", b"HORSE")
+    thread_id = _legacy_thread(tmp_path, first)
+    add_turn(thread_id, "assistant", "and b", media=[second], tool_name="chat")
+    thread = get_thread(thread_id)
+    assert get_conversation_media_list(thread) == [second, first]  # newest first: dropped first when over budget
+    assert get_conversation_media_first_seen(thread) == [first, second]  # attached first
+
+
+def test_first_turn_media_a_turn_recorded_is_not_doubled(tmp_path):
+    first, second = _pdf(tmp_path, "a.pdf"), _pdf(tmp_path, "b.pdf", b"HORSE")
+    thread_id = create_thread("chat", {"prompt": "look", "absolute_file_paths": [first]})
+    add_turn(thread_id, "assistant", "seen", media=[first], tool_name="chat")
+    add_turn(thread_id, "assistant", "and b", media=[second], tool_name="chat")
+    add_turn(thread_id, "assistant", "a again", media=[first], tool_name="chat")
+    thread = get_thread(thread_id)
+    assert get_conversation_media_list(thread) == [first, second]
+    assert get_conversation_media_first_seen(thread) == [first, second]
+
+
+@pytest.mark.asyncio
+async def test_deleted_legacy_first_turn_media_gets_the_note_and_is_not_read_as_text(tmp_path):
+    pdf = _pdf(tmp_path, "report.pdf")
+    thread_id = _legacy_thread(tmp_path, pdf)
+    os.remove(pdf)
+    _, generate = await _chat(tmp_path, continuation_id=thread_id)
+    prompt = generate.call_args.kwargs["prompt"]
+    assert generate.call_args.kwargs.get("media") is None
+    assert "[omitted: earlier report.pdf — file no longer exists]" in prompt
+    assert "FILE NOT FOUND" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_media_a_workflow_step_named_without_an_expert_call_is_re_attached(tmp_path):
+    # An intermediate analyze step names the PDF but calls no model; a chat follow-up on the thread still sends it
+    import server
+
+    pdf = _pdf(tmp_path, "spec.pdf")
+    result = await server.handle_call_tool(
+        "analyze",
+        {
+            "step": "Look at the spec",
+            "step_number": 1,
+            "total_steps": 2,
+            "next_step_required": True,
+            "findings": "Started.",
+            "relevant_files": [pdf],
+            "model": GEMINI,
+        },
+    )
+    thread_id = json.loads(result[0].text)["continuation_id"]
+    assert get_thread(thread_id).initial_context["relevant_files"] == [pdf]
+    assert not any(turn.media for turn in get_thread(thread_id).turns)
+    _, generate = await _chat(tmp_path, continuation_id=thread_id)
+    assert _names(generate.call_args) == ["spec.pdf"]
