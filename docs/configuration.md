@@ -67,6 +67,8 @@ CUSTOM_MODEL_NAME=llama3.2                          # Default model
 DEFAULT_MODEL=auto  # Claude picks best model for each task (recommended)
 ```
 
+- **Intent words:** a tool call's `model` (or the CLI's `--model`) can be `frontier`, `balanced` or `fast` instead of a model name. Like `auto`, each resolves per call within your keys, allow-lists and attached media: `frontier` is the highest-ranked model across every configured provider, `balanced` and `fast` are the BALANCED and FAST_RESPONSE picks. Any other name is used exactly as named.
+
 - **Available Models:** The canonical capability data for native providers lives in JSON manifests under `conf/`:
   - `conf/openai_models.json` – OpenAI catalogue (can be overridden with `OPENAI_MODELS_CONFIG_PATH`)
   - `conf/gemini_models.json` – Gemini catalogue (`GEMINI_MODELS_CONFIG_PATH`)

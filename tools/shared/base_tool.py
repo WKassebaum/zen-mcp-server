@@ -42,6 +42,9 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# The model field's note on intent words (providers.registry.INTENT_MODELS), in auto and non-auto mode alike
+INTENT_MODELS_NOTE = "Or an intent: 'frontier' (best available), 'balanced', 'fast'; 'auto' picks per tool."
+
 
 class BaseTool(ABC):
     """
@@ -547,7 +550,8 @@ class BaseTool(ABC):
         if self.is_effective_auto_mode():
             description = (
                 "Currently in auto model selection mode. CRITICAL: When the user names a model, you MUST use that exact name unless the server rejects it. "
-                "If no model is provided, you may use the `listmodels` tool to review options and select an appropriate match."
+                "If no model is provided, you may use the `listmodels` tool to review options and select an appropriate match. "
+                f"{INTENT_MODELS_NOTE}"
             )
             summaries, total, restricted = self._get_ranked_model_summaries()
             remainder = max(0, total - len(summaries))
@@ -571,7 +575,8 @@ class BaseTool(ABC):
 
         description = (
             f"The default model is '{DEFAULT_MODEL}'. Override only when the user explicitly requests a different model, and use that exact name. "
-            "If the requested model fails validation, surface the server error instead of substituting another model. When unsure, use the `listmodels` tool for details."
+            "If the requested model fails validation, surface the server error instead of substituting another model. When unsure, use the `listmodels` tool for details. "
+            f"{INTENT_MODELS_NOTE}"
         )
         summaries, total, restricted = self._get_ranked_model_summaries()
         remainder = max(0, total - len(summaries))
@@ -1430,18 +1435,19 @@ When recommending searches, be specific about what information you need and why 
                 model_name = DEFAULT_MODEL
             logger.debug(f"Using fallback model resolution for '{model_name}' (CLI mode)")
 
-            # Handle auto mode: Intelligently select model based on tool category
-            if model_name.lower() == "auto":
-                tool_category = self.get_model_category()
-                from providers.registry import ModelProviderRegistry
+            # Resolve 'auto' or an intent word ('frontier', 'balanced', 'fast'). Any other name is a model and is
+            # used exactly as named: it never reaches the resolver.
+            if ModelProviderRegistry.is_model_intent(model_name):
                 from utils.media import media_kinds_from_arguments
 
+                intent = model_name.strip().lower()
+                tool_category = self.get_model_category()
                 # Route on attached media; raises MediaNotSupportedError (a ValueError) if no model takes it
-                model_name = ModelProviderRegistry.get_preferred_fallback_model(
-                    tool_category, required_media=media_kinds_from_arguments(arguments)
+                model_name = ModelProviderRegistry.resolve_model_intent(
+                    intent, tool_category, required_media=media_kinds_from_arguments(arguments)
                 )
                 logger.info(
-                    f"Auto mode resolved to '{model_name}' for {self.get_name()} tool (category: {tool_category.value})"
+                    f"{intent} resolved to '{model_name}' for {self.get_name()} tool (category: {tool_category.value})"
                 )
 
             # Check if model is available

@@ -86,7 +86,11 @@ class ListModelsTool(BaseTool):
         from providers.shared import ProviderType
         from utils.model_restrictions import get_restriction_service
 
-        output_lines = ["# Available AI Models\n"]
+        output_lines = [
+            "# Available AI Models\n",
+            "Instead of a model name, `model` takes an intent: `frontier` (best available), `balanced`, `fast`; "
+            "`auto` picks per tool. A named model is always used exactly as named.\n",
+        ]
 
         restriction_service = get_restriction_service()
         restricted_models_by_provider: dict[ProviderType, list[str]] = {}

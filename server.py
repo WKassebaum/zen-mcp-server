@@ -863,11 +863,13 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
             # Execute tool directly without model context
             return await tool.execute(arguments)
 
-        # Handle auto mode at MCP boundary - resolve to specific model
-        if model_name.lower() == "auto":
+        # Resolve 'auto' or an intent word ('frontier', 'balanced', 'fast') at the MCP boundary. Any other name is
+        # a model and is used exactly as named: it never reaches the resolver.
+        if ModelProviderRegistry.is_model_intent(model_name):
             from tools.workflow.base import WorkflowTool
             from utils.media import MediaNotSupportedError
 
+            intent = model_name.strip().lower()
             # Get tool category to determine appropriate model
             tool_category = tool.get_model_category()
             # Route on the media this call attaches. A workflow's final expert call also attaches media
@@ -881,12 +883,12 @@ async def handle_call_tool(name: str, arguments: dict[str, Any]) -> list[TextCon
                 thread = get_thread(continuation_id)
             required_media = _call_media_kinds(name, tool, arguments, thread)
             try:
-                resolved_model = ModelProviderRegistry.get_preferred_fallback_model(
-                    tool_category, required_media=required_media
+                resolved_model = ModelProviderRegistry.resolve_model_intent(
+                    intent, tool_category, required_media=required_media
                 )
             except MediaNotSupportedError as exc:
-                raise _media_unavailable_error(name, "auto", exc) from exc
-            logger.info(f"Auto mode resolved to {resolved_model} for {name} (category: {tool_category.value})")
+                raise _media_unavailable_error(name, intent, exc) from exc
+            logger.info(f"{intent} resolved to {resolved_model} for {name} (category: {tool_category.value})")
             model_name = resolved_model
             # Update arguments with resolved model
             arguments["model"] = model_name
@@ -1303,8 +1305,13 @@ async def reconstruct_thread_context(arguments: dict[str, Any], tool_name: Optio
             fallback_model = None
             if tool is not None:
                 try:
-                    fallback_model = ModelProviderRegistry.get_preferred_fallback_model(
-                        tool.get_model_category(), required_media=media_kinds_from_arguments(arguments)
+                    # 'auto' or an intent word: size the history for the model the MCP boundary will resolve it
+                    # to. Any other unavailable name: the tool category's pick.
+                    required_media = media_kinds_from_arguments(arguments)
+                    fallback_model = ModelProviderRegistry.resolve_model_intent(
+                        model_context.model_name, tool.get_model_category(), required_media=required_media
+                    ) or ModelProviderRegistry.get_preferred_fallback_model(
+                        tool.get_model_category(), required_media=required_media
                     )
                 except MediaNotSupportedError as media_exc:
                     # model=auto lands here: refuse media no available model takes, as the auto block does

@@ -11,6 +11,10 @@ from .shared import ProviderType
 if TYPE_CHECKING:
     from tools.models import ToolModelCategory
 
+# Words that stand for a pick instead of naming a model, as 'auto' does (resolve_model_intent). Case-insensitive. No
+# catalog name or alias may use one: tests/test_intent_models.py checks every conf/*_models.json.
+INTENT_MODELS = ("frontier", "balanced", "fast")
+
 
 class ModelProviderRegistry:
     """Central catalogue of provider implementations used by the MCP server.
@@ -498,6 +502,66 @@ class ModelProviderRegistry:
         # Ultimate fallback if no providers have models
         logging.warning("No models available from any provider, using default fallback")
         return "gemini-3.8-flash"
+
+    @classmethod
+    def is_model_intent(cls, name: Optional[str]) -> bool:
+        """Whether ``name`` is 'auto' or an intent word (INTENT_MODELS) rather than a model name."""
+        return isinstance(name, str) and name.strip().lower() in ("auto", *INTENT_MODELS)
+
+    @classmethod
+    def resolve_model_intent(
+        cls,
+        name: Optional[str],
+        tool_category: "ToolModelCategory",
+        required_media: frozenset = frozenset(),
+    ) -> Optional[str]:
+        """The model 'auto' or an intent word stands for; None for any other name, which is used exactly as named.
+
+        - auto: the tool category's pick (get_preferred_fallback_model).
+        - fast / balanced: the FAST_RESPONSE / BALANCED pick, whatever the tool's category.
+        - frontier: the highest-ranked allowed model across every configured provider, premium included. Ties
+          break by PROVIDER_PRIORITY_ORDER, then canonical name.
+
+        Every word respects restrictions and required_media, so explicit-only providers (MEDIA_AUTO_ROUTING False)
+        never get media this way. Raises MediaNotSupportedError when no available model takes required_media.
+        """
+        from tools.models import ToolModelCategory
+
+        if not cls.is_model_intent(name):
+            return None
+        word = name.strip().lower()
+        if word == "frontier":
+            best = None
+            for _provider_type, ranked in cls._ranked_allowed_models(required_media):
+                # Providers come in priority order and rank_models breaks a tie by name, so a later provider
+                # wins only by ranking strictly higher.
+                if best is None or ranked[0].get_effective_capability_rank() > best.get_effective_capability_rank():
+                    best = ranked[0]
+            if best is not None:
+                return best.model_name
+            # Nothing allowed anywhere: the category pick raises for media, or returns the default fallback
+            return cls.get_preferred_fallback_model(tool_category, required_media=required_media)
+        category = {"fast": ToolModelCategory.FAST_RESPONSE, "balanced": ToolModelCategory.BALANCED}.get(
+            word, tool_category
+        )
+        return cls.get_preferred_fallback_model(category, required_media=required_media)
+
+    @classmethod
+    def _ranked_allowed_models(cls, required_media: frozenset = frozenset()):
+        """(provider type, capabilities highest rank first) for each configured provider, in priority order.
+
+        Only allowed models that take required_media are listed (explicit-only providers take none), and a
+        provider left with no model is skipped.
+        """
+        for provider_type in cls.PROVIDER_PRIORITY_ORDER:
+            provider = cls.get_provider(provider_type)
+            if not provider:
+                continue
+            allowed_models = cls._get_allowed_models_for_provider(provider, provider_type)
+            allowed_models = cls._filter_models_for_media(provider, allowed_models, required_media)
+            ranked = provider.rank_models(allowed_models) if allowed_models else []
+            if ranked:
+                yield provider_type, ranked
 
     @classmethod
     def get_available_providers_with_keys(cls) -> list[ProviderType]:
