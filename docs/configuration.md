@@ -248,6 +248,16 @@ Conversation follow-ups:
 
 A named model that cannot take the attached media is refused before any API call, with a list of models available with your current keys that can.
 
+When xAI runs server-side search calls, zen logs a warning ("xAI ran N server-side search call(s) for <model>; billed separately ($5 per 1,000)") and adds the same line to the output as `media_notice`, next to the count in `server_side_tool_calls`.
+
+**What was attached.** Each response lists its media in the output metadata (MCP output and the CLI's `--json`) as `media_attached`: name, kind, bytes, and `transport` (`inline`, `uploaded` or `cached`), plus the Files API name (`file_name`) for an upload. Simple tools put it next to `model_used`; workflow tools in the expert analysis block's `metadata`; consensus in each model's response `metadata`. The CLI's normal output prints the `media_notice` line after the answer.
+
+**Large files on Gemini (upload cache).** Media that does not fit inline (60 MB of raw files per request; the largest files are uploaded first) goes through the Gemini Files API.
+- **Privacy:** media above Gemini's inline cap is stored on Google's servers, in your API key's project, for up to 48 hours.
+- **Reuse:** zen records each upload in `~/.zen/media_uploads.json` (set `ZEN_MEDIA_UPLOAD_CACHE` to move it), keyed by the file's content hash and type, and reuses it for 47 hours, an hour before Google deletes it. Follow-ups, each consensus model and retries then send the same file without uploading it again (`transport: cached`). Before reusing an upload, zen checks with Google that it is still there.
+- **The cache file** is created with mode 0600 and stores a 12-character fingerprint of the API key, never the key; another key's uploads are not reused. Several zen processes can share it.
+- **Deleting:** zen never deletes uploads; Google deletes them after 48 hours. The output names each upload ("Uploaded to the Gemini Files API: files/abc (clip.mp4); Google deletes uploads after 48 h."), so you can delete one sooner through the Gemini API.
+
 ### Advanced Configuration
 
 **Custom Model Configuration & Manifest Overrides:**

@@ -6,7 +6,7 @@ Future work that has been scoped or discovered but deliberately not started. Add
 
 ### Media input (PDF, audio, video)
 - **Recorded:** 2026-09-26
-- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phases 4–5 pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
+- **Status:** Phase 1 (core + Gemini) merged 2026-10-01. Phase 2 (Claude and OpenAI, PDF only) done 2026-10-03: `docs/plans/2026-10-03-media-input-phase2-status.md`. Phase 3 (xAI, PDF only, named Grok models only) done 2026-10-03, all 7 Grok models flagged: `docs/plans/2026-10-03-media-input-phase3-status.md`. Phase 5a (upload cache, non-blocking model calls, media metadata in the output) done 2026-10-04: `docs/plans/2026-10-04-media-input-phase5a-status.md`. Phases 4 and 5b pending. Design: `docs/plans/2026-09-26-media-input-design.md`.
 
 ### Media input phase 1 follow-ups
 Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
@@ -19,11 +19,7 @@ Found by the phase 1 task reviews (2026-09-28 to 09-30); none blocks phase 1.
 - **Prompt-file markers:** `handle_prompt_file` still uses `FILE NOT FOUND` / `NOT A FILE` / `FILE TOO LARGE` marker text as the prompt; only `--- ERROR` markers are skipped (pre-existing).
 - **Binaries that start with a UTF-16/32 BOM:** the U+0000 check after BOM decoding catches few of them (about 8% of random UTF-16 payloads, 0% UTF-32). An incremental decoder with `errors="replace"` treating U+0000 or U+FFFD as binary caught all of them with no false positives in review probes; MPEG-1 Layer I audio with CRC additionally needs a C1-control check.
 - **Gemini 2.5 Flash / Flash-Lite audio is flaky:** in the 2026-09-30 live probe both misheard the spoken number ("Pelican 5", "Pelican") and passed on a single retry, so audio is left unflagged for them. Re-probe (several runs) before flagging. `gemini-2.5-pro` (flagged) misheard once in the B4 live run through zen ("Pelican 002") and passed on rerun; its raw probe was 3/3. Separately, `gemini-2.5-flash-lite` is catalogued `supports_images: false` yet read the PDF and video frames; check its image support and fix the flag.
-- **Files API upload names are not shown to users:** `media_attached` (with each upload's `files/...` name) is in `ModelResponse.metadata` and is persisted on simple-tool conversation turns, but it is not in `--json` or MCP output, and workflow and consensus tools do not persist it. Surface it so a user can delete an upload before Google's 48 h expiry.
-- **Re-upload on a tool-level retry:** the simple tool's empty-response retry calls `generate_content` again, which uploads above-cap media a second time (the provider's own retry loop reuses uploads). The design's upload cache (`~/.zen/media_uploads.json`) would remove the duplicate.
 - **Unusual but valid media headers become a placeholder:** QuickTime files whose first box is `skip`/`pnot`/`uuid`, RF64 WAV, and MP3 with stray bytes after the ID3 tag fail `_magic_matches`, so they get the BINARY FILE placeholder and only the model is told. When a requested path has a media extension, looks binary and fails the signature check, return an error to the user instead (final review, 2026-10-01).
-- **Large media re-uploads on every follow-up and per consensus model:** first-turn media returns through `initial_context` and is uploaded again on each follow-up when above the inline cap; consensus uploads it once per model. The design's upload cache (`~/.zen/media_uploads.json`) would fix both, along with the tool-level retry case above.
-- **Upload polling blocks the MCP server:** `_upload_media` sleeps up to 600 s inside synchronous `generate_content`, which tools call directly from async `execute`, so zen serves no other call (including parallel calls from Claude Code) while a large video processes. Normal API calls already block this way; wrap provider calls in `asyncio.to_thread`.
 - **Binary sniff on symlinks:** `read_file_content` sniffs the resolved path's extension while media detection checks both names, so `notes.txt -> blob` with NUL bytes reports binary (read_files already resolves paths, so rare).
 
 ### Media input phase 2 follow-ups
@@ -40,9 +36,17 @@ Found while building and probing phase 2 (2026-10-03); none blocks it.
 
 ### Media input phase 3 follow-ups
 Found while building phase 3 (2026-10-03); none blocks it.
-- **Server-side tool calls are not surfaced:** `metadata["server_side_tool_calls"]` is not in `--json` or MCP output, `cost_in_usd_ticks` is not copied, and the design's logged warning when xAI's paid search ran is not implemented.
-- **xAI's document search is unpredictable:** on 2026-10-03 the grok-4.20 models ran `attachment_search` 2–3 times even for a one-page PDF (up to 8,889 input tokens), while the other Grok models ran none on four pages. The per-page reserve (2,500; 7,500 on grok-4.20) is set from one run each. Re-probe with longer PDFs (20+ pages) before relying on Grok for long documents, and consider whether `server_side_tool_calls` should raise a warning.
+- **xAI's reported cost is not copied:** `server_side_tool_calls` reaches the output with a warning and a `media_notice` line (phase 5a), but the usage's `cost_in_usd_ticks` is not copied.
+- **xAI's document search is unpredictable:** on 2026-10-03 the grok-4.20 models ran `attachment_search` 2–3 times even for a one-page PDF (up to 8,889 input tokens), while the other Grok models ran none on four pages. The per-page reserve (2,500; 7,500 on grok-4.20) is set from one run each. Re-probe with longer PDFs (20+ pages) before relying on Grok for long documents. (Phase 5a warns, and notes it in the output, whenever the search runs.)
 - **No sampling parameters on the Responses path:** Grok media requests, like every Responses API request, carry no `temperature`; text-only Grok requests do.
+
+### Media input phase 5a follow-ups
+Found while building phase 5a (2026-10-04); none blocks it.
+- **Calls of one tool queue behind each other:** `server.handle_call_tool` holds a per-tool lock, because the shared instances in `server.TOOLS` keep per-run state. A chat call waiting on a 600 s Gemini upload makes the next chat call wait too; other tools are unaffected. A fresh tool instance per call (or per-run state moved off the instance) would remove the lock.
+- **Workflow and consensus turns do not persist `media_attached`:** the output now shows it, but only simple-tool turns store it in conversation memory; workflow and consensus turns keep no record of their uploads.
+- **The cache hashes the whole file on every upload-sized call:** up to 2 GB read per attachment above the inline cap (off the event loop since 5a). A memo keyed on `(path, size, mtime_ns, inode)` would skip it.
+- **One cache entry per content, not per API key:** a user alternating two Gemini keys overwrites the other key's entry (last writer wins), so each switch uploads again. Keying entries by fingerprint too would keep both.
+- **Lazy provider clients can be built twice:** model calls now run in worker threads, so two concurrent first calls on one provider may each create its SDK client; one is discarded. Harmless, but a lock in each `client` property would avoid it.
 
 ## Future features
 
