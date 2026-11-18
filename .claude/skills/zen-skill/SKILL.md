@@ -193,7 +193,7 @@ zen testgen <goal> [-f <file>]... [--framework <name>] [--test-type unit|integra
 ```bash
 zen thinkdeep <question> [--thinking-budget <128-32768>] [-m <model>]
 ```
-- Requires a model that supports extended thinking (gpt-6-astra, opus, gemini-3.1-pro-preview, grok-4.7).
+- Requires a model that supports extended thinking (gpt-6.2-astra, opus, gemini-3.1-pro-preview, grok-4.7).
 
 #### tracer — code-flow / dependency tracing
 ```bash
@@ -204,12 +204,12 @@ zen tracer <target> [--depth <N>] [--trace-mode forward|backward|both|ask]
 
 ## Model selection
 
-Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BALANCED`) from per-provider preference lists, with `intelligence_score` ordering listings. Current SOTA per provider (as of 2026-09-26):
+Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BALANCED`) from per-provider preference lists, with `intelligence_score` ordering listings. Current SOTA per provider (as of 2026-11-17):
 
 | Provider | Top model | Aliases |
 |---|---|---|
-| Anthropic | Claude Fable 5.1 / Claude Opus 5.5 / Claude Sonnet 5.5 — pass `fable` / `opus` / `sonnet` | `fable`, `opus`, `sonnet` (native in the CLI, OpenRouter in MCP) |
-| OpenAI | `gpt-6-astra` / `gpt-6-sol` / `gpt-6-luna` | `gpt-6`, `astra`, `sol`, `luna` |
+| Anthropic | Claude Fable 5.2 / Claude Opus 5.5 / Claude Sonnet 5.5 / Claude Haiku 5.5 — pass `fable` / `opus` / `sonnet` / `haiku` | `fable`, `opus`, `sonnet`, `haiku` (native in the CLI, OpenRouter in MCP) |
+| OpenAI | `gpt-6.2-astra` / `gpt-6.2-sol` / `gpt-6.1-terra` / `gpt-6-luna` | `gpt-6`, `astra`, `sol`, `terra`, `luna` |
 | Google | `gemini-3.1-pro-preview` / `gemini-3.8-flash` | `pro`, `flash`, `flashlite` |
 | xAI | `grok-4.7` | `grok`, `grok4`, `grok-4.7` |
 | Moonshot (OpenRouter) | `moonshotai/kimi-k3` | `kimi`, `kimi-k3`, `k3` |
@@ -217,12 +217,12 @@ Auto-mode picks per tool category (`EXTENDED_REASONING` / `FAST_RESPONSE` / `BAL
 
 Verify with `zen listmodels --format simple` — config lives in `conf/*_models.json` in the zen-cli project and changes over time.
 
-**Anthropic names:** use the aliases `fable`, `opus`, `sonnet`. They resolve in both the CLI (native Anthropic provider) and the MCP server (OpenRouter). The dash-form native IDs (`claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5`, ...) resolve only in the CLI; the MCP tools answer "not available" for them.
+**Anthropic names:** use the aliases `fable`, `opus`, `sonnet`, `haiku`. They resolve in both the CLI (native Anthropic provider) and the MCP server (OpenRouter). The dash-form native IDs (`claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5`, ...) resolve only in the CLI; the MCP tools answer "not available" for them.
 
 **Picking a model explicitly:**
 ```bash
 zen chat "validate this approach" --model opus           # Anthropic flagship
-zen debug "race condition" --model gpt-6-astra -f x.py   # Frontier reasoning
+zen debug "race condition" --model gpt-6.2-astra -f x.py # Frontier reasoning
 zen analyze "perf bottlenecks" --model gemini-3.1-pro-preview -f src/
 ```
 
@@ -311,7 +311,7 @@ Otherwise prefer CLI. The MCP and CLI tools share the same backend and tools, bu
 | `zen: command not found` | `which zen`; if missing, `pip install -e .` from zen-cli root, or `pipx install zen-mcp-server` |
 | "Model not found" | `zen listmodels` to see actual aliases; check `~/.zen/.env` for the relevant API key |
 | Workflow never completes | You stopped responding to `continuation_command` — resume with `--session <id> --continue "<findings>"` |
-| Silent slow response | Some models (gpt-6-astra, gpt-5.5-pro) use async Responses API; can take minutes — use `--json` and run via sub-agent |
+| Silent slow response | Some models (gpt-6.2-astra, gpt-5.5-pro) use async Responses API; can take minutes — use `--json` and run via sub-agent |
 | Empty/garbled output | Check `~/.zen/.env` has at least one valid provider key; run `zen setup` to reconfigure |
 
 ---

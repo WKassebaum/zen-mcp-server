@@ -99,8 +99,8 @@ def test_auto_mode_prefers_claude_over_openai_without_xai_or_gemini():
     openai_only = _picks({"OPENAI_API_KEY": "test-key"})
     picks = _picks({"OPENAI_API_KEY": "test-key", "ANTHROPIC_API_KEY": "test-key"})
     assert picks == {
-        ToolModelCategory.EXTENDED_REASONING: "claude-fable-5-1",
-        ToolModelCategory.FAST_RESPONSE: "claude-haiku-4-5-20251001",
+        ToolModelCategory.EXTENDED_REASONING: "claude-fable-5-2",
+        ToolModelCategory.FAST_RESPONSE: "claude-haiku-5-5",
         ToolModelCategory.BALANCED: "claude-sonnet-5-5",
     }
     assert all(not model.startswith("claude-") for model in openai_only.values())

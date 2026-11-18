@@ -99,7 +99,7 @@ class TestModelSelection:
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.EXTENDED_REASONING)
             # OpenAI prefers GPT-6 Astra for extended reasoning (flagship as of Sept 2026)
-            assert model == "gpt-6-astra"
+            assert model == "gpt-6.2-astra"
 
     def test_extended_reasoning_with_gemini_only(self):
         """Test EXTENDED_REASONING prefers pro when only Gemini is available."""
@@ -166,8 +166,8 @@ class TestModelSelection:
             ModelProviderRegistry.register_provider(ProviderType.OPENAI, OpenAIModelProvider)
 
             model = ModelProviderRegistry.get_preferred_fallback_model(ToolModelCategory.BALANCED)
-            # OpenAI prefers gpt-6-sol for balanced (best all-round value)
-            assert model == "gpt-6-sol"
+            # OpenAI prefers gpt-6.2-sol for balanced (best all-round value)
+            assert model == "gpt-6.2-sol"
 
     def test_no_category_uses_balanced_logic(self):
         """Test that no category specified uses balanced logic."""
@@ -199,7 +199,7 @@ class TestFlexibleModelSelection:
                 "env": {"OPENAI_API_KEY": "test-key"},
                 "provider_type": ProviderType.OPENAI,
                 "category": ToolModelCategory.EXTENDED_REASONING,
-                "expected": "gpt-6-astra",  # GPT-6 Astra is the current OpenAI flagship
+                "expected": "gpt-6.2-astra",  # GPT-6 Astra is the current OpenAI flagship
             },
             # Case 2: Gemini provider for fast response
             {

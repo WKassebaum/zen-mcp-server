@@ -96,15 +96,15 @@ class OpenRouterProvider(OpenAICompatibleProvider):
     # of a list allowed, the registry ranks the allowed models instead (ModelProviderRegistry._pick_by_rank).
     PREFERRED_MODELS: ClassVar[dict[str, tuple[str, ...]]] = {
         "extended_reasoning": (
-            "openai/gpt-6-astra",
-            "anthropic/claude-fable-5.1",
+            "openai/gpt-6.2-astra",
+            "anthropic/claude-fable-5.2",
             "google/gemini-3.1-pro-preview",
             "x-ai/grok-4.7",
             "anthropic/claude-opus-5.5",
-            "openai/gpt-6-sol",
+            "openai/gpt-6.2-sol",
         ),
         "balanced": (
-            "openai/gpt-6-sol",
+            "openai/gpt-6.2-sol",
             "anthropic/claude-sonnet-5.5",
             "google/gemini-3.1-pro-preview",
             "x-ai/grok-4.7",
@@ -113,7 +113,7 @@ class OpenRouterProvider(OpenAICompatibleProvider):
         "fast_response": (
             "openai/gpt-6-luna",
             "google/gemini-3.5-flash",
-            "anthropic/claude-sonnet-5.5",
+            "anthropic/claude-haiku-5.5",
             "x-ai/grok-4.6",
             "google/gemini-3.6-flash",
         ),

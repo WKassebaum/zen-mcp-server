@@ -43,6 +43,10 @@ and video (otter.mp4): 2/2 on the 8 Gemini candidates and kimi-k3 (video). Left 
 openai/gpt-5-mini and gpt-5-nano (flaky natively across days), google/gemini-2.5-flash audio (flaky natively).
 mistralai/mistral-large-2512 got upstream 429s on most tries and is unverified. x-ai/* models are never flagged:
 xAI reads files through a paid search tool, and Grok takes media only through the native provider, by name.
+
+2026-11-17 model bump: scripts/probe_media_support.py --repeat 2, PDF, on the six models added that day.
+anthropic claude-fable-5-2 and claude-haiku-5-5; openai gpt-6.2-astra, gpt-6.2-sol, gpt-6.1-sol and gpt-6.1-terra;
+and the same six through OpenRouterProvider: zebra.pdf 2/2 each. The image-only PDFs were not re-run for them.
 """
 
 PROBED: dict[tuple[str, str], frozenset[str]] = {
@@ -56,6 +60,7 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("google", "gemini-2.5-pro"): frozenset({"pdf", "audio", "video"}),
     ("google", "gemini-2.5-flash-lite"): frozenset({"pdf", "video"}),
     ("google", "gemini-2.5-flash"): frozenset({"pdf", "video"}),
+    ("anthropic", "claude-fable-5-2"): frozenset({"pdf"}),
     ("anthropic", "claude-fable-5-1"): frozenset({"pdf"}),
     ("anthropic", "claude-opus-5-5"): frozenset({"pdf"}),
     ("anthropic", "claude-opus-5"): frozenset({"pdf"}),
@@ -68,8 +73,13 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("anthropic", "claude-sonnet-5"): frozenset({"pdf"}),
     ("anthropic", "claude-sonnet-4-6"): frozenset({"pdf"}),
     ("anthropic", "claude-sonnet-4-5-20250929"): frozenset({"pdf"}),
+    ("anthropic", "claude-haiku-5-5"): frozenset({"pdf"}),
     ("anthropic", "claude-haiku-4-5-20251001"): frozenset({"pdf"}),
+    ("openai", "gpt-6.2-astra"): frozenset({"pdf"}),
+    ("openai", "gpt-6.2-sol"): frozenset({"pdf"}),
     ("openai", "gpt-6-astra"): frozenset({"pdf"}),
+    ("openai", "gpt-6.1-sol"): frozenset({"pdf"}),
+    ("openai", "gpt-6.1-terra"): frozenset({"pdf"}),
     ("openai", "gpt-6-sol"): frozenset({"pdf"}),
     ("openai", "gpt-6-luna"): frozenset({"pdf"}),
     ("openai", "gpt-5.6-sol"): frozenset({"pdf"}),
@@ -93,6 +103,7 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("xai", "grok-4.20-0309-reasoning"): frozenset({"pdf"}),
     ("xai", "grok-4.20-0309-non-reasoning"): frozenset({"pdf"}),
     ("xai", "grok-build-0.1"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-fable-5.2"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-fable-5.1"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-opus-5.5"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-opus-5"): frozenset({"pdf"}),
@@ -101,6 +112,7 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("openrouter", "anthropic/claude-sonnet-5"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-sonnet-4.5"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-opus-4.5"): frozenset({"pdf"}),
+    ("openrouter", "anthropic/claude-haiku-5.5"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-haiku-4.5"): frozenset({"pdf"}),
     ("openrouter", "anthropic/claude-opus-4.1"): frozenset({"pdf"}),
     ("openrouter", "google/gemini-3.1-pro-preview"): frozenset({"pdf", "audio", "video"}),
@@ -115,7 +127,11 @@ PROBED: dict[tuple[str, str], frozenset[str]] = {
     ("openrouter", "openai/o3"): frozenset({"pdf"}),
     ("openrouter", "openai/o3-pro"): frozenset({"pdf"}),
     ("openrouter", "openai/o4-mini"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6.2-astra"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6.2-sol"): frozenset({"pdf"}),
     ("openrouter", "openai/gpt-6-astra"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6.1-sol"): frozenset({"pdf"}),
+    ("openrouter", "openai/gpt-6.1-terra"): frozenset({"pdf"}),
     ("openrouter", "openai/gpt-6-sol"): frozenset({"pdf"}),
     ("openrouter", "openai/gpt-6-luna"): frozenset({"pdf"}),
     ("openrouter", "openai/gpt-5.6-sol"): frozenset({"pdf"}),

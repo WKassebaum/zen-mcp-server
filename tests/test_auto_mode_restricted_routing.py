@@ -150,8 +150,8 @@ def test_openrouter_alone_picks_by_purpose():
     # went to mistralai/devstral-2512, a coding model.
     picks = _picks({"OPENROUTER_API_KEY": "test-key"})
     assert picks == {
-        EXTENDED: "openai/gpt-6-astra",
-        BALANCED: "openai/gpt-6-sol",
+        EXTENDED: "openai/gpt-6.2-astra",
+        BALANCED: "openai/gpt-6.2-sol",
         FAST: "openai/gpt-6-luna",
     }
 

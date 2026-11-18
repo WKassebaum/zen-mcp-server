@@ -93,9 +93,9 @@ class TestAutoModeComprehensive:
                     "OPENROUTER_API_KEY": None,
                 },
                 {
-                    "EXTENDED_REASONING": "gpt-6-astra",  # GPT-6 Astra is the current OpenAI flagship
+                    "EXTENDED_REASONING": "gpt-6.2-astra",  # GPT-6 Astra is the current OpenAI flagship
                     "FAST_RESPONSE": "gpt-6-luna",  # GPT-6 Luna, fast/low-cost GPT-6 tier
-                    "BALANCED": "gpt-6-sol",  # GPT-6 Sol for best all-round performance per dollar
+                    "BALANCED": "gpt-6.2-sol",  # GPT-6 Sol for best all-round performance per dollar
                 },
             ),
             # Only X.AI API available
@@ -470,8 +470,8 @@ class TestAutoModeComprehensive:
             # category). By rank, Fable 5.1 took EXTENDED_REASONING and BALANCED on the name tie-break and chat went
             # to mistralai/devstral-2512.
             assert picks == {
-                ToolModelCategory.EXTENDED_REASONING: "openai/gpt-6-astra",
-                ToolModelCategory.BALANCED: "openai/gpt-6-sol",
+                ToolModelCategory.EXTENDED_REASONING: "openai/gpt-6.2-astra",
+                ToolModelCategory.BALANCED: "openai/gpt-6.2-sol",
                 ToolModelCategory.FAST_RESPONSE: "openai/gpt-6-luna",
             }
 

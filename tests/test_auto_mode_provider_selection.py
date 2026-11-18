@@ -100,7 +100,7 @@ class TestAutoModeProviderSelection:
 
             # Should select the current OpenAI flagship for power/coding
             assert extended_reasoning in (
-                "gpt-6-astra",
+                "gpt-6.2-astra",
                 "gpt-5.6-sol",
                 "gpt-5.5-pro",
             ), f"Expected GPT-6 Astra (or prior flagship), got '{extended_reasoning}'"

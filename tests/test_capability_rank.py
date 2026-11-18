@@ -57,7 +57,7 @@ def test_native_catalog_top_five_are_the_20_score_flagships():
         for cls in (GeminiModelProvider, OpenAIModelProvider, AnthropicProvider, XAIModelProvider)
     ]
     top_five = [name for _rank, name in _ranked(providers)[:5]]
-    assert set(top_five) == {"claude-fable-5-1", "gpt-6-astra", "gemini-3.1-pro-preview", "gpt-6-sol", "grok-4.7"}
+    assert set(top_five) == {"claude-fable-5-2", "gpt-6.2-astra", "gemini-3.1-pro-preview", "gpt-6.2-sol", "grok-4.7"}
     assert not any(name.startswith("claude-opus-4") for name in top_five)
 
 
@@ -146,5 +146,5 @@ def test_pdf_refusal_suggests_current_flagships_not_older_opus(gemini_anthropic_
     message = format_media_error("o3-mini", PDF, media, capable)
 
     assert len(capable) == 5
-    assert "claude-fable-5-1" in capable
+    assert "claude-fable-5-2" in capable
     assert "claude-opus-4" not in message

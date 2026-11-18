@@ -51,7 +51,7 @@ class TestSupportedModelsAliases:
         assert "o4mini" in provider.MODEL_CAPABILITIES["o4-mini"].aliases
         # o4-mini is no longer in its own aliases (removed self-reference)
         assert "o3mini" in provider.MODEL_CAPABILITIES["o3-mini"].aliases
-        assert "sol" in provider.MODEL_CAPABILITIES["gpt-6-sol"].aliases
+        assert "sol" in provider.MODEL_CAPABILITIES["gpt-6.2-sol"].aliases
         assert "luna" in provider.MODEL_CAPABILITIES["gpt-6-luna"].aliases
         assert "gpt4.1" in provider.MODEL_CAPABILITIES["gpt-4.1"].aliases
         assert "gpt5.2" in provider.MODEL_CAPABILITIES["gpt-5.2"].aliases
@@ -60,7 +60,15 @@ class TestSupportedModelsAliases:
         # Test alias resolution
         assert provider._resolve_model_name("mini") == "gpt-5-mini"  # mini -> gpt-5-mini now
         assert provider._resolve_model_name("o3mini") == "o3-mini"
-        assert provider._resolve_model_name("sol") == "gpt-6-sol"
+        assert provider._resolve_model_name("sol") == "gpt-6.2-sol"
+        # bare aliases follow the current model; a versioned name still pins the older one
+        assert provider._resolve_model_name("gpt-6") == "gpt-6.2-astra"
+        assert provider._resolve_model_name("astra") == "gpt-6.2-astra"
+        assert provider._resolve_model_name("gpt-6-astra") == "gpt-6-astra"
+        assert provider._resolve_model_name("gpt-6-sol") == "gpt-6-sol"
+        assert provider._resolve_model_name("gpt-6.1-sol") == "gpt-6.1-sol"
+        assert provider._resolve_model_name("terra") == "gpt-6.1-terra"
+        assert provider._resolve_model_name("gpt-5.6-terra") == "gpt-5.6-terra"
         assert provider._resolve_model_name("o4mini") == "o4-mini"
         assert provider._resolve_model_name("gpt4.1") == "gpt-4.1"  # gpt4.1 resolves to gpt-4.1
         assert provider._resolve_model_name("gpt5.2") == "gpt-5.2"

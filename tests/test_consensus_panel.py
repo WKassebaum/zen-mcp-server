@@ -26,7 +26,7 @@ FOUR_KEYS = {
     "ANTHROPIC_API_KEY": "test-key",
 }
 # conftest registers Gemini, OpenAI and xAI on dummy keys: the panel every test below gets unless it configures others
-CONFTEST_PANEL = ["grok-4.7", "gemini-3.1-pro-preview", "gpt-6-astra"]
+CONFTEST_PANEL = ["grok-4.7", "gemini-3.1-pro-preview", "gpt-6.2-astra"]
 
 
 def _clear_providers():
@@ -65,7 +65,7 @@ def _vendor(model_name: str) -> str:
 def test_four_providers_give_four_vendors_each_its_top_model():
     with _configured(FOUR_KEYS):
         panel = ModelProviderRegistry.frontier_panel()
-        assert panel == ["grok-4.7", "gemini-3.1-pro-preview", "claude-fable-5-1", "gpt-6-astra"]
+        assert panel == ["grok-4.7", "gemini-3.1-pro-preview", "claude-fable-5-2", "gpt-6.2-astra"]
         assert len({_vendor(name) for name in panel}) == 4
         for name in panel:
             provider = ModelProviderRegistry.get_provider_for_model(name)
@@ -82,9 +82,9 @@ def test_openrouter_adds_one_model_per_vendor_not_already_on_the_panel():
     with _configured({"ANTHROPIC_API_KEY": "test-key", "OPENROUTER_API_KEY": "test-key"}):
         panel = ModelProviderRegistry.frontier_panel()
         assert panel == [
-            "claude-fable-5-1",  # native Anthropic: anthropic/claude-fable-5.1 is not added beside it
+            "claude-fable-5-2",  # native Anthropic: anthropic/claude-fable-5.2 is not added beside it
             "google/gemini-3.1-pro-preview",
-            "openai/gpt-6-astra",
+            "openai/gpt-6.2-astra",
             "x-ai/grok-4.7",
         ]
         assert [_vendor(name) for name in panel] == ["anthropic", "google", "openai", "xai"]
@@ -93,9 +93,9 @@ def test_openrouter_adds_one_model_per_vendor_not_already_on_the_panel():
 def test_openrouter_alone_gives_a_full_panel():
     with _configured({"OPENROUTER_API_KEY": "test-key"}):
         assert ModelProviderRegistry.frontier_panel() == [
-            "anthropic/claude-fable-5.1",
+            "anthropic/claude-fable-5.2",
             "google/gemini-3.1-pro-preview",
-            "openai/gpt-6-astra",
+            "openai/gpt-6.2-astra",
             "x-ai/grok-4.7",
         ]
 
@@ -103,7 +103,7 @@ def test_openrouter_alone_gives_a_full_panel():
 def test_a_pdf_panel_leaves_out_grok():
     with _configured(FOUR_KEYS):
         panel = ModelProviderRegistry.frontier_panel(required_media=PDF_ONLY)
-        assert panel == ["gemini-3.1-pro-preview", "claude-fable-5-1", "gpt-6-astra"]
+        assert panel == ["gemini-3.1-pro-preview", "claude-fable-5-2", "gpt-6.2-astra"]
         for name in panel:
             provider = ModelProviderRegistry.get_provider_for_model(name)
             assert MediaKind.PDF in provider.get_capabilities(name).supported_media_kinds()
@@ -114,7 +114,7 @@ def test_an_allow_list_narrows_a_provider_to_its_allowed_top_model():
         assert ModelProviderRegistry.frontier_panel() == [
             "grok-4.6",
             "gemini-3.1-pro-preview",
-            "claude-fable-5-1",
+            "claude-fable-5-2",
             "gpt-5.5",
         ]
 
@@ -127,11 +127,11 @@ def test_an_allow_list_narrows_a_provider_to_its_allowed_top_model():
         (ProviderType.OPENROUTER, "x-ai/grok-4.7", "xai"),
         (ProviderType.OPENROUTER, "google/gemini-3.8-flash", "google"),
         (ProviderType.OPENROUTER, "anthropic/claude-opus-5.5", "anthropic"),
-        (ProviderType.OPENROUTER, "openai/gpt-6-sol", "openai"),
+        (ProviderType.OPENROUTER, "openai/gpt-6.2-sol", "openai"),
         (ProviderType.OPENROUTER, "moonshotai/kimi-k3", "moonshotai"),
-        (ProviderType.AZURE, "gpt-6-sol", "azure"),
+        (ProviderType.AZURE, "gpt-6.2-sol", "azure"),
         (ProviderType.CUSTOM, "llama3.2", "custom"),
-        (ProviderType.DIAL, "gpt-6-sol", "dial"),
+        (ProviderType.DIAL, "gpt-6.2-sol", "dial"),
     ],
 )
 def test_model_vendor(provider_type, model_name, vendor):
@@ -194,14 +194,14 @@ async def test_frontier_expands_where_it_stands_and_skips_a_member_named_again()
     models = [
         {"model": "o3", "stance": "against"},
         {"model": "frontier", "stance": "for"},
-        {"model": "gpt-6-astra", "stance": "for"},  # also on the panel: listed once
+        {"model": "gpt-6.2-astra", "stance": "for"},  # also on the panel: listed once
     ]
     await _step_one(tool, models=models)
     assert [(m["model"], m["stance"]) for m in tool.models_to_consult] == [
         ("o3", "against"),
         ("grok-4.7", "for"),
         ("gemini-3.1-pro-preview", "for"),
-        ("gpt-6-astra", "for"),
+        ("gpt-6.2-astra", "for"),
     ]
 
 
@@ -224,8 +224,8 @@ async def test_fast_balanced_and_auto_resolve_with_the_consensus_category():
     ]
     assert tool.models_to_consult == [
         {"model": "gpt-6-luna", "picked_by": "fast"},
-        {"model": "gpt-6-sol", "stance": "against", "picked_by": "balanced"},
-        {"model": "gpt-6-astra", "picked_by": "auto"},
+        {"model": "gpt-6.2-sol", "stance": "against", "picked_by": "balanced"},
+        {"model": "gpt-6.2-astra", "picked_by": "auto"},
     ]
 
 

@@ -153,6 +153,10 @@ def test_openai_page_rates_are_set_only_where_measured():
         "gpt-6-astra",
         "gpt-6-luna",
         "gpt-6-sol",
+        "gpt-6.1-sol",
+        "gpt-6.1-terra",
+        "gpt-6.2-astra",
+        "gpt-6.2-sol",
     ]
     assert all("video_tokens_per_second" not in entry for entry in _catalog("openai_models.json").values())
 

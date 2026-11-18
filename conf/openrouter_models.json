@@ -32,10 +32,31 @@
   },
   "models": [
     {
-      "model_name": "anthropic/claude-fable-5.1",
+      "model_name": "anthropic/claude-fable-5.2",
       "aliases": [
         "fable",
         "claude-fable",
+        "fable-5.2",
+        "fable5.2"
+      ],
+      "premium": true,
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "Claude Fable 5.2 via OpenRouter - Anthropic's most capable widely released model, successor to Fable 5.1 at a lower price. 1M context, 128K output, $8/$40 per 1M tokens.",
+      "supports_pdf": true,
+      "intelligence_score": 20,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "anthropic/claude-fable-5.1",
+      "aliases": [
         "fable-5.1",
         "fable5.1"
       ],
@@ -48,10 +69,10 @@
       "max_image_size_mb": 20.0,
       "supports_temperature": false,
       "temperature_constraint": "fixed",
-      "description": "Claude Fable 5.1 via OpenRouter - current Mythos flagship. Prefer over Fable 5. $10/$50 per 1M tokens.",
+      "description": "Claude Fable 5.1 via OpenRouter - previous Mythos-class flagship, superseded by Fable 5.2. $10/$50 per 1M tokens.",
       "premium": true,
       "supports_pdf": true,
-      "intelligence_score": 20,
+      "intelligence_score": 19,
       "allow_code_generation": true
     },
     {
@@ -261,10 +282,29 @@
       "intelligence_score": 16
     },
     {
-      "model_name": "anthropic/claude-haiku-4.5",
+      "model_name": "anthropic/claude-haiku-5.5",
       "aliases": [
         "haiku",
         "claude-haiku",
+        "haiku-5.5",
+        "haiku5.5"
+      ],
+      "context_window": 1000000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "description": "Claude Haiku 5.5 (released 2026-10-07) via OpenRouter - Current Haiku: small, fast model for high-volume work and subagents, far above Haiku 4.5; adaptive thinking on by default. 1M context, 128K output, $0.10/$0.50 per 1M tokens ($0.50/$2.50 above 100K input tokens).",
+      "supports_pdf": true,
+      "intelligence_score": 18
+    },
+    {
+      "model_name": "anthropic/claude-haiku-4.5",
+      "aliases": [
         "haiku-4.5"
       ],
       "context_window": 200000,
@@ -274,9 +314,9 @@
       "supports_function_calling": true,
       "supports_images": true,
       "max_image_size_mb": 20.0,
-      "description": "Claude Haiku 4.5 - Fastest model with near-frontier intelligence, extended thinking, vision (via OpenRouter)",
+      "description": "Claude Haiku 4.5 - Previous Haiku, superseded by Haiku 5.5; extended thinking, vision (via OpenRouter)",
       "supports_pdf": true,
-      "intelligence_score": 14
+      "intelligence_score": 13
     },
     {
       "model_name": "moonshotai/kimi-k3",
@@ -644,11 +684,58 @@
       "intelligence_score": 11
     },
     {
-      "model_name": "openai/gpt-6-astra",
+      "model_name": "openai/gpt-6.2-astra",
       "aliases": [
         "gpt-6",
         "gpt6",
         "astra",
+        "gpt-6.2",
+        "gpt6.2",
+        "gpt-6.2-astra"
+      ],
+      "premium": true,
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "high",
+      "use_openai_response_api": true,
+      "description": "GPT-6.2 Astra (released 2026-11-17) via OpenRouter - OpenAI flagship (API ID gpt-6.2-astra), successor to GPT-6 Astra; reasoning.effort low..max. 1.05M context, $8/$40 per 1M tokens.",
+      "supports_pdf": true,
+      "intelligence_score": 20,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "openai/gpt-6.2-sol",
+      "aliases": [
+        "sol",
+        "gpt-6.2-sol",
+        "gpt6.2-sol"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "use_openai_response_api": true,
+      "description": "GPT-6.2 Sol (released 2026-11-17) via OpenRouter - OpenAI's go-to model for everyday coding and agents, successor to GPT-6.1 Sol; reasoning.effort low..max. 1.05M context, $2/$10 per 1M tokens.",
+      "supports_pdf": true,
+      "intelligence_score": 20,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "openai/gpt-6-astra",
+      "aliases": [
         "gpt-6-astra"
       ],
       "context_window": 1050000,
@@ -662,16 +749,60 @@
       "temperature_constraint": "fixed",
       "default_reasoning_effort": "high",
       "use_openai_response_api": true,
-      "description": "GPT-6 Astra via OpenRouter - OpenAI flagship (API ID gpt-6-astra). 1.05M context, $10/$50 per 1M tokens.",
+      "description": "GPT-6 Astra via OpenRouter - Previous OpenAI flagship (API ID gpt-6-astra), superseded by GPT-6.2 Astra. 1.05M context, $10/$50 per 1M tokens.",
       "premium": true,
       "supports_pdf": true,
-      "intelligence_score": 20,
+      "intelligence_score": 19,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "openai/gpt-6.1-sol",
+      "aliases": [
+        "gpt-6.1-sol",
+        "gpt6.1-sol"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "use_openai_response_api": true,
+      "description": "GPT-6.1 Sol via OpenRouter - Previous Sol, superseded by GPT-6.2 Sol; reasoning.effort low..max. 1.05M context, $2/$10 per 1M tokens.",
+      "supports_pdf": true,
+      "intelligence_score": 19,
+      "allow_code_generation": true
+    },
+    {
+      "model_name": "openai/gpt-6.1-terra",
+      "aliases": [
+        "terra",
+        "gpt-6.1-terra",
+        "gpt6.1-terra"
+      ],
+      "context_window": 1050000,
+      "max_output_tokens": 128000,
+      "supports_extended_thinking": true,
+      "supports_json_mode": true,
+      "supports_function_calling": true,
+      "supports_images": true,
+      "max_image_size_mb": 20.0,
+      "supports_temperature": false,
+      "temperature_constraint": "fixed",
+      "default_reasoning_effort": "medium",
+      "use_openai_response_api": true,
+      "description": "GPT-6.1 Terra via OpenRouter - Current mid-tier GPT-6 below Sol, strong at visual reasoning and computer use; reasoning.effort none..max. 1.05M context, $1/$5 per 1M tokens.",
+      "supports_pdf": true,
+      "intelligence_score": 19,
       "allow_code_generation": true
     },
     {
       "model_name": "openai/gpt-6-sol",
       "aliases": [
-        "sol",
         "gpt-6-sol",
         "gpt6-sol"
       ],
@@ -686,9 +817,9 @@
       "temperature_constraint": "fixed",
       "default_reasoning_effort": "medium",
       "use_openai_response_api": true,
-      "description": "GPT-6 Sol (released 2026-09-22) via OpenRouter - Cost-efficient high-end GPT-6 below Astra for complex coding/agentic work, reasoning.effort none..max. 1.05M context, $2/$10 per 1M tokens.",
+      "description": "GPT-6 Sol (released 2026-09-22) via OpenRouter - First GPT-6 Sol, superseded by GPT-6.1/6.2 Sol, for complex coding/agentic work, reasoning.effort none..max. 1.05M context, $2/$10 per 1M tokens.",
       "supports_pdf": true,
-      "intelligence_score": 20,
+      "intelligence_score": 19,
       "allow_code_generation": true
     },
     {
@@ -741,8 +872,7 @@
     {
       "model_name": "openai/gpt-5.6-terra",
       "aliases": [
-        "gpt5.6-terra",
-        "terra"
+        "gpt5.6-terra"
       ],
       "context_window": 1050000,
       "max_output_tokens": 128000,
@@ -821,7 +951,7 @@
       "supports_temperature": false,
       "temperature_constraint": "fixed",
       "allow_code_generation": true,
-      "description": "GPT-5.5 (1.05M context) - Previous flagship, superseded by GPT-5.6 Sol. Reasoning effort low\u2192xhigh (via OpenRouter)",
+      "description": "GPT-5.5 (1.05M context) - Previous flagship, superseded by GPT-5.6 Sol. Reasoning effort low→xhigh (via OpenRouter)",
       "supports_pdf": true,
       "intelligence_score": 19
     },

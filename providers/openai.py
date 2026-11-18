@@ -126,12 +126,15 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         if category == ToolModelCategory.EXTENDED_REASONING:
             # Prefer the most capable models for deep reasoning and coding tasks
-            # GPT-6 Astra is the current flagship (Sept 2026); GPT-6 Sol is the cheaper high-end tier.
+            # GPT-6.2 Astra is the current flagship (Nov 2026); GPT-6.2 Sol is the cheaper high-end tier.
             # Only IDs the OpenAI API currently serves belong here - the gpt-5.x-thinking/-instant
             # ChatGPT names and o3-pro return "model does not exist" upstream.
             preferred = find_first(
                 [
+                    "gpt-6.2-astra",
+                    "gpt-6.2-sol",
                     "gpt-6-astra",
+                    "gpt-6.1-sol",
                     "gpt-6-sol",
                     "gpt-5.6-sol",
                     "gpt-5.5-pro",
@@ -149,10 +152,11 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
 
         elif category == ToolModelCategory.FAST_RESPONSE:
             # Prefer fast, cost-efficient models
-            # GPT-6 Luna is the fast/low-cost GPT-6 tier ($0.10/$0.50), GPT-5.4 as capable fallback
+            # GPT-6 Luna is the fast/low-cost GPT-6 tier ($0.10/$0.50), then GPT-6.1 Terra ($1/$5)
             preferred = find_first(
                 [
                     "gpt-6-luna",
+                    "gpt-6.1-terra",
                     "gpt-5.6-luna",
                     "gpt-5.4",
                     "gpt-5.2",
@@ -170,10 +174,13 @@ class OpenAIModelProvider(RegistryBackedProviderMixin, OpenAICompatibleProvider)
             return self.pick_fast_by_rank(allowed_models) or allowed_models[0]
 
         else:  # BALANCED or default
-            # Prefer GPT-6 Sol for best all-round performance per dollar (1.05M context, $2/$10)
+            # Prefer GPT-6.2 Sol for best all-round performance per dollar (1.05M context, $2/$10)
             preferred = find_first(
                 [
+                    "gpt-6.2-sol",
+                    "gpt-6.1-sol",
                     "gpt-6-sol",
+                    "gpt-6.1-terra",
                     "gpt-5.6-sol",
                     "gpt-5.6-terra",
                     "gpt-5.5",

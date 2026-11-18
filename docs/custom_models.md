@@ -52,16 +52,18 @@ The curated defaults in `conf/openrouter_models.json` include popular entries su
 
 | Alias | Canonical Model | Highlights |
 |-------|-----------------|------------|
-| `fable` | `anthropic/claude-fable-5.1` | Anthropic frontier (OpenRouter) |
+| `fable` | `anthropic/claude-fable-5.2` | Anthropic frontier (OpenRouter) |
 | `opus` | `anthropic/claude-opus-5.5` | Anthropic Opus line (OpenRouter) |
-| `sonnet` | `anthropic/claude-sonnet-5` | Balanced Claude with high context |
+| `sonnet` | `anthropic/claude-sonnet-5.5` | Balanced Claude with high context |
+| `haiku` | `anthropic/claude-haiku-5.5` | Fast, low-cost Claude |
 | `pro`, `gemini` | `google/gemini-3.1-pro-preview` | Frontier Gemini reasoning |
 | `flash` | `google/gemini-3.8-flash` | Latest balanced Gemini Flash |
 | `flashlite` | `google/gemini-3.5-flash-lite` | Cheap high-throughput Gemini |
 | `kimi`, `k3` | `moonshotai/kimi-k3` | Moonshot open-weight frontier (1M ctx; may 429) |
 | `kimi-k2.6` | `moonshotai/kimi-k2.6` | Cheaper Kimi fallback |
-| `gpt-6`, `astra` | `openai/gpt-6-astra` | OpenAI flagship |
-| `sol` | `openai/gpt-6-sol` | Cost-efficient high-end GPT-6 |
+| `gpt-6`, `astra` | `openai/gpt-6.2-astra` | OpenAI flagship |
+| `sol` | `openai/gpt-6.2-sol` | Cost-efficient high-end GPT-6 |
+| `terra` | `openai/gpt-6.1-terra` | Mid-tier GPT-6 below Sol |
 | `luna` | `openai/gpt-6-luna` | Fast, low-cost GPT-6 |
 | `gpt-5.6`, `codex` | `openai/gpt-5.6-sol` | Previous-generation Sol |
 | `grok`, `grok4` | `x-ai/grok-4.7` | xAI flagship |

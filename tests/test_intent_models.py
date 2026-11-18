@@ -100,8 +100,8 @@ def test_frontier_is_the_top_ranked_model_across_providers():
         assert capabilities.get_effective_capability_rank() == 111
         available = ModelProviderRegistry.get_available_models(respect_restrictions=True)
         assert _rank(model) == max(_rank(name) for name in available)
-        # gpt-6-astra and gpt-6-sol tie at 111: the canonical name breaks it, and a premium model may win
-        assert model == "gpt-6-astra"
+        # gpt-6.2-astra and gpt-6.2-sol tie at 111: the canonical name breaks it, and a premium model may win
+        assert model == "gpt-6.2-astra"
         assert ModelProviderRegistry.resolve_model_intent("Frontier", BALANCED) == model
 
 
@@ -117,8 +117,8 @@ def test_fast_and_balanced_take_their_own_category_whatever_the_tool():
 def test_each_word_picks_differently_where_the_categories_differ():
     # OpenAI alone has a different pick per category, so this shows each word uses its own.
     with _configured({"OPENAI_API_KEY": "test-key"}):
-        assert ModelProviderRegistry.resolve_model_intent("frontier", FAST) == "gpt-6-astra"
-        assert ModelProviderRegistry.resolve_model_intent("balanced", FAST) == "gpt-6-sol"
+        assert ModelProviderRegistry.resolve_model_intent("frontier", FAST) == "gpt-6.2-astra"
+        assert ModelProviderRegistry.resolve_model_intent("balanced", FAST) == "gpt-6.2-sol"
         assert ModelProviderRegistry.resolve_model_intent("fast", EXTENDED) == "gpt-6-luna"
         for tool_category in ToolModelCategory:
             assert ModelProviderRegistry.resolve_model_intent(
@@ -142,7 +142,7 @@ def test_frontier_ties_break_by_provider_priority():
 def test_an_allow_list_limits_frontier():
     with _configured({**THREE_KEYS, "OPENAI_ALLOWED_MODELS": "gpt-6-luna,o3"}):
         model = ModelProviderRegistry.resolve_model_intent("frontier", BALANCED)
-    assert model not in ("gpt-6-astra", "gpt-6-sol")
+    assert model not in ("gpt-6.2-astra", "gpt-6.2-sol")
     assert model == "grok-4.7"  # 110: the best model left once OpenAI's 111s are not allowed
 
 
@@ -199,14 +199,14 @@ async def test_mcp_boundary_runs_an_intent_word_on_the_resolved_model(tmp_path, 
 @pytest.mark.asyncio
 async def test_mcp_boundary_frontier_is_the_flagship(tmp_path):
     arguments = await _run_chat(tmp_path, model="frontier")
-    assert arguments["_resolved_model_name"] == "gpt-6-astra"  # conftest keys: Gemini, OpenAI, xAI
+    assert arguments["_resolved_model_name"] == "gpt-6.2-astra"  # conftest keys: Gemini, OpenAI, xAI
 
 
 def test_cli_path_resolves_an_intent_word():
     tool = ChatTool()
     request = tool.get_request_model()(prompt="hi", working_directory_absolute_path="/tmp", model="frontier")
     model_name, model_context = tool._resolve_model_context({"model": "frontier"}, request)
-    assert model_name == model_context.model_name == "gpt-6-astra"
+    assert model_name == model_context.model_name == "gpt-6.2-astra"
 
 
 # ---------------------------------------------------------------------------
@@ -215,7 +215,7 @@ def test_cli_path_resolves_an_intent_word():
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("named", ["gemini-2.5-flash", "flash", "gpt-6-sol", "grok-4.7"])
+@pytest.mark.parametrize("named", ["gemini-2.5-flash", "flash", "gpt-6.2-sol", "grok-4.7"])
 async def test_a_named_model_never_goes_through_the_resolver(tmp_path, named):
     refuse = AssertionError("a named model reached the resolver")
     with (
@@ -280,7 +280,7 @@ async def test_a_follow_up_without_a_model_still_reuses_the_previous_one(tmp_pat
 
 @pytest.mark.asyncio
 async def test_a_follow_up_sizes_its_history_for_the_resolved_model(tmp_path):
-    # chat is FAST_RESPONSE (grok-4.7 here); frontier is gpt-6-astra, whose window the history must fit.
+    # chat is FAST_RESPONSE (grok-4.7 here); frontier is gpt-6.2-astra, whose window the history must fit.
     import server
 
     thread_id = _thread_answered_by("gemini-2.5-flash")
@@ -293,7 +293,7 @@ async def test_a_follow_up_sizes_its_history_for_the_resolved_model(tmp_path):
                 "working_directory_absolute_path": "/tmp",
             }
         )
-    assert build_history.call_args[0][1].model_name == "gpt-6-astra"
+    assert build_history.call_args[0][1].model_name == "gpt-6.2-astra"
 
 
 # ---------------------------------------------------------------------------

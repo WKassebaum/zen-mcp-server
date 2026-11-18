@@ -85,7 +85,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             ModelResponse: Contains the generated content, token usage, and metadata
         """
         # Fetch capabilities and derive the effective temperature. Adaptive-thinking
-        # Claude models (Opus 4.7+, Sonnet 5, Fable 5) reject non-default temperature
+        # Claude models (Opus 4.7+, Sonnet 5, Fable 5, Haiku 5.5) reject non-default temperature
         # with a 400 error, so the parameter must be omitted entirely for them.
         capabilities = self.get_capabilities(model_name)
         effective_temperature = capabilities.get_effective_temperature(temperature)
@@ -290,10 +290,11 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             return None
 
         if category == ToolModelCategory.EXTENDED_REASONING:
-            # Fable 5.1 is the current Mythos-class frontier model for deep reasoning.
+            # Fable 5.2 is the current Mythos-class frontier model for deep reasoning.
             return (
                 find_first(
                     [
+                        "claude-fable-5-2",
                         "claude-fable-5-1",
                         "claude-fable-5",
                         "claude-opus-5-5",
@@ -313,6 +314,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
             # Haiku is purpose-built for speed; Sonnet 5.5 is the fast capable fallback (30%+ faster than Sonnet 5).
             preferred = find_first(
                 [
+                    "claude-haiku-5-5",
                     "claude-haiku-4-5-20251001",
                     "claude-sonnet-5-5",
                     "claude-sonnet-4-6",
@@ -332,6 +334,7 @@ class AnthropicProvider(RegistryBackedProviderMixin, ModelProvider):
                         "claude-opus-5-5",
                         "claude-opus-5",
                         "claude-opus-4-8",
+                        "claude-fable-5-2",
                         "claude-fable-5-1",
                         "claude-fable-5",
                         "claude-opus-4-7",

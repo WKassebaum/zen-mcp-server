@@ -720,7 +720,7 @@ DEFAULT_MODEL=auto
 GEMINI_API_KEY=your-key
 OPENAI_API_KEY=your-key
 GOOGLE_ALLOWED_MODELS=pro
-OPENAI_ALLOWED_MODELS=gpt-6-astra,gpt-6-sol
+OPENAI_ALLOWED_MODELS=gpt-6.2-astra,gpt-6.2-sol
 ```
 
 ### Local-First Setup
